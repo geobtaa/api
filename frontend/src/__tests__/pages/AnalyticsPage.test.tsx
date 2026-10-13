@@ -78,7 +78,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         container.querySelector('.analytics-search-categories')
       ).not.toBeNull();
       expect(
-        screen.getByRole('heading', { name: 'Most-used facet categories' })
+        screen.getByRole('heading', { name: 'Most-used search filters' })
       ).toBeInTheDocument();
       const metric = screen.getByRole('combobox', {
         name: 'Search chart metric',
@@ -94,7 +94,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       );
       expect(container.querySelector('.analytics-zero-results')).not.toBeNull();
       expect(
-        screen.getByRole('combobox', { name: 'Query category' })
+        screen.getByRole('combobox', { name: 'Search topic' })
       ).toBeInTheDocument();
     }
   );
@@ -315,7 +315,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         text.includes('Top collections')
       );
       const downloads = headers.findIndex((text) =>
-        text.includes('Top downloaded resources')
+        text.includes('Resources with the most download clicks')
       );
       expect(resources).toBeGreaterThanOrEqual(0);
       expect(collections).toBeGreaterThan(resources);
@@ -455,10 +455,13 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     fireEvent.click(
       within(
         screen.getByRole('navigation', { name: 'Analytics reports' })
-      ).getByRole('link', { name: 'Clients & API keys' })
+      ).getByRole('link', { name: 'Applications & API access' })
     );
     expect(
-      screen.getByRole('link', { name: 'Clients & API keys', current: 'page' })
+      screen.getByRole('link', {
+        name: 'Applications & API access',
+        current: 'page',
+      })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('table', { name: 'August 2026 declared client usage' })
@@ -515,7 +518,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
 
   it('filters top searches by inferred category while retaining original ranks', () => {
     renderPage('discovery');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Query category' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search topic' }), {
       target: { value: 'Mixed or unclear' },
     });
     const table = screen.getByLabelText('Top 50 searches');
@@ -526,16 +529,16 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         name: 'indiana field survey iran hardin i 38l',
       })
     ).toHaveTextContent('indiana field survey iran hardin i 38l');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Query category' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search topic' }), {
       target: { value: 'People & institutions' },
     });
     fireEvent.change(
       screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-07' } }
     );
-    expect(
-      screen.getByRole('combobox', { name: 'Query category' })
-    ).toHaveValue('all');
+    expect(screen.getByRole('combobox', { name: 'Search topic' })).toHaveValue(
+      'all'
+    );
     expect(
       within(screen.getByLabelText('Top 50 searches')).getAllByRole('article')
     ).toHaveLength(50);
@@ -555,7 +558,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     );
     expect(
       within(
-        screen.getByRole('region', { name: 'Zero-result queries' })
+        screen.getByRole('region', { name: 'Search terms without results' })
       ).getAllByRole('article')
     ).toHaveLength(100);
     expect(
@@ -577,7 +580,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     );
     expect(
       within(
-        screen.getByRole('region', { name: 'Zero-result queries' })
+        screen.getByRole('region', { name: 'Search terms without results' })
       ).getAllByRole('article')
     ).toHaveLength(100);
     expect(screen.getByRole('link', { name: 'Mut' })).toBeInTheDocument();
@@ -601,7 +604,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       const { container } = renderPage(report);
       expect(
         screen.getByRole('link', {
-          name: 'Download aggregate report (CSV and JSON)',
+          name: 'Download report data (CSV and JSON)',
         })
       ).toHaveAttribute(
         'href',
@@ -624,7 +627,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       false
     );
     expect(
-      screen.getByRole('heading', { name: 'Provider performance report' })
+      screen.getByRole('heading', { name: 'Activity by provider' })
     ).toBeInTheDocument();
     const select = screen.getByLabelText('Provider');
     const option = within(select).getAllByRole(
@@ -659,7 +662,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('region', {
-        name: 'Most downloaded - University of Chicago',
+        name: 'Most download clicks - University of Chicago',
       })
     ).toBeInTheDocument();
     fireEvent.click(
@@ -693,7 +696,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).toHaveLength(50);
     expect(
       within(
-        screen.getByRole('region', { name: 'Most downloaded' })
+        screen.getByRole('region', { name: 'Most download clicks' })
       ).getAllByRole('article')
     ).toHaveLength(25);
     fireEvent.click(
@@ -708,7 +711,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(
       within(
         screen.getByRole('region', {
-          name: 'Most downloaded - Indiana University',
+          name: 'Most download clicks - Indiana University',
         })
       ).getAllByRole('article')
     ).toHaveLength(25);
@@ -752,16 +755,20 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         name: 'University of Southern California report',
       })
     ).toHaveTextContent('Analytics data unavailable');
-    expect(screen.queryByText('Catalog footprint')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Published resources' })
+    ).not.toBeInTheDocument();
     fireEvent.click(institutionButton('All BTAA'));
-    expect(screen.getByText('Catalog footprint')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Published resources' })
+    ).toBeInTheDocument();
   });
 
   it('switches between verified Provider and historical code groups', () => {
     renderPage('members');
     expect(
-      screen.getByRole('region', { name: 'Sources and grouping' })
-    ).toHaveTextContent('Provider');
+      screen.getByRole('region', { name: 'About this report' })
+    ).toHaveTextContent('Catalog provider');
     fireEvent.change(screen.getByLabelText('Group records by'), {
       target: { value: 'provider' },
     });
@@ -865,7 +872,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     async (report) => {
       const { container } = renderPage(report);
       expect(
-        screen.getByRole('region', { name: 'Sources and grouping' })
+        screen.getByRole('region', { name: 'About this report' })
       ).toBeInTheDocument();
       const results = await axeWithWCAG22(container);
 

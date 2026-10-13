@@ -9,11 +9,11 @@ import { ReportPanelHeader } from './ReportPanelHeader';
 const number = new Intl.NumberFormat('en-US');
 const metrics = {
   resourceViews: 'Views',
-  downloadClicks: 'Downloads',
-  impressions: 'Impressions',
-  activeResources: 'Active records',
-  catalogRecords: 'Catalog records',
-  sourceClicks: 'Source clicks',
+  downloadClicks: 'Download clicks',
+  impressions: 'Search appearances',
+  activeResources: 'Resources with activity',
+  catalogRecords: 'Published resources',
+  sourceClicks: 'Source-site clicks',
 };
 type Metric = keyof typeof metrics;
 
@@ -62,9 +62,9 @@ export function MemberPerformanceReport({
   return (
     <section
       className="analytics-panel analytics-panel--ranking analytics-member-report"
-      aria-label="Member performance report"
+      aria-label="Activity by member institution"
     >
-      <ReportPanelHeader title="Member performance report" icon={Trophy}>
+      <ReportPanelHeader title="Activity by member institution" icon={Trophy}>
         <small>
           {rows.length} institutions · {members.length} with recorded data
         </small>

@@ -43,7 +43,9 @@ describe('defensible report findings', () => {
       summary: { ...summary, searches: 50, zeroResultSearches: 5 },
       leader: { title: 'Small count', views: 9 },
     });
-    expect(result[0].detail).toContain('No comparable prior calendar month');
+    expect(result[0].detail).toContain(
+      'A comparison with the previous month is not available'
+    );
     expect(result[1].label).toBe('Resource activity');
     expect(result[2].href).toBe('#report-provenance');
     expect(previousCalendarMonth('2027-01')).toBe('2026-12');

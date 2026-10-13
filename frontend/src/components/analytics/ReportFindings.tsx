@@ -39,12 +39,15 @@ export function ReportFindings({
             {finding.supportingLink && (
               <div className="analytics-finding-contributor">
                 <span>
-                  Largest qualifying member change in the same direction
+                  Largest member change meeting the comparison criteria
                 </span>
                 <Link to={finding.supportingLink.href}>
                   {finding.supportingLink.label}
                 </Link>
-                <small>Period totals; catalog attribution can differ.</small>
+                <small>
+                  Based on period totals; institution assignments may differ
+                  between reports.
+                </small>
               </div>
             )}
             <Link to={finding.href}>
@@ -58,17 +61,18 @@ export function ReportFindings({
         <details>
           <summary>How these findings are selected</summary>
           <p>
-            We highlight the largest absolute daily-rate change among searches,
-            resource views and download clicks. Both months must have at least
-            100 records, a total difference of at least 50, and a daily-rate
-            change of at least 5%. Month lengths are normalized. These are
-            descriptive thresholds, not statistical significance tests. Resource
+            We highlight the largest increase or decrease in daily averages
+            among searches, resource views and download clicks. Both months must
+            have at least 100 records, a total difference of at least 50, and a
+            daily-rate change of at least 5%. Daily averages account for
+            different month lengths. These rules select highlights; they do not
+            establish whether a change is statistically significant. Resource
             headlines require at least 10 views; discovery headlines require 100
-            searches and 10 searches without results. A missing baseline is
+            searches and 10 searches without results. Missing comparison data is
             never treated as zero.
           </p>
         </details>
-        <a href="#report-provenance">Check evidence and coverage</a>
+        <a href="#report-provenance">Understand these numbers</a>
       </div>
     </section>
   );

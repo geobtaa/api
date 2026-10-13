@@ -62,9 +62,9 @@ export function ProviderReport({
           is required for {month}.
         </p>
         <p>
-          This view will group the exact Provider facet values, including
-          agencies, BTAA-named providers, and a Missing provider group. No
-          university ownership is inferred from a contribution code.
+          This view will group the provider names saved in the catalog,
+          including agencies, BTAA-named providers, and a Missing provider
+          group. No university ownership is inferred from a contribution code.
         </p>
       </section>
     );
@@ -83,39 +83,44 @@ export function ProviderReport({
     <section className="analytics-section" aria-label="Provider report">
       {snapshot.impressionsAvailable === false && (
         <p className="analytics-comparison-note" role="note">
-          July’s resource-level search impressions have expired. Impressions and
-          active-record reach are unavailable in this recalculation, not zero.
-          Views, clicks, and daily series use complete July event records. The
-          historical contribution-code report retains its previously exported
-          figures.
+          July’s resource-level appearances in search results have expired.
+          Search appearances and resources with activity are unavailable in this
+          recalculation, not zero. Views, clicks, and daily series use complete
+          July event records. The historical contribution-code report retains
+          its previously exported figures.
         </p>
       )}
       <div className="analytics-member-kpi-grid">
         <article>
-          <MetricHeading icon={Layers3}>Catalog footprint</MetricHeading>
+          <MetricHeading icon={Layers3}>Published resources</MetricHeading>
           <strong>{display(counts.catalogRecords)}</strong>
           <p>
             Published catalog inventory as of {snapshot.catalogSnapshotDate}
           </p>
         </article>
         <article>
-          <MetricHeading icon={Activity}>Period reach</MetricHeading>
+          <MetricHeading icon={Activity}>Resources with activity</MetricHeading>
           <strong>{display(counts.activeResources)}</strong>
-          <p>Records appearing in searches or receiving an action</p>
+          <p>
+            Resources appearing in search results or receiving views or clicks
+          </p>
         </article>
         <article>
-          <MetricHeading icon={Eye}>Resource attention</MetricHeading>
+          <MetricHeading icon={Eye}>Resource views</MetricHeading>
           <strong>{display(counts.resourceViews)}</strong>
-          <p>{display(counts.impressions)} search impressions</p>
+          <p>{display(counts.impressions)} appearances in search results</p>
         </article>
         <article>
-          <MetricHeading icon={Download}>Download intent</MetricHeading>
+          <MetricHeading icon={Download}>Download clicks</MetricHeading>
           <strong>{display(counts.downloadClicks)}</strong>
           <p>{display(counts.sourceClicks)} source-site clicks</p>
         </article>
       </div>
       <div className="analytics-panel analytics-comparison-panel">
-        <ReportPanelHeader title="Daily views and downloads" icon={Activity} />
+        <ReportPanelHeader
+          title="Daily views and download clicks"
+          icon={Activity}
+        />
         <div
           className="analytics-comparison-chart"
           role="img"
@@ -180,7 +185,7 @@ export function ProviderReport({
                 <tr>
                   <th scope="col">Day</th>
                   <th scope="col">Views</th>
-                  <th scope="col">Downloads</th>
+                  <th scope="col">Download clicks</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,7 +212,7 @@ export function ProviderReport({
             emptyMessage="No resource views were recorded."
           />
           <MemberContentList
-            title={`Most downloaded - ${group.provider ?? 'Missing provider'}`}
+            title={`Most download clicks - ${group.provider ?? 'Missing provider'}`}
             items={group.topDownloads}
             metric="downloads"
             emptyMessage="No download clicks were recorded."
@@ -216,9 +221,9 @@ export function ProviderReport({
       )}
       <section
         className="analytics-panel analytics-panel--ranking analytics-member-report"
-        aria-label="Provider performance report"
+        aria-label="Activity by provider"
       >
-        <ReportPanelHeader title="Provider performance report" icon={Users}>
+        <ReportPanelHeader title="Activity by provider" icon={Users}>
           <small>{rows.length} providers</small>
         </ReportPanelHeader>
         <div className="analytics-ranking-list">

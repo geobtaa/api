@@ -75,7 +75,9 @@ describe('discovery outcomes', () => {
     expect(first).toHaveTextContent('source-site clicks');
     expect(first.querySelector('.analytics-ranking-trend')).toBeNull();
     fireEvent.change(
-      screen.getByRole('searchbox', { name: 'Filter Top outlinked resources' }),
+      screen.getByRole('searchbox', {
+        name: 'Filter Resources with the most source-site clicks',
+      }),
       { target: { value: 'no matching resource xyz' } }
     );
     expect(container.querySelectorAll('.analytics-ranking-item')).toHaveLength(

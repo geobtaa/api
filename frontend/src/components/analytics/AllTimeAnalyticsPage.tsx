@@ -65,7 +65,7 @@ export function AllTimeAnalyticsPage({
             {reportId === 'content' && (
               <>
                 <PopularContentReport
-                  title="All time’s top resources and collections"
+                  title="Top resources and collections across all months"
                   topResources={data.resources.map((row) => ({
                     id: row.id,
                     title: row.title ?? row.id,
@@ -99,18 +99,18 @@ export function AllTimeAnalyticsPage({
             <section
               id="report-sources"
               className="analytics-report-sources"
-              aria-label="Sources and grouping"
+              aria-label="About this report"
             >
-              <h2>Sources and grouping</h2>
+              <h2>About this report</h2>
               <p>
                 All time begins at the academic-year start, July 1, and includes
                 published monthly reports: {range} (UTC). Daily dates retain
-                their month. Searches and content rankings are recomputed from
-                full-period records, not combined top lists. Resource
-                impressions use durable daily aggregates; inventory and
-                attribution use each monthly catalog snapshot; latest capture{' '}
-                {data.catalogDate}. Resource titles and Provider fields
-                refreshed{' '}
+                their month. Searches and resource rankings use records from the
+                full period, rather than adding monthly top lists. Appearances
+                in search results use saved daily counts. Resource counts and
+                institution assignments use the catalog saved for each month;
+                latest catalog date {data.catalogDate}. Resource titles and
+                Provider fields refreshed{' '}
                 {new Date(outcomes.contentCatalogCapturedAt).toLocaleDateString(
                   'en-US',
                   { timeZone: 'UTC' }
@@ -129,17 +129,17 @@ export function AllTimeAnalyticsPage({
                   href={`/analytics-reports/all/${archive.revision}/tables.zip`}
                   download
                 >
-                  Download aggregate report (CSV and JSON)
+                  Download report data (CSV and JSON)
                 </a>
               </p>
             </section>
             {reportId === 'content' && (
               <p>
                 The most-viewed ranking uses preserved monthly catalog metadata.
-                Outlink and download rankings include all recorded resource IDs,
-                retaining missing catalog records. Collection rankings are
-                ranked by member-resource views across all preserved months
-                before selecting the top 50.
+                Source-site and download-click rankings include all recorded
+                resources, even when catalog information is missing. Collection
+                rankings are ranked by views of resources in each collection
+                across all saved months before selecting the top 50.
               </p>
             )}
             <ReportProvenance

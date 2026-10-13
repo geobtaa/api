@@ -40,7 +40,7 @@ export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
       provider: row.provider || 'Unavailable',
     })),
     (row) => row.clicks,
-    'Top outlinked resources'
+    'Resources with the most source-site clicks'
   );
   const maximum = Math.max(1, ...report.outlinks.map((row) => row.clicks));
   return (
@@ -49,7 +49,7 @@ export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
       className="analytics-panel analytics-outcomes"
     >
       <ReportPanelHeader
-        title="Top outlinked resources"
+        title="Resources with the most source-site clicks"
         icon={ExternalLink}
         level={2}
       />
@@ -156,8 +156,8 @@ export function AudienceReport({
             </strong>
             <p>
               {visitsAreEstimated(period)
-                ? 'Estimated distinct tab-scoped visit tokens across searches and interactions (about 0.81% relative standard error).'
-                : 'Distinct tab-scoped visit tokens across searches and interactions.'}
+                ? 'Estimated visits across searches and resource activity, tracked within each browser tab. These are not individual people; the estimate has about 0.81% relative standard error.'
+                : 'Visits across searches and resource activity, tracked within each browser tab. These are not individual people.'}
             </p>
           </div>
         </div>

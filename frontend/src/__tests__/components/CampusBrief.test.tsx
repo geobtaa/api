@@ -56,7 +56,7 @@ describe('campus brief', () => {
       Array.from(metrics.querySelectorAll('dt'), (node) => node.textContent)
     ).toEqual([
       'Resource views',
-      'Search impressions',
+      'Search appearances',
       'Source-site clicks',
       'Download clicks',
     ]);
@@ -66,7 +66,7 @@ describe('campus brief', () => {
     expect(metrics).toHaveTextContent(
       `${current.resourceViews - previous.resourceViews > 0 ? '+' : ''}${(current.resourceViews - previous.resourceViews).toLocaleString('en-US')} vs Aug 2026`
     );
-    expect(screen.getByText(/^Revision /)).toHaveTextContent(
+    expect(screen.getByText(/^Report version /)).toHaveTextContent(
       manifest.periods
         .find((row) => row.id === '2026-09')!
         .revision.slice(0, 12)
@@ -74,7 +74,7 @@ describe('campus brief', () => {
     expect(
       screen.getByRole('region', { name: 'Campus findings' })
     ).toHaveTextContent(
-      `${current.activeResources.toLocaleString('en-US')} resources drew activity`
+      `${current.activeResources.toLocaleString('en-US')} resources appeared in searches or received views or clicks`
     );
     expect(
       container.querySelector('.analytics-brief-leaders ol')?.children
@@ -95,7 +95,7 @@ describe('campus brief', () => {
   it('keeps cumulative coverage incomplete and never adds monthly comparison percentages', () => {
     open(`/analytics/members?month=all&institution=${institution}&brief=1`);
     expect(
-      screen.getByText(/Historical coverage incomplete/)
+      screen.getByText(/Some historical records are missing/)
     ).toBeInTheDocument();
     expect(screen.getAllByText('No prior-period comparison')).toHaveLength(4);
     expect(
@@ -146,7 +146,7 @@ describe('campus brief', () => {
       findings.getByRole('link', { name: 'Compare the months' })
     ).toHaveAttribute('href', '/analytics/comparison?month=2026-09#comparison');
     expect(
-      findings.getByRole('link', { name: 'Inspect searches without results' })
+      findings.getByRole('link', { name: 'Review searches without results' })
     ).toHaveAttribute('href', '/analytics/searches?month=2026-09#zero-results');
   });
 });

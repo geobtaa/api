@@ -889,3 +889,19 @@ Detailed aggregation and evidence-scope explanations remain in the full report
 and evidence packet rather than occupying the brief.
 Printer paper size, scaling and browser headers/footers can affect pagination.
 Aggregate evidence does not certify the brief's member attribution or rankings.
+
+## Language for library audiences
+
+Dashboard headings, summaries, and campus briefs address librarians and library
+directors. Name the recorded measure rather than implying impact or intent:
+“resource views,” “download clicks,” “search appearances,” and “resources with
+activity.” A search appearance means a resource appeared in results. It is not
+a view, a distinct visitor, or evidence of research impact. Download rankings
+must say “download clicks,” not “most downloaded.”
+
+Explain institution groupings as responsibility for contributing resources or
+the provider named in the catalog; keep the underlying contribution codes and
+API fields unchanged. Use everyday wording in visible summaries and keep
+technical definitions, identifiers, and evidence available in the report
+notes. Missing records are unavailable, never zero. Keep monthly and cumulative
+views consistent, and preserve precise limits on what verification establishes.

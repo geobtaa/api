@@ -25,7 +25,7 @@ export function SearchDailyReport({
   const [metric, setMetric] = useState<'searches' | 'zeroResults'>('searches');
   const labels = {
     searches: 'Search result pages',
-    zeroResults: 'Zero-result searches',
+    zeroResults: 'Searches without results',
   };
   return (
     <section className="analytics-panel analytics-comparison-panel">
@@ -128,7 +128,7 @@ export function SearchDailyReport({
             <tr>
               <th scope="col">Date</th>
               <th scope="col">Search result pages</th>
-              <th scope="col">Zero-result searches</th>
+              <th scope="col">Searches without results</th>
             </tr>
           </thead>
           <tbody>

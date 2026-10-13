@@ -13,7 +13,7 @@ export type CampusCounts = {
 const number = new Intl.NumberFormat('en-US');
 const metrics = [
   ['resourceViews', 'Resource views'],
-  ['impressions', 'Search impressions'],
+  ['impressions', 'Search appearances'],
   ['sourceClicks', 'Source-site clicks'],
   ['downloadClicks', 'Download clicks'],
 ] as const;
@@ -87,7 +87,7 @@ export function CampusBrief({
     <div className="analytics-page analytics-brief-page">
       <Seo
         title={`${name} — ${periodLabel} — Campus brief`}
-        description="A printable summary of recorded resource activity with reporting coverage and provenance."
+        description="A printable summary of recorded resource activity with data sources and reporting limits."
       />
       <nav className="analytics-brief-toolbar" aria-label="Brief actions">
         <Link to={reportHref}>
@@ -152,10 +152,11 @@ export function CampusBrief({
           aria-label="Campus findings"
         >
           <div>
-            <h2>How far the collection reached</h2>
+            <h2>Resources with recorded activity</h2>
             <p>
               <strong>
-                {number.format(activeResources)} resources drew activity
+                {number.format(activeResources)} resources appeared in searches
+                or received views or clicks
               </strong>{' '}
               out of {number.format(catalogRecords)} published resources
               {catalogRecords > 0 &&
@@ -216,7 +217,7 @@ export function CampusBrief({
               <h2>
                 {kind === 'viewed'
                   ? 'Resources drawing attention'
-                  : 'Resources prompting download clicks'}
+                  : 'Resources with the most download clicks'}
               </h2>
               <ol>
                 {topContent[kind].slice(0, 5).map((resource) => (
@@ -244,7 +245,9 @@ export function CampusBrief({
                   </li>
                 ))}
               </ol>
-              {!topContent[kind].length && <p>No ranked activity recorded.</p>}
+              {!topContent[kind].length && (
+                <p>No activity recorded for this list.</p>
+              )}
             </section>
           ))}
         </div>
@@ -253,7 +256,10 @@ export function CampusBrief({
           aria-label="Popular collections"
         >
           <h2>Popular collections</h2>
-          <p>Views of resources in this report; collections can overlap.</p>
+          <p>
+            Resource views by collection; a resource may belong to more than one
+            collection.
+          </p>
           <ol>
             {collections.slice(0, 3).map((collection) => (
               <li key={collection.id}>
@@ -269,13 +275,16 @@ export function CampusBrief({
               </li>
             ))}
           </ol>
-          {!collections.length && <p>No collection-linked views recorded.</p>}
+          {!collections.length && (
+            <p>No views recorded for resources linked to collections.</p>
+          )}
         </section>
         <footer className="analytics-brief-evidence">
           <p>
-            Counts describe activity, not people or confirmed downloads.
-            {!report.complete &&
-              ' Historical coverage incomplete.'} Catalog: {inventoryDate}.
+            Counts reflect activity, not individual people or completed
+            downloads.
+            {!report.complete && ' Some historical records are missing.'}{' '}
+            Catalog as of {inventoryDate}.
           </p>
           <p>
             <Link to={`${reportHref}#members`}>
@@ -286,13 +295,13 @@ export function CampusBrief({
                 {' '}
                 ·{' '}
                 <a href={evidenceHref} download>
-                  Source evidence
+                  Supporting records
                 </a>
               </>
             )}{' '}
             ·{' '}
             <span title={report.revision}>
-              Revision {report.revision.slice(0, 12)}
+              Report version {report.revision.slice(0, 12)}
             </span>
           </p>
         </footer>

@@ -84,7 +84,7 @@ export function buildFindings({
   const change = candidates[0];
   const activity: Finding = change
     ? {
-        label: 'A meaningful change',
+        label: 'Largest change in daily activity',
         headline: `${change.label}: ${Math.abs(change.percent).toFixed(1)}% ${change.percent > 0 ? 'more' : 'fewer'} per day`,
         detail: `${number.format(change.current)} in ${monthLabel(period)} (${monthDays(period)} days), versus ${number.format(change.before)} in ${monthLabel(previousPeriod!)} (${monthDays(previousPeriod!)} days). This describes recorded activity, not its cause.`,
         href: `${analyticsReportHref('comparison', period)}#comparison`,
@@ -96,7 +96,7 @@ export function buildFindings({
             ? 'Across this reporting period'
             : 'Recorded activity',
         headline: `${number.format(summary.searches)} searches recorded`,
-        detail: `${number.format(summary.resourceViews)} resource views and ${number.format(summary.downloadClicks)} download-link clicks. ${previous ? 'No daily-rate change met the headline thresholds.' : 'No comparable prior calendar month is available for this view.'}`,
+        detail: `${number.format(summary.resourceViews)} resource views and ${number.format(summary.downloadClicks)} download-link clicks. ${previous ? 'Changes in daily activity were below the level used to select a headline.' : 'A comparison with the previous month is not available.'}`,
         href: `${analyticsReportHref('comparison', period)}#comparison`,
         action: 'Explore the counts',
       };
@@ -149,17 +149,17 @@ export function buildFindings({
       ? {
           label: 'A discovery opportunity',
           headline: `${((100 * summary.zeroResultSearches) / summary.searches).toFixed(1)}% of searches displayed no results`,
-          detail: `${number.format(summary.zeroResultSearches)} of ${number.format(summary.searches)} recorded searches. Inspect saved filters and pagination before interpreting this as a gap in the collection.`,
+          detail: `${number.format(summary.zeroResultSearches)} of ${number.format(summary.searches)} recorded searches. Review the filters and results page selected before treating this as a gap in the collection.`,
           href: `${analyticsReportHref('discovery', period)}#zero-results`,
-          action: 'Inspect searches without results',
+          action: 'Review searches without results',
         }
       : {
           label: 'Know the coverage',
           headline: 'Keep the evidence with the story',
           detail:
-            'Review source coverage and definitions before sharing conclusions. Small counts do not support a discovery headline.',
+            'Review source coverage and definitions before sharing conclusions. There are too few searches without results to highlight a pattern.',
           href: '#report-provenance',
-          action: 'Review provenance and coverage',
+          action: 'Understand these numbers',
         };
   return [activity, resource, discovery];
 }

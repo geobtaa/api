@@ -92,7 +92,7 @@ export function PopularContentReport({
   const downloads = useRanking(
     topDownloadedResources,
     (row) => row.clicks,
-    'Top downloaded resources'
+    'Resources with the most download clicks'
   );
   const maxCollectionViews = Math.max(
     1,
@@ -121,7 +121,7 @@ export function PopularContentReport({
             </div>
             <div className="analytics-ranking-legend" aria-hidden="true">
               <span>Views</span>
-              {reportMonth && <span>Momentum</span>}
+              {reportMonth && <span>Change from previous month</span>}
             </div>
           </div>
           {resources.controls}
@@ -184,7 +184,7 @@ export function PopularContentReport({
                 Resources with multiple classifications contribute to each;
                 missing metadata is shown as Not recorded.
                 {reportMonth &&
-                  ' Momentum compares the same resources and classifications in both months.'}
+                  ' Change from previous month compares the same resources and classifications in both months.'}
               </p>
               <div className="analytics-ranking-list">
                 {rows.map(([label, views], index) => (
@@ -267,7 +267,7 @@ export function PopularContentReport({
         <div className="analytics-panel-header">
           <div>
             <Download className="h-5 w-5" aria-hidden />
-            <h3>Top downloaded resources</h3>
+            <h3>Resources with the most download clicks</h3>
           </div>
           <small>
             {wholeNumber.format(downloadClicks)} across all resources
@@ -311,8 +311,8 @@ export function PopularContentReport({
           {downloadNote} A click records selection of a catalog download link;
           completion on an external provider site cannot be verified.
           {reportMonth
-            ? ' Visits are distinct tracked visit tokens.'
-            : ' Distinct download visits are unavailable in this snapshot; monthly distinct counts are not added together.'}
+            ? ' Visits are tracked within browser tabs, not individual people.'
+            : ' The number of visits with download clicks is unavailable for this period; monthly visit counts cannot be added together.'}
         </p>
       </article>
     </section>

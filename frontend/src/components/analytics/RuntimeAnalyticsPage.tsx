@@ -77,10 +77,10 @@ const overviewMetrics: Record<string, string> = {
   sourceClicks: 'Source-site clicks',
   downloads: 'Download clicks',
   requests: 'API requests',
-  impressions: 'Search impressions',
+  impressions: 'Search appearances',
   events: 'Interactions',
   resultOpens: 'Result opens',
-  zeroResults: 'Zero-result searches',
+  zeroResults: 'Searches without results',
   errors: 'Server errors',
 };
 const colors = ['#2563eb', '#047857', '#854d0e', '#7c3aed', '#be123c'];
@@ -99,6 +99,18 @@ const display = (value: Row[string]) =>
             ? JSON.stringify(value)
             : String(value);
 const title = (key: string) =>
+  overviewMetrics[key] ??
+  (
+    {
+      activeResources: 'Resources with activity',
+      inventory: 'Published resources',
+      query: 'Search term',
+      facet: 'Search filter',
+      client: 'Application',
+      channel: 'Access method',
+      apiKey: 'Access key',
+    } as Record<string, string>
+  )[key] ??
   key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
 
 type QueryContext = {
@@ -250,7 +262,7 @@ function DataTable({
         <p>
           {report.complete
             ? 'No recorded rows for this period.'
-            : 'No preserved rows available; this period has incomplete coverage.'}
+            : 'No saved records are available for this table; some historical data is missing.'}
         </p>
       )}
     </section>
@@ -364,8 +376,8 @@ export function AggregateReportView({
               : `${report.zeroResultPercent.toFixed(1)}%`}
             .
           </p>
-          {table('Query categories', 'categories', ['category', 'count'])}
-          {table('Zero-result query categories', 'zeroCategories', [
+          {table('Search topics', 'categories', ['category', 'count'])}
+          {table('Topics in searches without results', 'zeroCategories', [
             'category',
             'count',
           ])}
@@ -429,8 +441,8 @@ export function RuntimeReportView({
     <>
       {!report.complete && (
         <p role="status">
-          This period has incomplete historical coverage. Values represent
-          preserved evidence only. Missing months:{' '}
+          Some historical records are missing. The figures show only the
+          activity supported by saved records. Missing months:{' '}
           {report.missingMonths.join(', ') || 'see source coverage'}. Tracked
           visits are estimates only when the required sources are complete.
         </p>
@@ -443,8 +455,8 @@ export function RuntimeReportView({
             <li key={source}>
               {source}:{' '}
               {complete
-                ? 'Complete preserved evidence'
-                : 'Incomplete historical evidence'}
+                ? 'Source records available for the full period'
+                : 'Some historical source records are missing'}
             </li>
           ))}
         </ul>
@@ -533,7 +545,12 @@ export function RuntimeReportView({
               <Tooltip />
               <Legend />
               {['views', 'searches', 'downloads'].map((key, i) => (
-                <Bar key={key} dataKey={key} fill={colors[i]} />
+                <Bar
+                  key={key}
+                  dataKey={key}
+                  name={overviewMetrics[key]}
+                  fill={colors[i]}
+                />
               ))}
             </BarChart>
           </ResponsiveContainer>
@@ -550,7 +567,7 @@ export function RuntimeReportView({
       {active === 'discovery' && (
         <>
           <label>
-            Query category{' '}
+            Search topic{' '}
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -571,7 +588,7 @@ export function RuntimeReportView({
               .filter((r) => category === 'all' || r.category === category)
               .slice(0, 50)
           )}
-          <h2>Query categories</h2>
+          <h2>Search topics</h2>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
@@ -588,7 +605,7 @@ export function RuntimeReportView({
               <Legend />
             </PieChart>
           </ResponsiveContainer>
-          <h2>Zero-result query categories</h2>
+          <h2>Topics in searches without results</h2>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
@@ -605,7 +622,7 @@ export function RuntimeReportView({
               <Legend />
             </PieChart>
           </ResponsiveContainer>
-          <h2>Facet use</h2>
+          <h2>Search filter use</h2>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={report.facets}>
               <XAxis dataKey="facet" />
@@ -614,7 +631,7 @@ export function RuntimeReportView({
               <Bar dataKey="count" fill={colors[0]} />
             </BarChart>
           </ResponsiveContainer>
-          {table('Facet categories', 'facets', ['facet', 'count'])}
+          {table('Search filter categories', 'facets', ['facet', 'count'])}
           <p>
             Searches without results:{' '}
             {report.zeroResultPercent == null
@@ -622,7 +639,7 @@ export function RuntimeReportView({
               : `${report.zeroResultPercent.toFixed(1)}%`}
             .
           </p>
-          {table('Zero-result queries', 'zeroQueries', [
+          {table('Search terms without results', 'zeroQueries', [
             'query',
             'category',
             'count',
@@ -640,13 +657,13 @@ export function RuntimeReportView({
       {active === 'content' && (
         <>
           {table(
-            'Most downloaded resources',
+            'Resources with the most download clicks',
             'downloads',
             ['id', 'title', 'provider', 'downloads'],
             (report.downloads ?? []).slice(0, 50)
           )}
           {table(
-            'Most outlinked resources',
+            'Resources with the most source-site clicks',
             'outlinks',
             ['id', 'title', 'provider', 'sourceClicks'],
             (report.outlinks ?? []).slice(0, 50)
@@ -661,8 +678,9 @@ export function RuntimeReportView({
             'downloads',
           ])}
           <p>
-            Characteristics use each period’s sealed catalog. Multi-valued
-            categories overlap; counts across dimensions must not be added.
+            Resource descriptions come from the catalog saved for each period. A
+            resource can appear in several categories, so these counts should
+            not be added together.
           </p>
         </>
       )}

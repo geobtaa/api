@@ -10,7 +10,7 @@ export const analyticsReports = [
     label: 'Overview',
     period: monthLabel(latestMonth),
     description:
-      'Monthly highlights, daily interactions, searches, and traffic peaks.',
+      'See how people discover and use Geoportal resources, and how activity changes over time.',
   },
   {
     id: 'comparison',
@@ -37,21 +37,21 @@ export const analyticsReports = [
     label: 'Members',
     period: monthLabel(latestMonth),
     description:
-      'Review alliance contributions or focus on an individual campus.',
+      'See how resources contributed by each institution appear in searches and receive views and clicks.',
   },
   {
     id: 'clients',
-    label: 'Clients & API keys',
+    label: 'Applications & API access',
     period: monthLabel(latestMonth),
     description:
-      'Explore declared clients, API key attribution, and MCP and GIS request signals.',
+      'See which applications identify themselves when using the API, and where the records are incomplete.',
   },
   {
     id: 'platform',
     label: 'API reliability',
     period: monthLabel(latestMonth),
     description:
-      'Inspect request traffic, response times, and service reliability.',
+      'Review service demand, response times, and errors. Includes automated traffic.',
   },
 ] as const;
 

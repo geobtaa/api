@@ -707,7 +707,7 @@ export function AnalyticsPage() {
                       )}
                     </strong>
                     <small>
-                      Distinct browser-tab visits, not unique people
+                      Visits tracked within browser tabs, not individual people
                     </small>
                   </div>
                   <div>
@@ -716,14 +716,16 @@ export function AnalyticsPage() {
                     </MetricHeading>
                     <strong>{formatCompact(summary.searches)}</strong>
                     <small>
-                      {periodRange} · includes filter changes and pagination
+                      {periodRange} · includes filter changes and moving between
+                      results pages
                     </small>
                   </div>
                   <div>
                     <MetricHeading icon={Eye}>Resource views</MetricHeading>
                     <strong>{formatCompact(summary.resourceViews)}</strong>
                     <small>
-                      {formatCompact(summary.impressions)} discoveries shown
+                      {formatCompact(summary.impressions)} appearances in search
+                      results
                     </small>
                   </div>
                   <div>
@@ -735,7 +737,7 @@ export function AnalyticsPage() {
                         outcomes.periods[selectedPeriod].totals.sources
                       )}
                     </strong>
-                    <small>Clicks to authoritative source links</small>
+                    <small>Clicks to the website hosting a resource</small>
                   </div>
                   <div>
                     <MetricHeading icon={Download}>
@@ -760,7 +762,7 @@ export function AnalyticsPage() {
               <h1>{report.label}</h1>
               <span>
                 {activeReport === 'platform'
-                  ? 'Inspect HTTP traffic and service reliability, including browsers, crawlers, health probes, images, and analytics capture. Request counts are not searches or visitors.'
+                  ? 'See how the service is performing: request volume, response times, and errors. These figures include automated traffic and system checks; they do not count visitors.'
                   : activeReport === 'comparison'
                     ? 'Compare portal totals and daily trends. Use daily averages to account for different month lengths.'
                     : report.description}
@@ -818,8 +820,10 @@ export function AnalyticsPage() {
                         setSearchParams(params);
                       }}
                     >
-                      <option value="code">BTAA contribution code</option>
-                      <option value="provider">Provider facet</option>
+                      <option value="code">
+                        BTAA contributing institution
+                      </option>
+                      <option value="provider">Catalog provider</option>
                     </select>
                     <p id="member-grouping-help" className="sr-only">
                       Contribution codes include agency content gathered through
@@ -977,8 +981,8 @@ export function AnalyticsPage() {
                         : 'Member contributions at a glance'}
                     </h2>
                     <p>
-                      A printable brief with activity, leading resources and
-                      reporting context.
+                      A one-page summary of resource use, popular items, and
+                      collections.
                     </p>
                   </div>
                   <Link to={`/analytics/members?${briefParams}`}>
@@ -1049,41 +1053,39 @@ export function AnalyticsPage() {
                     <div className="analytics-member-kpi-grid">
                       <article>
                         <MetricHeading icon={Layers3}>
-                          Catalog footprint
+                          Published resources
                         </MetricHeading>
                         <strong>
                           {wholeNumber.format(selectedCatalogRecords)}
                         </strong>
-                        <p>published catalog inventory as of {inventoryDate}</p>
+                        <p>published resources as of {inventoryDate}</p>
                       </article>
                       <article>
                         <MetricHeading icon={Activity}>
-                          {reportMonth} reach
+                          Resources with activity
                         </MetricHeading>
                         <strong>
                           {wholeNumber.format(selectedActiveResources)}
                         </strong>
                         <p>
                           {activeResourceRate.toFixed(1)}% of the catalog
-                          appeared in a search or received an action
+                          appeared in search results or received a view or click
                         </p>
                       </article>
                       <article>
-                        <MetricHeading icon={Eye}>
-                          Resource attention
-                        </MetricHeading>
+                        <MetricHeading icon={Eye}>Resource views</MetricHeading>
                         <strong>
                           {wholeNumber.format(selectedResourceViews)}
                         </strong>
                         <p>
                           {selectedMember
-                            ? `${wholeNumber.format(selectedImpressions)} search impressions`
-                            : `${memberViewShare.toFixed(1)}% of portal views · ${memberImpressionShare.toFixed(1)}% of search impressions`}
+                            ? `${wholeNumber.format(selectedImpressions)} appearances in search results`
+                            : `${memberViewShare.toFixed(1)}% of portal views · ${memberImpressionShare.toFixed(1)}% of appearances in search results`}
                         </p>
                       </article>
                       <article>
                         <MetricHeading icon={Download}>
-                          Download intent
+                          Download clicks
                         </MetricHeading>
                         <strong>
                           {wholeNumber.format(selectedDownloadClicks)}
@@ -1103,7 +1105,7 @@ export function AnalyticsPage() {
                         <div className="analytics-panel-header">
                           <div>
                             <Activity className="h-5 w-5" aria-hidden />
-                            <span>Daily member-content engagement</span>
+                            <span>Daily views and download clicks</span>
                           </div>
                           <div
                             className="analytics-chart-key"
@@ -1115,7 +1117,7 @@ export function AnalyticsPage() {
                             </span>
                             <span>
                               <i className="analytics-key-downloads" />
-                              Downloads
+                              Download clicks
                             </span>
                           </div>
                         </div>
@@ -1232,8 +1234,8 @@ export function AnalyticsPage() {
                       <MemberContentList
                         title={
                           selectedMember
-                            ? `Most downloaded - ${selectedMember.name}`
-                            : 'Most downloaded'
+                            ? `Most download clicks - ${selectedMember.name}`
+                            : 'Most download clicks'
                         }
                         items={selectedTopContent.downloaded}
                         metric="downloads"
@@ -1246,7 +1248,7 @@ export function AnalyticsPage() {
                         <article className="analytics-panel">
                           <div>
                             <Eye className="h-5 w-5" aria-hidden />
-                            <span>Attention leader</span>
+                            <span>Most resource views</span>
                           </div>
                           <strong>
                             {wholeNumber.format(viewLeader.resourceViews)}
@@ -1254,14 +1256,14 @@ export function AnalyticsPage() {
                           <p>
                             {viewLeader.shortName} resource views and{' '}
                             {wholeNumber.format(viewLeader.sourceClicks)}{' '}
-                            source-site clicks—the month’s leading member by
-                            resource views.
+                            source-site clicks—the leading member in this period
+                            by resource views.
                           </p>
                         </article>
                         <article className="analytics-panel">
                           <div>
                             <Download className="h-5 w-5" aria-hidden />
-                            <span>Download leader</span>
+                            <span>Most download clicks</span>
                           </div>
                           <strong>
                             {wholeNumber.format(downloadLeader.downloadClicks)}
@@ -1274,7 +1276,7 @@ export function AnalyticsPage() {
                         <article className="analytics-panel">
                           <div>
                             <Layers3 className="h-5 w-5" aria-hidden />
-                            <span>Broadest {reportMonth} reach</span>
+                            <span>Broadest Resources with activity</span>
                           </div>
                           <strong>
                             {wholeNumber.format(reachLeader.activeResources)}
@@ -1298,8 +1300,8 @@ export function AnalyticsPage() {
                       />
                       <div className="analytics-member-scope-body">
                         <p className="analytics-member-scope-intro">
-                          Portal activity beyond the 17 member contribution
-                          streams included in this report.
+                          Activity not assigned to the 17 member contribution
+                          groups in this report.
                         </p>
                         <dl className="analytics-member-scope-stats">
                           <div>
@@ -1317,7 +1319,7 @@ export function AnalyticsPage() {
                           <div>
                             <dt>
                               <Search size={18} aria-hidden />
-                              Search impressions
+                              Search appearances
                             </dt>
                             <dd>
                               {wholeNumber.format(
@@ -1346,29 +1348,30 @@ export function AnalyticsPage() {
                         <details className="analytics-member-scope-details">
                           <summary>How these totals are calculated</summary>
                           <div>
-                            <h4>Attribution and grouping</h4>
+                            <h4>How activity is assigned</h4>
                             <p>
                               Only contribution code prefixes 01–17 are included
                               in the university totals. Other prefixes and
                               missing codes are excluded, even when their
                               records appear in portal totals. School
-                              attribution follows the BTAA contribution code
-                              rather than the provider label. Federal sources,
-                              standalone items, and BTAA-curated content require
-                              their actual contribution codes or Provider values
-                              to be checked before assigning them to a group.
+                              attribution follows the BTAA contributing
+                              institution rather than the provider label.
+                              Federal sources, standalone items, and
+                              BTAA-curated content require their actual
+                              contribution codes or Provider values to be
+                              checked before assigning them to a group.
                             </p>
                             <h4>Reporting period and catalog</h4>
                             <p>
                               Activity period: {periodRange}. Published,
                               unsuppressed catalog inventory as of{' '}
                               {inventoryDate}. Inventory is a point-in-time
-                              count, not an activity total or month-end count. “
-                              {reportMonth} active” means a distinct record with
-                              at least one search impression or tracked action
-                              during the selected period. Downloads and
-                              source-site visits are link clicks, not verified
-                              completions.
+                              count, not an activity total or month-end count.
+                              “Resources with activity” counts each resource
+                              once if it appeared in search results or received
+                              a view or click during the selected period.
+                              Downloads and source-site visits are link clicks,
+                              not verified completions.
                             </p>
                             {isAllTime && (
                               <>
@@ -1546,10 +1549,10 @@ export function AnalyticsPage() {
                     <div className="analytics-signal-card">
                       <div>
                         <Eye className="h-5 w-5" aria-hidden />
-                        <span>Discovery surface</span>
+                        <span>Appearances in search results</span>
                       </div>
                       <strong>{formatCompact(summary.impressions)}</strong>
-                      <p>resource cards appeared across search result views</p>
+                      <p>resource appearances in search results</p>
                     </div>
                     <div className="analytics-signal-card">
                       <div>
@@ -1647,13 +1650,13 @@ export function AnalyticsPage() {
 
                 <SectionHeading
                   title="Top 50 searches"
-                  description={`The most frequently recorded queries during ${periodRange}. ${wholeNumber.format(topSearchSnapshot.withQuery)} searches included query text, across ${wholeNumber.format(topSearchSnapshot.distinctQueries)} distinct queries.`}
+                  description={`The most frequently recorded search terms during ${periodRange}. ${wholeNumber.format(topSearchSnapshot.withQuery)} searches included search terms, across ${wholeNumber.format(topSearchSnapshot.distinctQueries)} different search terms.`}
                 />
                 <article className="analytics-panel analytics-top-searches analytics-panel--ranking">
                   <div className="analytics-panel-header">
                     <div>
                       <Search className="h-5 w-5" aria-hidden />
-                      <h3>Most frequent queries</h3>
+                      <h3>Most frequent search terms</h3>
                     </div>
                     <small>
                       {wholeNumber.format(topSearchSnapshot.rankedSearches)}{' '}
@@ -1662,7 +1665,7 @@ export function AnalyticsPage() {
                   </div>
                   <div className="analytics-top-searches-body">
                     <div className="analytics-query-category-filter">
-                      <label htmlFor="query-category">Query category</label>
+                      <label htmlFor="query-category">Search topic</label>
                       <select
                         id="query-category"
                         value={queryCategoryFilter}
@@ -1682,7 +1685,7 @@ export function AnalyticsPage() {
                         )}
                       </select>
                       <p>
-                        Suggested from query text; each query has one primary
+                        Suggested from search terms; each query has one primary
                         category. Counts in the menu cover these top 50 queries
                         only.
                       </p>
@@ -1709,9 +1712,9 @@ export function AnalyticsPage() {
                     </div>
                     <p className="analytics-card-footnote">
                       {queryCategoryMethod} Counts include successful and
-                      zero-result searches, grouped by trimmed query text with
+                      zero-result searches, grouped by trimmed search terms with
                       case preserved. Filters and views are combined; links
-                      repeat the query text only. Empty queries are excluded.
+                      repeat the search terms only. Empty queries are excluded.
                       Exported{' '}
                       {new Date(
                         hasMonthlySnapshot || isAllTime
@@ -1780,7 +1783,7 @@ export function AnalyticsPage() {
                     <div className="analytics-panel-header">
                       <div>
                         <BarChart3 className="h-5 w-5" aria-hidden />
-                        <h3>Resource class demand</h3>
+                        <h3>Resource types searched for</h3>
                       </div>
                       <small>filters applied</small>
                     </div>
@@ -1811,7 +1814,7 @@ export function AnalyticsPage() {
                     <div className="analytics-panel-header">
                       <div>
                         <BarChart3 className="h-5 w-5" aria-hidden />
-                        <h3>Most-used facet categories</h3>
+                        <h3>Most-used search filters</h3>
                       </div>
                       <small>searches using each category</small>
                     </div>
@@ -1907,7 +1910,7 @@ export function AnalyticsPage() {
                     <div className="analytics-performance-stats">
                       <div>
                         <MetricHeading icon={CircleGauge}>
-                          Median response
+                          Typical response time
                         </MetricHeading>
                         <strong>
                           {isAllTime
@@ -1918,7 +1921,7 @@ export function AnalyticsPage() {
                       </div>
                       <div>
                         <MetricHeading icon={CircleGauge}>
-                          95th percentile
+                          Time for 95% of responses
                         </MetricHeading>
                         <strong>
                           {isAllTime
@@ -2079,8 +2082,8 @@ export function AnalyticsPage() {
               <p className="analytics-comparison-note">
                 {periodRange} (UTC) · Exported {contentSummary.exportedAt}.
                 Rankings use recorded interactions and catalog metadata at
-                export. Momentum compares each ranking’s metric with the
-                previous calendar month.
+                export. Changes compare each measure with the previous calendar
+                month.
               </p>
             )}
 
@@ -2095,16 +2098,16 @@ export function AnalyticsPage() {
                     <strong>{reportMonth} report data</strong>
                   </div>
                   <p>
-                    Built from reconciled API, search, impression, and event
-                    exports covering {periodRange} (UTC). Exported{' '}
-                    {summary.exportedAt}. Raw request records remain outside
-                    this application; this page contains aggregate metrics and
-                    public catalog metadata only.
+                    Based on saved records of service requests, searches,
+                    resource appearances, and clicks for {periodRange} (UTC).
+                    Exported {summary.exportedAt}. This dashboard shows summary
+                    counts and public catalog information; it does not display
+                    individual request logs.
                   </p>
                   <span>
                     {isAllTime
-                      ? `${memberDays.length} days · Preserved reporting aggregates`
-                      : `7 analytics tables · 1 catalog snapshot · ${monthDays} complete days`}
+                      ? `${memberDays.length} days · Saved report totals`
+                      : `Saved activity records · Dated catalog records · ${monthDays} complete days`}
                   </span>
                 </section>
               )}

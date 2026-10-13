@@ -41,7 +41,7 @@ describe('ZeroResultReport', () => {
   it('keeps chart coverage explicit and retains full-period percentages when filtering', () => {
     report();
     const chart = screen.getByRole('img', {
-      name: /Zero-result query categories:/,
+      name: /Topics in searches without results:/,
     });
     expect(chart).toHaveAccessibleName(
       /Address and street search 10 \(66.7%\)/
@@ -51,7 +51,9 @@ describe('ZeroResultReport', () => {
       screen.getByRole('combobox', { name: 'Zero-result category' }),
       { target: { value: 'Subject-only search' } }
     );
-    const ranking = screen.getByRole('region', { name: 'Zero-result queries' });
+    const ranking = screen.getByRole('region', {
+      name: 'Search terms without results',
+    });
     expect(within(ranking).getAllByRole('article')).toHaveLength(1);
     expect(
       within(ranking).getByText('0.3% of all zero-result searches')
@@ -70,7 +72,7 @@ describe('ZeroResultReport', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
     expect(
       within(
-        screen.getByRole('region', { name: 'Zero-result queries' })
+        screen.getByRole('region', { name: 'Search terms without results' })
       ).getAllByRole('article')
     ).toHaveLength(2);
   });
@@ -93,7 +95,9 @@ describe('ZeroResultReport', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: 'Find a query' }), {
       target: { value: 'Qom' },
     });
-    const ranking = screen.getByRole('region', { name: 'Zero-result queries' });
+    const ranking = screen.getByRole('region', {
+      name: 'Search terms without results',
+    });
     expect(within(ranking).getAllByRole('article')).toHaveLength(1);
     expect(
       within(ranking).getByRole('link', { name: 'قم ایران' })

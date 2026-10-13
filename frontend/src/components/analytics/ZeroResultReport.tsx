@@ -73,11 +73,11 @@ export function ZeroResultReport({
       id="zero-results"
       className="analytics-panel analytics-zero-results"
     >
-      <ReportPanelHeader title="Zero-result searches" icon={Search} />
+      <ReportPanelHeader title="Searches without results" icon={Search} />
       <div className="analytics-zero-results-body">
         <div className="analytics-zero-summary">
           <article className="analytics-zero-summary-primary">
-            <span>Zero-result searches</span>
+            <span>Searches without results</span>
             <strong>{number.format(zeroResults)}</strong>
             <p>
               <b>{percent(zeroResults, searches)}</b> of{' '}
@@ -127,7 +127,7 @@ export function ZeroResultReport({
             </div>
           </section>
           <section className="analytics-zero-categories">
-            <h3>Zero-result query categories</h3>
+            <h3>Topics in searches without results</h3>
             <p>
               {number.format(ranked)} searches across {rows.length} ranked
               queries, not all {number.format(zeroResults)} zero-result
@@ -135,7 +135,7 @@ export function ZeroResultReport({
             </p>
             <div
               role="img"
-              aria-label={`Zero-result query categories: ${slices.map((slice) => `${slice.label} ${slice.count} (${percent(slice.count, ranked)})`).join('; ')}`}
+              aria-label={`Topics in searches without results: ${slices.map((slice) => `${slice.label} ${slice.count} (${percent(slice.count, ranked)})`).join('; ')}`}
             >
               {slices.map((slice) => (
                 <div className="analytics-zero-category-row" key={slice.label}>
@@ -159,7 +159,7 @@ export function ZeroResultReport({
           </section>
         </div>
         <div className="analytics-zero-ranking-heading">
-          <h3>Queries to investigate</h3>
+          <h3>Search terms to review</h3>
           <p>
             Ranked by zero-result searches. Open the recorded details to inspect
             filters and other search settings.
@@ -211,7 +211,7 @@ export function ZeroResultReport({
         </div>
         <div
           role="region"
-          aria-label="Zero-result queries"
+          aria-label="Search terms without results"
           className="analytics-ranking-list analytics-zero-ranking"
         >
           {visible.map((row) => (
@@ -263,10 +263,10 @@ export function ZeroResultReport({
           <p>
             These {rows.length} queries account for {number.format(ranked)}{' '}
             zero-result searches. Additional filters may have caused zero
-            results; query links repeat the text only. Row percentages use all
-            zero-result searches as the denominator, not the failure rate of
-            that particular query. Charts remain based on the full period when
-            the rankings are filtered.
+            results; query links repeat the text only. Each percentage is a
+            share of all searches without results, not the percentage of times
+            that particular term failed. Charts remain based on the full period
+            when the rankings are filtered.
           </p>
           <p>
             English readings are editorial translations or transliterations of
@@ -280,8 +280,8 @@ export function ZeroResultReport({
               Historical counts use the recorded zero-result flag.{' '}
               {outcomes.periods[periodKey].zeroResultsWithPositiveTotal} flagged
               searches had a positive total but an empty displayed page. Expand
-              recorded combinations to inspect exclusions, pagination, and other
-              saved controls.
+              the saved search details to review excluded filters, the selected
+              results page, and other settings.
             </p>
           )}
         </details>

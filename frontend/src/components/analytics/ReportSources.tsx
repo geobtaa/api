@@ -13,59 +13,59 @@ const definitions: Record<
 > = {
   overview: {
     source:
-      'Recorded API requests, searches, search impressions, and interaction events, exported from the production analytics database into checked-in monthly snapshots.',
+      'Saved monthly records of service requests, searches, resource appearances in results, and clicks.',
     grouping:
-      'Totals cover the entire portal. Daily series group timestamps by UTC calendar day. Interactions count event rows. Tracked visits deduplicate tokens across searches and events; engaged visits use events only. These are tab-scoped tokens, not unique people.',
+      'Totals cover the whole Geoportal. Days use Coordinated Universal Time (UTC). Visits are tracked within browser tabs across searches and clicks; a person using several tabs can count more than once. Visits with activity count tabs with a recorded action.',
     limits:
-      'API traffic includes bots and probes. Visits are not unique people, and download clicks are not completed downloads.',
+      'Service requests include automated traffic and system checks. Visits are not individual people, and download clicks do not confirm completed downloads.',
   },
   comparison: {
     source:
-      'The preserved monthly snapshots used by the other reports; this page does not query live analytics.',
+      'The same saved monthly reports used throughout this dashboard, rather than live activity.',
     grouping:
-      'Portal figures cover all recorded traffic. Changes compare the latest published month with its predecessor. Month lengths may differ.',
+      'Figures cover the whole Geoportal. Changes compare the latest published month with the previous month. Use daily averages when comparing months of different lengths.',
     limits:
-      'A zero baseline is shown as N/A when the latest month has activity. API request totals include bots and automated probes.',
+      'A percentage change cannot be calculated when the earlier value is zero; it is shown as N/A. Service requests include automated traffic.',
   },
   content: {
     source:
-      'Interaction events and recorded search constraints joined to catalog metadata at export. Capture dates are recorded with each snapshot.',
+      'Saved resource activity linked to the catalog information available when the report was prepared.',
     grouping:
-      'Resources rank by resource-view events; downloads by download-click events. Collections rank by resource-view events attributed through saved collection membership. Momentum compares resource views with the previous calendar month. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; catalog labels use the separately dated metadata refresh.',
+      'Resources and collections are ranked by views; download lists are ranked by download-link clicks. Collection totals count views of resources belonging to each collection. Changes compare the previous calendar month. Source-site clicks count links to the websites hosting resources; that list is ranked separately from resource views.',
     limits:
-      'Rankings are not restricted to university providers or published, unsuppressed records. Missing catalog records cannot be ranked by title. Resources in multiple collections contribute views to each; download clicks do not confirm file transfer.',
+      'These lists include resources beyond member institutions. Records missing catalog information may be absent from title-based rankings. A resource in several collections contributes views to each. Catalog labels may have been refreshed separately from the activity records. Download clicks do not confirm completed downloads.',
   },
   members: {
     source:
-      'Resource views, download/source-link clicks, and search impressions joined by resource ID to the catalog snapshot. Only published, unsuppressed records are eligible.',
+      'Views, download clicks, source-site clicks, and appearances in search results linked to published, publicly visible catalog records.',
     grouping:
-      'Contribution codes describe acquisition responsibility and can include outside agencies. Provider describes the institution or agency named in the Provider facet. These are different ways to attribute the same activity.',
+      'BTAA contributing institution groups resources by responsibility for adding them to the Geoportal, including resources from outside agencies. Catalog provider uses the institution or agency named in the catalog. These groupings answer different questions about the same activity.',
     limits:
-      'Catalog counts are point-in-time inventory, not month-end totals. Historical activity is attributed using metadata available at export. Portal totals also include records outside the eligible member catalog.',
+      'Catalog counts reflect the date shown, not necessarily the end of the month. Activity is assigned using the catalog information saved with the report. Geoportal-wide totals can include resources not included in the member report.',
   },
   discovery: {
     source:
-      'Recorded searches and their saved query, view, constraints, and zero-results flag. Export dates are recorded with each snapshot.',
+      'Saved searches, including search terms, filters, results view, and whether the displayed page had any results.',
     grouping:
-      'Top 50 searches group all recorded searches by trimmed, non-empty query text, preserving case and combining filters/views. Zero-result rankings show up to 100 terms subject to the period’s query disclosure policy, ordered by count then query using database collation. Facets count distinct searches per category across inclusion, exclusion, and legacy filter formats.',
+      'The top 50 search terms combine searches with the same text, including searches using different filters or views. Capitalization is preserved and spaces at the beginning and end are ignored. Up to 100 terms without results are shown, subject to the reporting period’s privacy rules. Filter counts measure searches using each category, not clicks on filter controls; categories can overlap.',
     limits:
-      'Expand recorded search context to inspect saved filters, pagination, and result totals. Plain query links repeat text only; context links repeat the exported parameters. The historical zero-result flag can include an empty page despite a positive total. Facet counts describe filters present in searches, not clicks, and categories overlap. Map bounds and year ranges are included.',
+      'A search with no displayed results does not necessarily indicate a collection gap: filters or the selected results page may explain it. Expand the saved search details before drawing conclusions. Search-term links repeat only the words; links with saved settings also apply the recorded filters and page settings.',
   },
   clients: {
     source:
-      'Daily API request rollups plus searches and interaction events, with export dates recorded per snapshot. User-agent evidence comes from retained request logs; July raw request logs had expired.',
+      'Saved daily service-request totals, searches, and clicks. Application-identification details come from retained request logs; those detailed logs are no longer available for July.',
     grouping:
-      'Client names and channels are caller-declared. API requests, searches, and interactions are counted separately. Endpoint categories classify routes; MCP requests do not measure tool invocations, and OGC requests are not automatically QGIS.',
+      'Application names and access methods are supplied by the applications themselves. Service requests, searches, and clicks are separate measures. Requests to AI-tool connections (MCP) are not counts of completed tool actions. Requests to geospatial services (OGC) do not identify which mapping application was used.',
     limits:
-      'The published periods contain no recorded API key IDs, so per-key attribution is unavailable. Missing client names are labeled Not declared. Missing July user-agent evidence is unavailable, not zero.',
+      'The published periods contain no recorded API key identifiers, so requests cannot be assigned to individual access keys. “Not declared” means the application did not identify itself. Missing historical detail is unavailable, not zero.',
   },
   platform: {
     source:
-      'Monthly API request-log aggregates, using requested-at timestamps and response times.',
+      'Saved service-request records, including request times, response times, and errors.',
     grouping:
-      'Requests group by route and UTC date. The monthly mix separates API docs, Turnstile status checks, analytics event capture, and other routes. Peak-day categories use the busiest date. Server errors are HTTP status 500 or higher.',
+      'Requests are grouped by service address and day in UTC. Categories include API documentation, security checks, activity recording, and other services. The busiest-day breakdown uses the date with the most requests. Server errors are responses with HTTP status 500 or higher.',
     limits:
-      'Includes automated traffic and health probes, not just visitors. Response percentiles summarize logged requests. Endpoint categories differ from the broader route families in Clients & API keys.',
+      'Traffic includes automated requests and system checks, not just visits. Response-time statistics describe the requests that were recorded. Service categories here differ from the broader categories on Applications & API access.',
   },
 };
 
@@ -92,10 +92,10 @@ export function ReportSources({
       <section
         className="analytics-panel analytics-report-sources"
         id="report-sources"
-        aria-label="Sources and grouping"
+        aria-label="About this report"
       >
         <ReportPanelHeader
-          title="Sources and grouping"
+          title="About this report"
           icon={BookOpen}
           level={2}
         />
@@ -104,7 +104,7 @@ export function ReportSources({
           {report === 'comparison'
             ? comparisonLabel
             : (period ?? `${month} 1–31, 2026`)}{' '}
-          (UTC). Static aggregate snapshots, not live traffic.
+          (UTC). Saved report data, not live activity.
         </p>
         {report === 'content' && (
           <p>
@@ -125,16 +125,14 @@ export function ReportSources({
         )}
         <div className="analytics-sources-table-wrap">
           <table className="analytics-sources-table">
-            <caption className="sr-only">
-              Sources and grouping definitions
-            </caption>
+            <caption className="sr-only">About this report definitions</caption>
             <tbody>
               <tr>
-                <th scope="row">Source</th>
+                <th scope="row">Data used</th>
                 <td>{info.source}</td>
               </tr>
               <tr>
-                <th scope="row">Grouping</th>
+                <th scope="row">How it is counted</th>
                 <td>{info.grouping}</td>
               </tr>
               <tr>
@@ -151,7 +149,7 @@ export function ReportSources({
               href={`/analytics-reports/${archive.id}/${archive.revision}/tables.zip`}
               download
             >
-              Download aggregate report (CSV and JSON)
+              Download report data (CSV and JSON)
             </a>
           </p>
         )}

@@ -78,7 +78,7 @@ describe(
       ).not.toBeNull();
       expect(
         screen.getByRole('link', {
-          name: 'Download aggregate report (CSV and JSON)',
+          name: 'Download report data (CSV and JSON)',
         })
       ).toHaveAttribute('href', expect.stringContaining('/2026-09/'));
     });

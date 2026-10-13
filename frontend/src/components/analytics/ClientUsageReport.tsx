@@ -49,30 +49,28 @@ export function ClientUsageReport({ month }: { month: string }) {
       <aside
         className="analytics-panel analytics-client-coverage-note"
         role="note"
-        aria-label="Historical attribution gaps"
+        aria-label="Missing application activity"
       >
         <ReportPanelHeader
-          title="Historical attribution is incomplete"
+          title="Some application activity is missing"
           icon={Activity}
           level={2}
         />
         <p>
-          These snapshots cannot measure total Geoportal usage by API key.
-          Requests using the configured unlimited Geoportal key could bypass
-          usage logging, and many recorded requests omitted client identity
-          headers.
+          These records do not show all Geoportal use by application or access
+          key. Some requests from the Geoportal website were not logged, and
+          many recorded requests did not identify the application making them.
         </p>
         <p>
-          “Not declared” means no client label was recorded—not anonymous access
-          or a specific application. Missing requests are absent from these
-          totals. The small declared SSR count is not the total number of
-          Geoportal server requests.
+          “Not declared” means the application was not identified; it does not
+          mean anonymous use. Missing requests are not included in these totals.
+          The row labeled SSR covers only identified server requests, not all
+          activity from the Geoportal website.
         </p>
         <p>
-          Client names and channels are caller-supplied labels, separate from
-          verified API-key identity. The logging correction applies to newly
-          collected data after deployment; it does not repair these historical
-          snapshots.
+          Application names are self-reported, not verified identities.
+          Improvements to activity recording affect future data; they do not
+          fill gaps in these historical reports.
         </p>
       </aside>
       <div className="analytics-client-highlights">
@@ -87,12 +85,12 @@ export function ClientUsageReport({ month }: { month: string }) {
         <article className="analytics-panel analytics-comparison-panel">
           <h2>
             <Users aria-hidden="true" />
-            Requests with a client name
+            Requests identifying an application
           </h2>
           <strong>{number.format(namedRequests)}</strong>
           <p>
-            {((namedRequests / requests) * 100).toFixed(2)}% attribution
-            coverage
+            {((namedRequests / requests) * 100).toFixed(2)}% of recorded
+            requests
           </p>
         </article>
         <article className="analytics-panel analytics-comparison-panel">
@@ -101,12 +99,12 @@ export function ClientUsageReport({ month }: { month: string }) {
             Known Geoportal API key
           </h2>
           <strong>#129</strong>
-          <p>Production frontend BFF · unlimited</p>
+          <p>Geoportal website · unlimited access</p>
         </article>
       </div>
       <article className="analytics-panel analytics-comparison-panel">
         <ReportPanelHeader
-          title="Declared clients and channels"
+          title="Reported applications and access methods"
           icon={Users}
           level={2}
         ></ReportPanelHeader>
@@ -122,8 +120,8 @@ export function ClientUsageReport({ month }: { month: string }) {
             </caption>
             <thead>
               <tr>
-                <th scope="col">Client name</th>
-                <th scope="col">Channel</th>
+                <th scope="col">Application name</th>
+                <th scope="col">Access method</th>
                 <th scope="col">API requests</th>
                 <th scope="col">Request share</th>
                 <th scope="col">Tracked searches</th>
@@ -145,16 +143,15 @@ export function ClientUsageReport({ month }: { month: string }) {
           </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
-          Client names and channels are declared by callers. “Not declared”
-          means the log has no client identity; it does not identify a
-          particular application. API requests, tracked searches, and
-          interactions are separate measures. A single API request can carry
-          multiple events, and most HTTP requests have no declared client.
+          Applications supply their own names and access methods. “Not declared”
+          means that information was not recorded. Requests, searches, and
+          interactions are separate measures: one request can record several
+          actions. Most requests do not identify an application.
         </p>
       </article>
       <article className="analytics-panel analytics-comparison-panel">
         <ReportPanelHeader
-          title="API key attribution"
+          title="Requests linked to access keys"
           icon={KeyRound}
           level={2}
         />
@@ -172,7 +169,7 @@ export function ClientUsageReport({ month }: { month: string }) {
             </thead>
             <tbody>
               <tr>
-                <th scope="row">#129 · Production frontend BFF</th>
+                <th scope="row">#129 · Geoportal website</th>
                 <td>Unlimited Geoportal access</td>
                 <td>Not recorded</td>
               </tr>
@@ -180,10 +177,10 @@ export function ClientUsageReport({ month }: { month: string }) {
           </table>
         </div>
         <p className="analytics-comparison-note">
-          Production verification on October 12, 2026 matched the configured BFF
-          credential to active key #129. BFF key use is known, even though its
-          unlimited-access path skipped request logging. Its missing request
-          count is not zero and is not included in the recorded totals below.
+          A check on October 12, 2026 confirmed that the Geoportal website uses
+          access key #129. Requests using this unlimited-access key were not
+          logged. Its request count is therefore unknown, not zero, and is
+          absent from the totals below.
         </p>
         <div
           className="analytics-comparison-scroll"
@@ -214,15 +211,14 @@ export function ClientUsageReport({ month }: { month: string }) {
           </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
-          These recorded-request totals do not include the omitted BFF requests.
-          “Not declared” identifies missing caller labels and is not a
-          substitute for BFF usage. Key values and hashes are never included in
-          this report.
+          These totals exclude the unrecorded website requests. The “Not
+          declared” category cannot be used to estimate that missing activity.
+          This report does not expose access-key credentials.
         </p>
       </article>
       <article className="analytics-panel analytics-comparison-panel">
         <ReportPanelHeader
-          title="MCP and QGIS signals"
+          title="AI-tool and mapping-application activity"
           icon={Network}
           level={2}
         />
@@ -245,17 +241,19 @@ export function ClientUsageReport({ month }: { month: string }) {
             </thead>
             <tbody>
               <tr>
-                <th scope="row">MCP endpoint traffic</th>
+                <th scope="row">AI-tool connection requests (MCP)</th>
                 <td>{number.format(mcpRequests)}</td>
-                <td>Logged HTTP requests to MCP routes</td>
+                <td>Recorded requests to the AI-tool connection service</td>
               </tr>
               <tr>
-                <th scope="row">Declared QGIS client</th>
+                <th scope="row">Requests identifying themselves as QGIS</th>
                 <td>{number.format(qgisDeclared)}</td>
-                <td>Client name qgis-plugin or channel qgis</td>
+                <td>Requests labeled as QGIS by the application</td>
               </tr>
               <tr>
-                <th scope="row">QGIS user-agent match</th>
+                <th scope="row">
+                  Requests with QGIS in their software identifier
+                </th>
                 <td>
                   {snapshot.qgisUserAgentRequests === null
                     ? 'Not available'
@@ -264,29 +262,26 @@ export function ClientUsageReport({ month }: { month: string }) {
                 <td>
                   {snapshot.qgisUserAgentRequests === null
                     ? 'July raw request logs are no longer retained'
-                    : 'Raw requests with QGIS in the user-agent string'}
+                    : 'Requests whose software identification includes QGIS'}
                 </td>
               </tr>
             </tbody>
           </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
-          These signals can overlap with declared clients. MCP endpoint requests
-          are not a count of successful tool calls or WebSocket messages. QGIS
-          can use OGC or other endpoints without declaring its identity. Zero
-          matching signatures does not establish zero QGIS usage.
+          These counts can overlap with the application table above. Model
+          Context Protocol (MCP) connects AI tools to the service; its request
+          count does not measure completed tool actions. QGIS is a mapping
+          application and can access the service without identifying itself. No
+          matching records does not prove that QGIS was unused.
         </p>
       </article>
       <article className="analytics-panel analytics-comparison-panel">
-        <ReportPanelHeader
-          title="API request surfaces"
-          icon={Server}
-          level={2}
-        />
+        <ReportPanelHeader title="Services requested" icon={Server} level={2} />
         <div
           className="analytics-comparison-scroll"
           role="region"
-          aria-label="API request surfaces table"
+          aria-label="Services requested table"
           tabIndex={0}
         >
           <AnalyticsTable className="analytics-comparison-table">
@@ -295,7 +290,7 @@ export function ClientUsageReport({ month }: { month: string }) {
             </caption>
             <thead>
               <tr>
-                <th scope="col">Endpoint category</th>
+                <th scope="col">Service category</th>
                 <th scope="col">Requests</th>
                 <th scope="col">Share</th>
               </tr>
@@ -312,10 +307,10 @@ export function ClientUsageReport({ month }: { month: string }) {
           </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
-          Endpoint categories explain which API surfaces were requested; they do
-          not identify the calling application. OGC traffic may come from QGIS,
-          browsers, or other GIS clients. Each logged request belongs to one
-          category.
+          These categories describe which service was requested, not which
+          application made the request. Open Geospatial Consortium (OGC)
+          services can be used by QGIS, web browsers, or other mapping software.
+          Each recorded request belongs to one category.
         </p>
       </article>
       <p className="analytics-comparison-note">
@@ -327,10 +322,10 @@ export function ClientUsageReport({ month }: { month: string }) {
             : (monthly as Record<string, { summary: { exportedAt: string } }>)[
                 month
               ].summary.exportedAt}
-        . Request figures use retained daily rollups covering the complete
-        selected period and reconcile with the dashboard totals. Search and
-        interaction counts use their respective event records. Available
-        user-agent matching uses the retained raw request logs.
+        . Request figures use saved daily counts for the selected period and
+        match the dashboard totals. Searches and interactions are counted
+        separately. Software identification is available only where detailed
+        request records were retained.
       </p>
     </section>
   );

@@ -142,7 +142,9 @@ it('shows access rankings independently and labels unavailable audience measures
   expect(screen.getByText('Outlinked item')).toBeInTheDocument();
   expect(screen.getByText('Downloaded item')).toBeInTheDocument();
   expect(
-    screen.getByRole('heading', { name: 'Most downloaded resources' })
+    screen.getByRole('heading', {
+      name: 'Resources with the most download clicks',
+    })
   ).toBeInTheDocument();
   rerender(<RuntimeReportView report={accessReport} active="overview" />);
   expect(screen.getByText('Unique Visitors: unavailable.')).toBeInTheDocument();

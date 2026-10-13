@@ -12,8 +12,8 @@ describe('Client usage report', () => {
   it('shows declared clients separately from endpoint signals and missing key attribution', () => {
     render(<ClientUsageReport month="2026-08" />);
     expect(
-      screen.getByRole('note', { name: 'Historical attribution gaps' })
-    ).toHaveTextContent('Missing requests are absent from these totals');
+      screen.getByRole('note', { name: 'Missing application activity' })
+    ).toHaveTextContent('Missing requests are not included in these totals');
     const clients = screen.getByRole('table', {
       name: 'August 2026 declared client usage',
     });
@@ -21,19 +21,21 @@ describe('Client usage report', () => {
     expect(web).toHaveTextContent('644');
     expect(web).toHaveTextContent('7,545');
     expect(web).toHaveTextContent('21,753');
-    expect(screen.getByText('0.14% attribution coverage')).toBeInTheDocument();
+    expect(screen.getByText('0.14% of recorded requests')).toBeInTheDocument();
     const signals = screen.getByRole('table', {
       name: /MCP and QGIS request signals/,
     });
     expect(
-      within(signals).getByRole('row', { name: /MCP endpoint traffic/ })
+      within(signals).getByRole('row', { name: /AI-tool connection requests/ })
     ).toHaveTextContent('43');
     expect(
-      within(signals).getByRole('row', { name: /QGIS user-agent match/ })
+      within(signals).getByRole('row', {
+        name: /Requests with QGIS in their software identifier/,
+      })
     ).toHaveTextContent('0');
     expect(
       screen.getByRole('table', { name: 'Known Geoportal key usage' })
-    ).toHaveTextContent('#129 · Production frontend BFF');
+    ).toHaveTextContent('#129 · Geoportal website');
     expect(
       screen.getByRole('table', { name: 'Known Geoportal key usage' })
     ).toHaveTextContent('Not recorded');
@@ -56,7 +58,9 @@ describe('Client usage report', () => {
       name: /MCP and QGIS request signals/,
     });
     expect(
-      within(signals).getByRole('row', { name: /QGIS user-agent match/ })
+      within(signals).getByRole('row', {
+        name: /Requests with QGIS in their software identifier/,
+      })
     ).toHaveTextContent('Not available');
     expect(screen.getByText('codex-research-workbook')).toBeInTheDocument();
     expect(screen.queryByText('geoportal-ssr')).not.toBeInTheDocument();
@@ -114,7 +118,9 @@ it('shows full-period attribution and unavailable QGIS evidence in the shared ta
     name: /MCP and QGIS request signals/,
   });
   expect(
-    within(signals).getByRole('row', { name: /QGIS user-agent match/ })
+    within(signals).getByRole('row', {
+      name: /Requests with QGIS in their software identifier/,
+    })
   ).toHaveTextContent('Not available');
   const clients = screen.getByRole('table', {
     name: 'All time declared client usage',
