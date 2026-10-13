@@ -4617,9 +4617,9 @@ h3.analytics-widget-heading {
   letter-spacing: -0.04em;
 }
 .analytics-brief-institution-icon {
-  width: clamp(3rem, 8vw, 4.5rem);
-  height: clamp(3rem, 8vw, 4.5rem);
-  transform: translateY(-20%);
+  width: 60px;
+  height: 60px;
+  transform: translateY(-10%);
   flex: 0 0 auto;
   background: var(--analytics-brand);
   -webkit-mask: var(--institution-icon) center / contain no-repeat;
@@ -4820,6 +4820,10 @@ h3.analytics-widget-heading {
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
+  .analytics-brief-institution-icon {
+    width: 42px;
+    height: 42px;
+  }
   .analytics-brief-lockup {
     gap: 14.7px;
   }
@@ -4873,8 +4877,8 @@ h3.analytics-widget-heading {
     line-height: 7.31mm;
   }
   .analytics-brief-institution-icon {
-    width: 13mm;
-    height: 13mm;
+    width: 10.2mm;
+    height: 10.2mm;
     padding: 0;
   }
   @page analyticsBrief {
