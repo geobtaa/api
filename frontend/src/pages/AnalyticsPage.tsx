@@ -1,3 +1,10 @@
+import manifest from '../../private-analytics-reports/manifest.json';
+import { ReportFindings } from '../components/analytics/ReportFindings';
+import { CampusBrief } from '../components/analytics/CampusBrief';
+import {
+  buildFindings,
+  previousCalendarMonth,
+} from '../utils/analyticsFindings';
 import { MemberPerformanceReport } from '../components/analytics/MemberPerformanceReport';
 import { useAnalyticsData } from '../components/analytics/AnalyticsData';
 
@@ -225,7 +232,7 @@ export function AnalyticsPage() {
     : hasMonthlySnapshot
       ? selectedSnapshot.dailyActivity.map((row, index) => ({
           ...row,
-          day: `Sep ${index + 1}`,
+          day: `${monthShort} ${index + 1}`,
         }))
       : isAugust
         ? augustDailyActivity.map((row, index) => ({
@@ -542,6 +549,71 @@ export function AnalyticsPage() {
   const peakMemberDay = selectedDailyActivity.reduce((peak, day) =>
     day.views > peak.views ? day : peak
   );
+
+  const previousPeriod = previousCalendarMonth(selectedPeriod);
+  const previousSnapshot = previousPeriod
+    ? monthlySnapshots[previousPeriod]
+    : undefined;
+  const previousSummary =
+    previousSnapshot?.summary ??
+    (previousPeriod === '2026-08'
+      ? AUGUST_2026_SUMMARY
+      : previousPeriod === '2026-07'
+        ? JULY_2026_SUMMARY
+        : undefined);
+  const previousMembers =
+    previousSnapshot?.members ??
+    (previousPeriod === '2026-08'
+      ? augustReports.augustMembers
+      : previousPeriod === '2026-07'
+        ? julyMemberPerformance
+        : undefined);
+  const previousMemberSummary =
+    previousSnapshot?.memberSummary ??
+    (previousPeriod === '2026-08'
+      ? augustReports.augustMemberSummary
+      : previousPeriod === '2026-07'
+        ? julyMEMBER_JULY_SUMMARY
+        : undefined);
+  const previousMember = selectedMember
+    ? previousMembers?.find((member) => member.code === selectedMember.code)
+    : previousMemberSummary;
+  const archive = manifest.periods.find((entry) => entry.id === selectedPeriod);
+  const briefParams = new URLSearchParams(searchParams);
+  briefParams.set('month', selectedPeriod);
+  briefParams.set('brief', '1');
+  const reportParams = new URLSearchParams(briefParams);
+  reportParams.delete('brief');
+  const memberReportHref = `/analytics/members?${reportParams}`;
+  if (
+    activeReport === 'members' &&
+    memberGrouping === 'code' &&
+    searchParams.get('brief') === '1' &&
+    !unavailableMember &&
+    archive
+  ) {
+    return (
+      <CampusBrief
+        name={selectedMember?.name ?? 'All recorded member contributions'}
+        periodLabel={periodRange}
+        inventoryDate={inventoryDate}
+        counts={{
+          resourceViews: selectedResourceViews,
+          downloadClicks: selectedDownloadClicks,
+          sourceClicks: selectedSourceClicks,
+          impressions: selectedImpressions,
+        }}
+        previous={previousMember}
+        previousLabel={
+          previousPeriod ? monthLabel(previousPeriod, true) : undefined
+        }
+        topContent={selectedTopContent ?? { viewed: [], downloaded: [] }}
+        daily={selectedDailyActivity}
+        report={archive}
+        reportHref={memberReportHref}
+      />
+    );
+  }
 
   if (
     isAllTime &&
@@ -862,6 +934,47 @@ export function AnalyticsPage() {
 
         <ReportContentLayout report={report.label}>
           <div className="analytics-shell analytics-content">
+            {activeReport === 'overview' && (
+              <ReportFindings
+                findings={buildFindings({
+                  period: selectedPeriod,
+                  summary,
+                  previous: previousSummary,
+                  members: memberPerformance,
+                  previousMembers,
+                  leader: isAllTime
+                    ? allTimeData.resources[0]
+                    : topResources[0],
+                })}
+                periodLabel={periodRange}
+                cumulative={isAllTime}
+              />
+            )}
+            {activeReport === 'members' &&
+              memberGrouping === 'code' &&
+              !unavailableMember &&
+              archive && (
+                <div className="analytics-brief-invitation">
+                  <div>
+                    <p className="analytics-eyebrow">
+                      Bring the story to your next meeting
+                    </p>
+                    <h2>
+                      {selectedMember
+                        ? `${selectedMember.shortName} at a glance`
+                        : 'Member contributions at a glance'}
+                    </h2>
+                    <p>
+                      A printable brief with activity, leading resources and
+                      reporting context.
+                    </p>
+                  </div>
+                  <Link to={`/analytics/members?${briefParams}`}>
+                    Open {selectedMember ? 'campus' : 'member'} brief{' '}
+                    <ExternalLink size={17} aria-hidden="true" />
+                  </Link>
+                </div>
+              )}
             {activeReport === 'comparison' && <MonthlyComparison />}
             {activeReport === 'clients' && (
               <ClientUsageReport month={selectedPeriod} />

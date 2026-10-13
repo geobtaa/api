@@ -25,6 +25,7 @@ export function ReportProvenance({
   return (
     <section
       className="analytics-panel analytics-report-sources"
+      id="report-provenance"
       aria-label="Data provenance and coverage"
     >
       <ReportPanelHeader

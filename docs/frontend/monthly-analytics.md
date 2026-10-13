@@ -842,3 +842,40 @@ The evidence distinguishes reproduced inputs from independently verified source
 completeness. July and cumulative reports retain their incomplete coverage label.
 See [report evidence packets](analytics-runtime-reporting.md#report-evidence-packets)
 for scope, definitions, limitations and local regeneration.
+
+### Findings and meeting briefs
+
+Overview opens with three descriptive findings: a meaningful activity change, a
+resource from the saved ranking, and a discovery opportunity. Every card links to
+the corresponding period's comparison, resource ranking or saved zero-result
+context. A link beside the findings leads to the aggregate evidence and coverage.
+
+The change calculation compares daily rates to account for month length. Both
+months must contain at least 100 records, differ by at least 50 records, and have
+an absolute daily-rate change of at least 5%. The largest eligible change among
+searches, resource views and download clicks is shown. These thresholds are
+editorial rules, not significance tests or causal explanations. When eligible,
+a member link identifies the largest same-direction period-total change among
+recorded streams with at least 100 records in the earlier month and a difference
+of 50. Captured attribution can change, and these member counts do not decompose
+all portal traffic. Missing previous calendar months are never treated as zero.
+
+Resource headlines require 10 recorded views. Discovery headlines require at
+least 100 searches and 10 searches flagged as displaying no results. The flag can
+reflect filters or pagination; it does not itself establish missing collection
+content. Sparse data and cumulative periods use explicit fallback copy.
+
+In Members, select the contribution grouping, reporting period and institution,
+then choose **Open campus brief**. The `brief=1` view preserves the selected period
+and institution in its URL. It provides four activity measures, raw count changes
+from the prior calendar month when available, daily attention, and the first three
+view/download leaders from the same saved ranking used by the member report.
+All recorded contributions can also be summarized together. Unavailable campuses
+and Provider grouping do not offer a brief.
+
+**Copy brief link** retains the selected context; recipients still need analytics
+access. **Print / save PDF** invokes the browser print dialog. Dedicated print
+styles remove controls and arrange the brief for a portrait page, retaining the
+period, catalog attribution date, metric limitations and aggregate report revision.
+Printer paper size, scaling and browser headers/footers can affect pagination.
+Aggregate evidence does not certify the brief's member attribution or rankings.

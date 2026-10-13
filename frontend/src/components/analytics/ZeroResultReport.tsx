@@ -69,7 +69,10 @@ export function ZeroResultReport({
     );
   const maximum = Math.max(1, ...rows.map((row) => row.count));
   return (
-    <section className="analytics-panel analytics-zero-results">
+    <section
+      id="zero-results"
+      className="analytics-panel analytics-zero-results"
+    >
       <ReportPanelHeader title="Zero-result searches" icon={Search} />
       <div className="analytics-zero-results-body">
         <div className="analytics-zero-summary">
