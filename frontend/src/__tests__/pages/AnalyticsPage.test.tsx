@@ -417,7 +417,11 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(screen.getAllByText('10,850').length).toBeGreaterThan(0);
     const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
     fireEvent.click(within(nav).getByRole('link', { name: 'Overview' }));
-    expect(screen.getByText('49,258')).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText('Activity context')).getByText(
+        '49,258 requests'
+      )
+    ).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('link', { name: 'Searches' }));
     expect(screen.getByRole('link', { name: 'wetlands' })).toBeInTheDocument();
     expect(screen.getByText(/5,744 of 7,545/)).toBeInTheDocument();
@@ -878,7 +882,11 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       highlights.textContent?.indexOf('Source-site clicks') ?? 0
     );
     const audience = screen.getByLabelText('Audience and discovery coverage');
-    expect(within(audience).getByText('13,020')).toBeInTheDocument();
+    expect(within(highlights).getByText('13,020')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('heading', { name: 'Tracked visits', exact: true })
+    ).toHaveLength(1);
+    expect(within(audience).queryByText('13,020')).not.toBeInTheDocument();
     expect(within(audience).queryByText('Unavailable')).not.toBeInTheDocument();
     expect(
       within(audience).getByText(/71 records lack a visit token/)
