@@ -19,35 +19,37 @@ describe('report provenance', () => {
         />
       );
       const panel = within(
-        screen.getByRole('region', { name: 'Data provenance and coverage' })
+        screen.getByRole('region', { name: 'Understanding these numbers' })
       );
       expect(
         panel.getByText(
           entry.complete
-            ? 'Recorded source coverage is complete.'
-            : 'Historical coverage is partial.'
+            ? 'Source records cover the full reporting period.'
+            : 'Some historical source records are missing.'
         )
       ).toBeInTheDocument();
       const details = panel
-        .getByText('View verification details')
+        .getByText('How these numbers were checked')
         .closest('details');
       expect(details).not.toHaveAttribute('open');
       details?.setAttribute('open', '');
       expect(
-        panel.getByRole('link', { name: 'Download report evidence packet' })
+        panel.getByRole('link', {
+          name: 'Download supporting records and checks',
+        })
       ).toHaveAttribute(
         'href',
         `/analytics-reports/${entry.id}/${entry.revision}/evidence-${entry.evidence.checksum}.zip`
       );
-      expect(
-        panel.getByText(/Independent baseline evidence/)
-      ).toHaveTextContent('not verified');
-      expect(panel.getByText(/detailed rankings/)).toHaveTextContent(
-        'require separate evidence'
+      expect(panel.getByText(/They do not compare/)).toHaveTextContent(
+        'do not compare'
       );
-      expect(
-        panel.getByText(/Daily totals reconcile with preserved records/)
-      ).toHaveTextContent('6 aggregate metrics');
+      expect(panel.getByText(/Resource rankings/)).toHaveTextContent(
+        'need their own supporting records and checks'
+      );
+      expect(panel.getByText(/The daily counts add up/)).toHaveTextContent(
+        '6 measures'
+      );
       expect((await axe(container)).violations).toEqual([]);
     }
   );
@@ -61,14 +63,16 @@ describe('report provenance', () => {
       />
     );
     screen
-      .getByText('View verification details')
+      .getByText('How these numbers were checked')
       .closest('details')
       ?.setAttribute('open', '');
     expect(
-      screen.getByRole('link', { name: 'Download report evidence packet' })
+      screen.getByRole('link', {
+        name: 'Download supporting records and checks',
+      })
     ).toHaveAttribute('href', expect.stringContaining('/all/'));
     expect(
-      screen.getByText('Historical coverage is partial.')
+      screen.getByText('Some historical source records are missing.')
     ).toBeInTheDocument();
   });
 
@@ -84,11 +88,16 @@ describe('report provenance', () => {
       />
     );
     expect(
-      screen.queryByText(/Daily totals reconcile with preserved records/)
+      screen.getByText(/September 1, 2026 through September 30, 2026/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/The daily counts add up/)
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(
-      screen.getByText('An evidence packet is not available for this revision.')
+      screen.getByText(
+        'Supporting records are not available to download for this report version.'
+      )
     ).toBeInTheDocument();
   });
 });

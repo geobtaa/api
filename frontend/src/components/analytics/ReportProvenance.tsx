@@ -22,70 +22,105 @@ export function ReportProvenance({
   report: ProvenanceReport;
   downloadUrl?: string;
 }) {
+  const dateFormat = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  const firstDay = dateFormat.format(new Date(`${report.start}T00:00:00Z`));
+  const lastDay = dateFormat.format(
+    new Date(new Date(`${report.endExclusive}T00:00:00Z`).getTime() - 86400000)
+  );
   return (
     <section
       className="analytics-panel analytics-report-sources"
       id="report-provenance"
-      aria-label="Data provenance and coverage"
+      aria-label="Understanding these numbers"
     >
       <ReportPanelHeader
-        title="Data provenance and coverage"
+        title="Understanding these numbers"
         icon={BookOpen}
         level={2}
       />
       <p>
         <strong>
           {report.complete
-            ? 'Recorded source coverage is complete.'
-            : 'Historical coverage is partial.'}
+            ? 'Source records cover the full reporting period.'
+            : 'Some historical source records are missing.'}
         </strong>{' '}
-        {report.evidence && 'Totals reconcile with preserved records; '}
+        {report.evidence && 'Report totals match the records we have saved. '}
         {report.complete
-          ? 'coverage describes the records available, not proof that every interaction was captured.'
-          : 'some original source evidence is unavailable.'}
+          ? 'This does not mean every use of the Geoportal was recorded.'
+          : 'We cannot fully verify activity for the portions of the period with missing records.'}
       </p>
       <details>
-        <summary>View verification details</summary>
+        <summary>How these numbers were checked</summary>
         <p>
-          UTC reporting window: {report.start} inclusive to{' '}
-          {report.endExclusive} exclusive.
+          <strong>Reporting period:</strong> {firstDay} through {lastDay},
+          including both dates. Days are measured in Coordinated Universal Time
+          (UTC), so activity near midnight may fall on a different date than it
+          does locally.
         </p>
         {report.evidence && (
           <p>
-            Daily totals reconcile with preserved records for{' '}
-            {report.evidence.reconciledMetrics.length} aggregate metrics.{' '}
-            Preserved-input replay:{' '}
+            <strong>What we checked:</strong> The daily counts add up to the
+            report totals for {report.evidence.reconciledMetrics.length}{' '}
+            measures.{' '}
             {report.evidence.preservedInputReplay === 'passed'
-              ? 'verified'
-              : 'not verified for this packet'}
-            .
+              ? 'Recalculating those totals from the saved source records produced the same results.'
+              : 'Recalculation from the saved source records has not been verified for this report.'}
           </p>
         )}
         <p>
-          Independent baseline evidence and deployed preservation are not
-          verified by this packet. These checks cover the aggregate report;
-          detailed rankings, member attribution, client classifications and
-          supplemental dashboard data require separate evidence.
+          <strong>What these checks do not establish:</strong> They do not
+          compare the report with an independent record of activity or confirm
+          that the live system is saving all the records needed for future
+          checks. They apply to the overall totals. Resource rankings, activity
+          assigned to institutions, categories of API users and applications,
+          and other dashboard figures need their own supporting records and
+          checks.
         </p>
         <p>
-          Counts describe recorded activity. Download clicks do not confirm file
-          transfers. Tracked visits are not unique people; the aggregate
-          download estimates visits from merged sketches, so daily estimates
-          must not be added. Catalog attribution uses captured metadata and may
-          differ from month-end inventory.
+          <strong>How to interpret the figures:</strong>
         </p>
-        <p style={{ overflowWrap: 'anywhere' }}>
-          Report revision: <code>{report.revision}</code>
-        </p>
-        {report.evidence && (
+        <ul>
+          <li>
+            These counts describe recorded activity, not the total number of
+            people served.
+          </li>
+          <li>
+            A download click shows that someone selected a download link; it
+            does not confirm that a file was received.
+          </li>
+          <li>
+            Visits are estimates, not counts of individual people. Use the
+            estimate for the full reporting period in the downloaded report;
+            adding daily estimates can count the same visit more than once.
+          </li>
+          <li>
+            Resources are assigned to institutions using the catalog information
+            saved with the report. Those assignments may differ from the catalog
+            at the end of the month.
+          </li>
+        </ul>
+        <details>
+          <summary>Technical identifiers for this report</summary>
+          <p>
+            These identifiers help technical staff find the exact report and
+            supporting files used for a review. They can reveal whether the
+            files have changed, but do not prove the figures are accurate.
+          </p>
           <p style={{ overflowWrap: 'anywhere' }}>
-            Evidence checksum: <code>{report.evidence.checksum}</code>
+            Report version: <code>{report.revision}</code>
           </p>
-        )}
-        <p>
-          Checksums identify content and detect changes. They are not
-          independent attestations.
-        </p>
+          {report.evidence && (
+            <p style={{ overflowWrap: 'anywhere' }}>
+              Supporting-file fingerprint (checksum):{' '}
+              <code>{report.evidence.checksum}</code>
+            </p>
+          )}
+        </details>
         {downloadUrl ? (
           <p className="analytics-source-download">
             <a
@@ -93,11 +128,14 @@ export function ReportProvenance({
               href={downloadUrl}
               download
             >
-              Download report evidence packet
+              Download supporting records and checks
             </a>
           </p>
         ) : (
-          <p>An evidence packet is not available for this revision.</p>
+          <p>
+            Supporting records are not available to download for this report
+            version.
+          </p>
         )}
       </details>
     </section>
