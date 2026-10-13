@@ -1857,7 +1857,15 @@ export function AnalyticsPage() {
                     className="analytics-panel analytics-reliability-card"
                     data-nav-label="Reliability summary"
                   >
-                    <h3>Reliability summary</h3>
+                    <ReportPanelHeader
+                      title="Reliability summary"
+                      icon={CircleGauge}
+                    >
+                      <span className="analytics-reliability-badge">
+                        <CheckCircle2 className="h-5 w-5" aria-hidden />
+                        Healthy
+                      </span>
+                    </ReportPanelHeader>
                     <div className="analytics-reliability-top">
                       <div>
                         <MetricHeading icon={CheckCircle2}>
@@ -1865,13 +1873,8 @@ export function AnalyticsPage() {
                         </MetricHeading>
                         <strong>{requestReliability.toFixed(3)}%</strong>
                         <p>
-                          Share of recorded requests without an HTTP 5xx
-                          response
+                          Recorded requests that did not return a server error
                         </p>
-                      </div>
-                      <div className="analytics-reliability-badge">
-                        <CheckCircle2 className="h-5 w-5" aria-hidden />
-                        Healthy
                       </div>
                     </div>
                     <div
