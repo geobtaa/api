@@ -24,12 +24,12 @@ DEFINITIONS = {
 }
 LIMITATIONS = [
     "Reconciliation establishes consistency of recorded data, "
-    "not capture of every real-world interaction.",
+    + "not capture of every real-world interaction.",
     "Coverage is the report's recorded declaration, not an independent certification.",
     "Independent baseline documents and deployed archive durability "
-    "were not verified by this packet.",
+    + "were not verified by this packet.",
     "This packet covers the aggregate report only. Detailed rankings, member attribution, "
-    "client classifications and supplemental dashboard data are outside its verification scope.",
+    + "client classifications and supplemental dashboard data are outside its verification scope.",
     "Catalog attribution uses captured metadata, which need not represent month-end inventory.",
     "Checksums detect changed content; they are not signatures or independent attestations.",
 ]
@@ -167,11 +167,11 @@ def evidence_text(evidence):
         [
             "",
             "Input archive hashes, catalog capture dates, and source-count checks (when supplied) "
-            "are in evidence.json. Original receipts remain private.",
+            + "are in evidence.json. Original receipts remain private.",
             "Checksums use SHA-256 over UTF-8 JSON with sorted keys and compact separators. "
-            "For the report revision omit revision; "
-            "for the evidence checksum omit evidenceChecksum. "
-            "The report checksum includes revision. This packet has no external signature.",
+            + "For the report revision omit revision; "
+            + "for the evidence checksum omit evidenceChecksum. "
+            + "The report checksum includes revision. This packet has no external signature.",
         ]
     )
     return "\n".join(lines) + "\n"

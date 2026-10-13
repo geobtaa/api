@@ -79,7 +79,9 @@ def password_secret() -> str:
 
 
 def password_matches(candidate: str) -> bool:
-    return secrets.compare_digest(digest(candidate), digest(password_secret()))
+    # Compare the configured secret directly; no password digest is stored.
+    # UTF-8 bytes also allow non-ASCII secrets with constant-time comparison.
+    return secrets.compare_digest(candidate.encode(), password_secret().encode())
 
 
 def session_revision() -> str:

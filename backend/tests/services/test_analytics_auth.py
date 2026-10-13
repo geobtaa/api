@@ -90,6 +90,15 @@ def test_wrong_password_denies_access(setup, password):
     assert not any(key.startswith("analytics:session:") for key in store.values)
 
 
+def test_unicode_password_matches_exactly(setup, monkeypatch):
+    client, _ = setup
+    secret = "library-review-password-🔒-é"
+    monkeypatch.setenv("ANALYTICS_PASSWORD", secret)
+    assert login(client, secret).status_code == 200
+    assert login(client, secret + " ").status_code == 401
+    assert login(client, secret.replace("é", "e")).status_code == 401
+
+
 def test_password_rotation_revokes_existing_sessions(setup, monkeypatch):
     client, _ = setup
     login(client)
