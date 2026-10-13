@@ -1,9 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useState, useRef } from 'react';
 import {
   ArrowRight,
-  Mail,
-  CircleCheck,
+  LockKeyhole,
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
@@ -16,10 +14,7 @@ import {
   data,
   redirect,
   useActionData,
-  useLoaderData,
-  type LoaderFunctionArgs,
   useNavigation,
-  useSubmit,
   type ActionFunctionArgs,
 } from 'react-router';
 import { serverFetch } from '../lib/server-api';
@@ -30,31 +25,10 @@ export const meta = () => [
   { title: 'Sign in — BTAA Analytics' },
   { name: 'robots', content: 'noindex, nofollow' },
 ];
-export async function loader({ request }: LoaderFunctionArgs) {
-  let google = false;
-  let unavailable = false;
-  try {
-    const response = await serverFetch('/analytics/auth/options');
-    if (!response.ok) throw new Error('Unavailable');
-    google = (await response.json()).google === true;
-  } catch {
-    unavailable = true;
-  }
-  const failure = new URL(request.url).searchParams.get('error');
-  const error =
-    failure === 'google-denied'
-      ? 'This Google account does not have access. Choose your approved account or contact the project team.'
-      : failure === 'google-cancelled'
-        ? 'Google sign-in was cancelled. You can try again when you’re ready.'
-        : failure === 'google-failed'
-          ? 'Google sign-in could not be completed. Please try again.'
-          : unavailable
-            ? 'Sign-in is temporarily unavailable. Please try again.'
-            : '';
-  return data({ google, unavailable, error }, { headers: analyticsHeaders });
+export function loader() {
+  return data(null, { headers: analyticsHeaders });
 }
 export async function action({ request }: ActionFunctionArgs) {
-  // Require browser same-origin POSTs before forwarding cookies to the API.
   if (
     request.headers.get('origin') !==
     new URL(
@@ -62,153 +36,64 @@ export async function action({ request }: ActionFunctionArgs) {
         process.env.APPLICATION_URL ||
         request.url
     ).origin
-  ) {
+  )
     throw new Response('Invalid request origin', {
       status: 403,
       headers: analyticsHeaders,
     });
-  }
   const form = await request.formData();
   const intent = form.get('intent');
-  if (!['request', 'verify', 'logout', 'google'].includes(String(intent))) {
+  if (intent !== 'password' && intent !== 'logout')
     throw new Response('Invalid action', {
       status: 400,
       headers: analyticsHeaders,
     });
-  }
   let response: Response;
   try {
-    response = await serverFetch(
-      `/analytics/auth/${intent === 'google' ? 'google/start' : intent}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Origin: request.headers.get('origin')!,
-          Cookie: request.headers.get('cookie') ?? '',
-        },
-        body: JSON.stringify(
-          intent === 'request'
-            ? { email: form.get('email') }
-            : { token: form.get('token') }
-        ),
-      }
-    );
+    response = await serverFetch(`/analytics/auth/${intent}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: request.headers.get('origin')!,
+        Cookie: request.headers.get('cookie') ?? '',
+      },
+      body: JSON.stringify(
+        intent === 'password' ? { password: form.get('password') } : {}
+      ),
+    });
   } catch {
     return data(
-      {
-        error: 'Sign-in is temporarily unavailable. Please try again.',
-        message: '',
-      },
+      { error: 'Sign-in is temporarily unavailable. Please try again.' },
       { status: 503, headers: analyticsHeaders }
     );
   }
   if (!response.ok) {
     const error =
-      response.status === 400
-        ? 'This link has expired or has already been used. Request a new link below.'
+      response.status === 401
+        ? 'That password isn’t correct. Please try again.'
         : response.status === 429
-          ? 'Too many requests. Please try again in 15 minutes.'
+          ? 'Too many sign-in attempts. Please try again in 15 minutes.'
           : response.status === 422
-            ? 'Enter a valid email address.'
+            ? 'Enter the analytics password.'
             : 'Sign-in is temporarily unavailable. Please try again.';
+    // Never return the submitted password or backend error details to the page.
     return data(
-      { error, message: '' },
+      { error },
       { status: response.status, headers: analyticsHeaders }
     );
   }
   const headers = new Headers(analyticsHeaders);
   const cookie = response.headers.get('set-cookie');
   if (cookie) headers.set('Set-Cookie', cookie);
-  if (intent === 'google') {
-    const { url } = await response.json();
-    const destination = new URL(url);
-    if (destination.origin !== 'https://accounts.google.com')
-      throw new Response('Invalid sign-in destination', {
-        status: 502,
-        headers: analyticsHeaders,
-      });
-    return redirect(destination.href, { headers });
-  }
-  if (intent === 'verify')
-    return redirect('/analytics?welcome=1', {
-      headers,
-    });
-  if (intent === 'logout') return redirect('/analytics/login', { headers });
-  const delivery = await response.json();
-  return data(
-    {
-      preview: delivery.preview,
-      error: delivery.preview_error || '',
-      message: delivery.preview_error
-        ? ''
-        : delivery.preview
-          ? 'Your email is ready in the local preview. No email was sent.'
-          : 'If this address is approved, a sign-in link will arrive shortly. Check your inbox and spam folder.',
-    },
+  return redirect(
+    intent === 'logout' ? '/analytics/login' : '/analytics?welcome=1',
     { headers }
   );
 }
 
 export default function AnalyticsLogin() {
   const result = useActionData<typeof action>();
-  const options = useLoaderData<typeof loader>();
-  const google = options?.google ?? false;
-  const error = result?.error || options?.error;
   const busy = useNavigation().state !== 'idle';
-  const submit = useSubmit();
-  const verifying = useRef(false);
-  const emailWindow = useRef<Window | null>(null);
-  const [previewUrl, setPreviewUrl] = useState('');
-  useEffect(() => {
-    const mail = result && 'preview' in result ? result.preview : undefined;
-    if (!mail) {
-      if (result) emailWindow.current?.close();
-      setPreviewUrl('');
-      return;
-    }
-    const escape = (value: string) =>
-      value.replace(
-        /[&<>"']/g,
-        (char) =>
-          ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;',
-          })[char]!
-      );
-    const body = escape(mail.body).replace(
-      /http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\/analytics\/login#token=[A-Za-z0-9_-]+/g,
-      (link) => `<a href="${link}" target="_self">${link}</a>`
-    );
-    const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Local email preview</title></head><body style="font-family:system-ui;max-width:760px;margin:48px auto;padding:24px;color:#003c5b"><h1>Local email preview</h1><p>This email was captured locally. No email was sent.</p><hr><p>To: ${escape(mail.to)}</p><h2>${escape(mail.subject)}</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">${body}</pre></body></html>`;
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    setPreviewUrl(url);
-    if (emailWindow.current && !emailWindow.current.closed)
-      emailWindow.current.location.href = url;
-    return () => URL.revokeObjectURL(url);
-  }, [result]);
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.slice(1));
-    const value = params.get('token');
-    if (value && !verifying.current) {
-      verifying.current = true;
-      window.history.replaceState(
-        null,
-        '',
-        window.location.pathname + window.location.search
-      );
-      void submit({ intent: 'verify', token: value }, { method: 'post' });
-    }
-  }, [submit]);
-  const localEmail = result && 'preview' in result ? result.preview : undefined;
-  const localLink = localEmail?.body.match(
-    /http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\/analytics\/login#token=[A-Za-z0-9_-]+/
-  )?.[0];
-  const confirming = verifying.current && !result?.error;
-  const buttonClass = `${primaryCtaClass} min-h-11 justify-center disabled:cursor-wait disabled:opacity-60`;
   return (
     <div className="analytics-page analytics-login flex min-h-screen flex-col bg-gray-50">
       <AnalyticsHeader />
@@ -234,27 +119,15 @@ export default function AnalyticsLogin() {
               id="analytics-login-heading"
               className="text-xl font-semibold text-gray-900"
             >
-              {confirming
-                ? 'Signing you in…'
-                : result?.message
-                  ? 'preview' in result && result.preview
-                    ? 'Your local email is ready'
-                    : 'Check your inbox'
-                  : google
-                    ? 'Sign in with Google'
-                    : 'Sign in with your email'}
+              Enter the analytics password
             </h2>
             <p
-              id="analytics-email-help"
+              id="analytics-password-help"
               className="mb-6 mt-2 text-sm leading-6 text-gray-600"
             >
-              {confirming
-                ? 'Opening the Overview report…'
-                : google
-                  ? 'Choose the Google account associated with your approved email address.'
-                  : 'Enter your approved email address. We’ll send you a secure sign-in link—no password needed.'}
+              Use the password shared with you by the project team.
             </p>
-            {error && (
+            {result?.error && (
               <div
                 role="alert"
                 className="mb-6 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
@@ -263,133 +136,38 @@ export default function AnalyticsLogin() {
                   aria-hidden="true"
                   className="mt-1 h-4 w-4 shrink-0"
                 />
-                <p>{error}</p>
+                <p>{result.error}</p>
               </div>
             )}
-            {result?.message && (
-              <div
-                role="status"
-                className="mb-6 flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 text-sm leading-6 text-gray-700"
+            <Form method="post" aria-busy={busy}>
+              <input type="hidden" name="intent" value="password" />
+              <label
+                htmlFor="analytics-password"
+                className="block text-sm font-medium text-gray-900"
               >
-                <CircleCheck
-                  aria-hidden="true"
-                  className="mt-1 h-4 w-4 shrink-0 text-brand"
-                />
-                <p>{result.message}</p>
-              </div>
-            )}
-            {localEmail && localLink && (
-              <section
-                aria-label="Captured local email"
-                className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-5"
+                Password
+              </label>
+              <input
+                id="analytics-password"
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                maxLength={1024}
+                aria-describedby="analytics-password-help"
+                className="mb-5 mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-3 text-base text-gray-900 focus:border-brand-active focus:outline-none focus:ring-2 focus:ring-brand-active"
+              />
+              <button
+                disabled={busy}
+                className={`${primaryCtaClass} min-h-11 justify-center disabled:cursor-wait disabled:opacity-60`}
               >
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand">
-                  Local email preview
-                </p>
-                <p className="mt-2 text-sm text-gray-700">
-                  To: {localEmail.to}
-                </p>
-                <h3 className="mt-2 font-semibold text-brand">
-                  {localEmail.subject}
-                </h3>
-                <p className="my-3 text-sm text-gray-700">
-                  This email was captured locally. Use the link below to sign
-                  in.
-                </p>
-                <a
-                  href={localLink}
-                  className={buttonClass}
-                  onClick={(event) => {
-                    if (
-                      event.ctrlKey ||
-                      event.metaKey ||
-                      event.shiftKey ||
-                      event.altKey
-                    )
-                      return;
-                    event.preventDefault();
-                    verifying.current = true;
-                    void submit(
-                      {
-                        intent: 'verify',
-                        token: new URLSearchParams(
-                          new URL(localLink).hash.slice(1)
-                        ).get('token')!,
-                      },
-                      { method: 'post' }
-                    );
-                  }}
-                >
-                  Sign in to Overview{' '}
-                  <ArrowRight size={16} aria-hidden="true" />
-                </a>
-              </section>
-            )}
-            {previewUrl && (
-              <a
-                href={previewUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mb-5 block font-medium text-brand-active underline"
-              >
-                Open local email preview
-              </a>
-            )}
-            {options?.unavailable ? null : google && !confirming ? (
-              <Form method="post" reloadDocument>
-                <input type="hidden" name="intent" value="google" />
-                <button disabled={busy} className={buttonClass}>
-                  Continue with Google{' '}
-                  <ArrowRight size={16} aria-hidden="true" />
-                </button>
-              </Form>
-            ) : confirming ? (
-              <p role="status">Signing in…</p>
-            ) : (
-              <Form
-                method="post"
-                onSubmit={() => {
-                  verifying.current = false;
-                  if (
-                    ['localhost', '127.0.0.1', '[::1]'].includes(
-                      window.location.hostname
-                    )
-                  ) {
-                    emailWindow.current = window.open(
-                      'about:blank',
-                      'analytics-email-preview'
-                    );
-                  }
-                }}
-                aria-busy={busy}
-              >
-                <input type="hidden" name="intent" value="request" />
-                <label
-                  htmlFor="analytics-email"
-                  className="block text-sm font-medium text-gray-900"
-                >
-                  Email address
-                </label>
-                <input
-                  id="analytics-email"
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  maxLength={254}
-                  aria-describedby="analytics-email-help"
-                  className="mb-5 mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-3 text-base text-gray-900 focus:border-brand-active focus:outline-none focus:ring-2 focus:ring-brand-active"
-                />
-                <button disabled={busy} className={buttonClass}>
-                  <Mail aria-hidden="true" className="h-4 w-4" />
-                  {busy ? 'Requesting link…' : 'Email me a sign-in link'}
-                </button>
-              </Form>
-            )}
+                <LockKeyhole aria-hidden="true" className="h-4 w-4" />
+                {busy ? 'Signing in…' : 'Sign in'}
+              </button>
+            </Form>
             <p className="mt-5 text-sm leading-6 text-gray-500">
-              {google
-                ? 'Your access lasts for 24 hours. Google shares your email address to confirm your access; we do not request access to your email or files.'
-                : 'Sign-in links expire after 24 hours and can be used once. Your access lasts for 24 hours after signing in.'}
+              Your access lasts for 24 hours. Sign out when you’re finished on a
+              shared computer.
             </p>
           </section>
           <aside
@@ -403,12 +181,12 @@ export default function AnalyticsLogin() {
               Access to the reports
             </h2>
             <p className="mt-3 text-sm leading-6 text-gray-600">
-              Analytics are available to approved members and collaborators of
-              the Geospatial Information Network. Use the email address
-              associated with your access.
+              Analytics are available to members and collaborators of the
+              Geospatial Information Network. Please keep the shared password
+              within your review group.
             </p>
             <p className="mt-4 text-sm leading-6 text-gray-600">
-              Need access or help signing in?{' '}
+              Need the password or help signing in?{' '}
               <a
                 href="/feedback"
                 className="font-medium text-brand-active underline underline-offset-4 hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-active"

@@ -1,24 +1,16 @@
-"""Passwordless access to analytics. Redis stores hashes, never bearer tokens."""
+"""Shared-password analytics access with opaque, revocable Redis sessions."""
 
 import hashlib
-import json
-import logging
+import hmac
 import os
 import re
 import secrets
-from email.message import EmailMessage
-from email.utils import formatdate, make_msgid
-from pathlib import Path
 from urllib.parse import urlsplit
 
 import redis
 from fastapi import HTTPException, Request
 
-from app.services.feedback_service import deliver_email
-
-logger = logging.getLogger(__name__)
 COOKIE = "btaa_analytics_session"
-LINK_TTL = 24 * 60 * 60
 SESSION_TTL = 24 * 60 * 60
 
 
@@ -36,25 +28,6 @@ def store():
         socket_timeout=3,
         socket_connect_timeout=3,
     )
-
-
-def normalize(email: str) -> str:
-    return email.strip().lower()
-
-
-def approved(email: str) -> bool:
-    filename = os.getenv("ANALYTICS_APPROVED_EMAILS_FILE")
-    try:
-        addresses = (
-            json.loads(Path(filename).read_text())
-            if filename
-            else re.split(r"[,;\n]", os.getenv("ANALYTICS_APPROVED_EMAILS", ""))
-        )
-        return isinstance(addresses, list) and email in {
-            normalize(value) for value in addresses if isinstance(value, str)
-        }
-    except (OSError, ValueError):
-        return False
 
 
 def base_url() -> str:
@@ -98,34 +71,22 @@ def limited(key: str, maximum: int, ttl: int) -> bool:
     return count > maximum
 
 
-def send_link(email: str):
-    """Runs after the generic response; failures never expose approval status."""
-    token = secrets.token_urlsafe(32)
-    key = "analytics:link:" + digest(token)
-    try:
-        if not approved(email):
-            return
-        store().set(key, email, ex=LINK_TTL)
-        message = EmailMessage()
-        message["From"] = "BTAA Geoportal <no-reply@geo.btaa.org>"
-        message["To"] = email
-        message["Subject"] = "Your BTAA analytics sign-in link"
-        message["Date"] = formatdate(localtime=False, usegmt=True)
-        message["Message-ID"] = make_msgid(domain="geo.btaa.org")
-        message.set_content(
-            "Use this link to sign in to BTAA analytics. It expires in 24 hours "
-            "and can be used once. After signing in, you will have access for 24 hours.\n\n"
-            f"{base_url()}/analytics/login#token={token}\n\n"
-            "If you did not request this link, you can ignore this email."
-        )
-        return deliver_email(message)
-    except Exception:
-        # Do not log recipients, tokens, message contents, or SMTP exception details.
-        logger.error("Analytics sign-in email delivery failed")
-        try:
-            store().delete(key)
-        except redis.RedisError:
-            pass
+def password_secret() -> str:
+    value = os.getenv("ANALYTICS_PASSWORD", "")
+    if len(value) < 20:
+        raise HTTPException(503, "Analytics sign-in is unavailable")
+    return value
+
+
+def password_matches(candidate: str) -> bool:
+    return secrets.compare_digest(digest(candidate), digest(password_secret()))
+
+
+def session_revision() -> str:
+    # A change to the shared password invalidates every existing session.
+    return hmac.new(
+        password_secret().encode(), b"analytics-shared-password-session-v1", hashlib.sha256
+    ).hexdigest()
 
 
 def require_analytics_session(request: Request) -> str:
@@ -133,9 +94,9 @@ def require_analytics_session(request: Request) -> str:
     if not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
         raise HTTPException(401, "Sign in to analytics")
     try:
-        email = store().get("analytics:session:" + digest(token))
+        revision = store().get("analytics:session:" + digest(token))
     except redis.RedisError:
         raise HTTPException(503, "Analytics login is unavailable") from None
-    if not email or not approved(email):
+    if not revision or not secrets.compare_digest(revision, session_revision()):
         raise HTTPException(401, "Sign in to analytics")
-    return email
+    return "shared-password"

@@ -64,7 +64,7 @@ describe('analytics access boundaries', () => {
     expect((failure as Response).status).toBe(503);
   });
   it('forwards session cookies and returns authenticated snapshot data without caching', async () => {
-    fetchMock.mockResolvedValue(Response.json({ email: 'reader@example.org' }));
+    fetchMock.mockResolvedValue(Response.json({ authenticated: true }));
     const result = await reportLoader(args('/analytics'));
     expect(fetchMock).toHaveBeenCalledWith(
       '/analytics/auth/session',
@@ -77,7 +77,7 @@ describe('analytics access boundaries', () => {
   });
   it('rejects archive traversal even with a valid session', async () => {
     fetchMock.mockImplementation(async () =>
-      Response.json({ email: 'reader@example.org' })
+      Response.json({ authenticated: true })
     );
     await expect(
       downloadLoader(
@@ -86,7 +86,7 @@ describe('analytics access boundaries', () => {
     ).rejects.toMatchObject({ status: 404 });
   });
   it('serves private archives only after authentication, with no-store headers', async () => {
-    fetchMock.mockResolvedValue(Response.json({ email: 'reader@example.org' }));
+    fetchMock.mockResolvedValue(Response.json({ authenticated: true }));
     const response = await downloadLoader(
       args('/analytics-reports/manifest.json', { '*': 'manifest.json' })
     );
@@ -102,7 +102,7 @@ describe('analytics access boundaries', () => {
       downloadLoader(args(`/analytics-reports/${resource}`, { '*': resource }))
     ).rejects.toMatchObject({ status: 302 });
     fetchMock.mockImplementation(async () =>
-      Response.json({ email: 'reader@example.org' })
+      Response.json({ authenticated: true })
     );
     const response = await downloadLoader(
       args(`/analytics-reports/${resource}`, { '*': resource })
@@ -137,7 +137,10 @@ describe('analytics access boundaries', () => {
     const post = new Request('https://example.org/analytics/login', {
       method: 'POST',
       headers: { Origin: 'https://evil.example' },
-      body: new URLSearchParams({ intent: 'verify', token: 'x' }),
+      body: new URLSearchParams({
+        intent: 'password',
+        password: 'test-password',
+      }),
     });
     await expect(
       action({
@@ -167,7 +170,10 @@ describe('analytics access boundaries', () => {
       {
         method: 'POST',
         headers: { Origin: 'https://example.org' },
-        body: new URLSearchParams({ intent: 'verify', token: 'x'.repeat(43) }),
+        body: new URLSearchParams({
+          intent: 'password',
+          password: 'test-password',
+        }),
       }
     );
     const response = (await action({
@@ -221,7 +227,10 @@ describe('analytics access boundaries', () => {
     const post = new Request('http://internal:3000/analytics/login', {
       method: 'POST',
       headers: { Origin: 'https://example.org' },
-      body: new URLSearchParams({ intent: 'verify', token: 'x'.repeat(43) }),
+      body: new URLSearchParams({
+        intent: 'password',
+        password: 'test-password',
+      }),
     });
     const response = (await action({
       request: post,
@@ -233,3 +242,28 @@ describe('analytics access boundaries', () => {
     expect(response.status).toBe(302);
   });
 });
+
+it.each([401, 429, 503])(
+  'handles password failure %s without returning the password',
+  async (status) => {
+    fetchMock.mockResolvedValue(
+      new Response('private provider details', { status })
+    );
+    const post = new Request('https://example.org/analytics/login', {
+      method: 'POST',
+      headers: { Origin: 'https://example.org' },
+      body: new URLSearchParams({
+        intent: 'password',
+        password: 'sensitive-test-password',
+      }),
+    });
+    const result = await action({ ...args('/analytics/login'), request: post });
+    expect(result).toHaveProperty('data.error');
+    expect(JSON.stringify(result)).not.toContain('sensitive-test-password');
+    expect(JSON.stringify(result)).not.toContain('private provider details');
+    expect(fetchMock.mock.calls[0][0]).toBe('/analytics/auth/password');
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      password: 'sensitive-test-password',
+    });
+  }
+);

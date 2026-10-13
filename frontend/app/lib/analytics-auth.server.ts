@@ -34,7 +34,7 @@ export async function requireAnalyticsSession(request: Request) {
       status: 503,
       headers: analyticsHeaders,
     });
-  return response.json() as Promise<{ email: string }>;
+  return response.json() as Promise<{ authenticated: boolean }>;
 }
 
 export function safeNext(value: string | null) {

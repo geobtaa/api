@@ -1,53 +1,23 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import {
-  createMemoryRouter,
-  RouterProvider,
-  type ActionFunctionArgs,
-} from 'react-router';
-import { afterEach, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider } from 'react-router';
+import { expect, it } from 'vitest';
 import AnalyticsLogin from '../../app/routes/analytics.login';
 
-afterEach(() => {
-  window.history.replaceState(null, '', '/');
-});
-it('clears the email token and automatically verifies it once', async () => {
-  const token = 'a'.repeat(43);
-  window.history.replaceState(null, '', '/analytics/login#token=' + token);
-  const action = vi.fn<
-    (args: ActionFunctionArgs) => Promise<{ message: string; error: string }>
-  >(async () => ({ message: 'Signed in', error: '' }));
+it('offers password sign-in without email or Google', () => {
   const router = createMemoryRouter(
-    [{ path: '/analytics/login', Component: AnalyticsLogin, action }],
+    [{ path: '/analytics/login', Component: AnalyticsLogin }],
     { initialEntries: ['/analytics/login'] }
   );
   render(<RouterProvider router={router} />);
-  await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
-  expect(window.location.hash).toBe('');
-  expect(
-    screen.queryByRole('button', { name: 'Continue to analytics' })
-  ).toBeNull();
-  const form = await action.mock.calls[0][0].request.formData();
-  expect(form.get('token')).toBe(token);
-  expect(form.get('intent')).toBe('verify');
-});
-
-it('shows Google sign-in instead of the email form when configured', async () => {
-  const router = createMemoryRouter(
-    [
-      {
-        path: '/analytics/login',
-        Component: AnalyticsLogin,
-        loader: () => ({ google: true, unavailable: false, error: '' }),
-      },
-    ],
-    { initialEntries: ['/analytics/login'] }
+  expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password');
+  expect(screen.getByLabelText('Password')).toHaveAttribute(
+    'autoComplete',
+    'current-password'
   );
-  render(<RouterProvider router={router} />);
+  expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+  expect(screen.queryByText(/Google/)).toBeNull();
+  expect(screen.queryByLabelText('Email address')).toBeNull();
   expect(
-    await screen.findByRole('button', { name: 'Continue with Google' })
-  ).toBeInTheDocument();
-  expect(screen.queryByRole('textbox', { name: 'Email address' })).toBeNull();
-  expect(
-    screen.getByText(/we do not request access to your email or files/)
+    screen.getByText(/Your access lasts for 24 hours/)
   ).toBeInTheDocument();
 });
