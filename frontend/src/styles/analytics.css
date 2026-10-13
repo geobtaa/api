@@ -4968,3 +4968,42 @@ h3.analytics-widget-heading {
   color: var(--analytics-text);
   font-weight: 600;
 }
+
+.analytics-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  color: var(--analytics-text-secondary);
+  font-size: 0.85rem;
+}
+.analytics-table-pagination > span:first-child {
+  margin-right: auto;
+}
+.analytics-table-pagination button {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--analytics-border);
+  border-radius: 6px;
+  background: var(--analytics-surface);
+  color: var(--analytics-brand);
+}
+.analytics-table-pagination button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.analytics-table-pagination button:not(:disabled):hover {
+  background: var(--analytics-active-soft);
+}
+
+#api-endpoints table {
+  table-layout: fixed;
+}
+#api-endpoints th:first-child {
+  width: 64%;
+  overflow-wrap: anywhere;
+}
+#api-endpoints td {
+  overflow-wrap: anywhere;
+}

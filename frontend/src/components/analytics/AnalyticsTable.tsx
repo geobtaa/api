@@ -52,9 +52,14 @@ function valueOf(cell: Node): number | string | null {
 export function AnalyticsTable({
   children,
   label,
+  pageSize,
   ...props
-}: TableHTMLAttributes<HTMLTableElement> & { label?: string }) {
+}: TableHTMLAttributes<HTMLTableElement> & {
+  label?: string;
+  pageSize?: number;
+}) {
   const id = useId();
+  const [page, setPage] = useState(0);
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState<{
     column: number;
@@ -87,6 +92,13 @@ export function AnalyticsTable({
         a.index - b.index
       );
     });
+  const pages = pageSize
+    ? Math.max(1, Math.ceil(visible.length / pageSize))
+    : 1;
+  const currentPage = Math.min(page, pages - 1);
+  const displayed = pageSize
+    ? visible.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+    : visible;
   const head = sections.find((section) => section.type === 'thead');
   const columnCount = elements(
     elements(head?.props.children)[0]?.props.children
@@ -120,7 +132,10 @@ export function AnalyticsTable({
             id={id}
             type="search"
             value={filter}
-            onChange={(event) => setFilter(event.target.value)}
+            onChange={(event) => {
+              setFilter(event.target.value);
+              setPage(0);
+            }}
             aria-label={`Filter ${name}`}
             placeholder="Search this table…"
           />
@@ -132,6 +147,7 @@ export function AnalyticsTable({
           type="button"
           disabled={!filter && !sort}
           onClick={() => {
+            setPage(0);
             setFilter('');
             setSort(null);
           }}
@@ -166,15 +182,16 @@ export function AnalyticsTable({
                       <button
                         type="button"
                         className="analytics-table-sort"
-                        onClick={() =>
+                        onClick={() => {
+                          setPage(0);
                           setSort({
                             column,
                             direction:
                               active && direction === 'ascending'
                                 ? 'descending'
                                 : 'ascending',
-                          })
-                        }
+                          });
+                        }}
                       >
                         {cell.props.children}
                         <Icon size={14} aria-hidden="true" />
@@ -189,7 +206,7 @@ export function AnalyticsTable({
               section,
               {},
               visible.length ? (
-                visible.map(({ row }) =>
+                displayed.map(({ row }) =>
                   cloneElement(
                     row,
                     {},
@@ -216,6 +233,35 @@ export function AnalyticsTable({
           return section;
         })}
       </table>
+      {pageSize && visible.length > pageSize && (
+        <nav
+          className="analytics-table-pagination"
+          aria-label={`${name} pages`}
+        >
+          <span role="status">
+            Showing {currentPage * pageSize + 1}–
+            {Math.min((currentPage + 1) * pageSize, visible.length)} of{' '}
+            {visible.length}
+          </span>
+          <button
+            type="button"
+            disabled={currentPage === 0}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {currentPage + 1} of {pages}
+          </span>
+          <button
+            type="button"
+            disabled={currentPage === pages - 1}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Next
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Activity } from 'lucide-react';
 import {
   CartesianGrid,
-  Line,
-  LineChart,
+  Area,
+  AreaChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
+import { chartTheme } from './chartTheme';
 import { AnalyticsTable } from './AnalyticsTable';
 import { ReportPanelHeader } from './ReportPanelHeader';
 
@@ -20,10 +21,11 @@ export function ApiDailyReport({
   days: Day[];
   period: string;
 }) {
+  const fillId = `requests-fill-${useId().replace(/:/g, '')}`;
   const [metric, setMetric] = useState<'requests' | 'errors'>('requests');
   const labels = {
     requests: 'API requests',
-    errors: 'Zero-result requests',
+    errors: 'Server errors',
   };
   return (
     <section className="analytics-panel analytics-comparison-panel">
@@ -53,10 +55,31 @@ export function ApiDailyReport({
           minWidth={0}
           initialDimension={{ width: 1000, height: 288 }}
         >
-          <LineChart data={days}>
-            <CartesianGrid strokeDasharray="2 6" />
+          <AreaChart
+            data={days}
+            margin={{ top: 16, right: 8, left: -20, bottom: 0 }}
+            accessibilityLayer
+          >
+            <defs>
+              <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="0%"
+                  stopColor={chartTheme.fill.color}
+                  stopOpacity={chartTheme.fill.startOpacity}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={chartTheme.fill.color}
+                  stopOpacity={chartTheme.fill.endOpacity}
+                />
+              </linearGradient>
+            </defs>
+            <CartesianGrid {...chartTheme.grid} />
             <XAxis
               dataKey="day"
+              axisLine={false}
+              tickLine={false}
+              tick={chartTheme.tick}
               minTickGap={35}
               tickFormatter={(day) =>
                 new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {
@@ -66,17 +89,37 @@ export function ApiDailyReport({
                 })
               }
             />
-            <YAxis />
-            <Tooltip />
-            <Line
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={chartTheme.tick}
+              allowDecimals={false}
+              width={80}
+              tickFormatter={(value: number) => value.toLocaleString('en-US')}
+            />
+            <Tooltip
+              cursor={chartTheme.cursor}
+              contentStyle={chartTheme.tooltip}
+              labelStyle={chartTheme.tooltipLabel}
+              labelFormatter={(day) =>
+                new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  timeZone: 'UTC',
+                })
+              }
+              formatter={(value: number) => value.toLocaleString('en-US')}
+            />
+            <Area
               type="linear"
               dataKey={metric}
               name={labels[metric]}
-              stroke="#003c5b"
+              {...chartTheme.series}
+              fill={`url(#${fillId})`}
               dot={false}
               isAnimationActive={false}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
       <details>
@@ -87,7 +130,7 @@ export function ApiDailyReport({
             <tr>
               <th scope="col">Date</th>
               <th scope="col">API requests</th>
-              <th scope="col">Zero-result requests</th>
+              <th scope="col">Server errors</th>
             </tr>
           </thead>
           <tbody>

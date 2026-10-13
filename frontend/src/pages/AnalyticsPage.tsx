@@ -2046,9 +2046,14 @@ export function AnalyticsPage() {
                 <section
                   className="analytics-panel analytics-comparison-panel"
                   data-nav-label="API endpoints"
+                  id="api-endpoints"
                 >
-                  <h3>API endpoints</h3>
-                  <AnalyticsTable className="analytics-comparison-table">
+                  <ReportPanelHeader title="API endpoints" icon={Activity} />
+                  <AnalyticsTable
+                    key={selectedPeriod}
+                    pageSize={15}
+                    className="analytics-comparison-table"
+                  >
                     <caption className="sr-only">
                       {report.period} API endpoints
                     </caption>
@@ -2075,7 +2080,10 @@ export function AnalyticsPage() {
                     </tbody>
                   </AnalyticsTable>
                   <p className="analytics-comparison-note">
-                    {reliabilityEndpoints.method}
+                    {reliabilityEndpoints.method.replace(
+                      'Each view shows at most 50 named routes; remaining counts are retained in the combined bucket.',
+                      'Browse 15 endpoints per page. Filtering and sorting include all available endpoints.'
+                    )}
                   </p>
                 </section>
               </section>

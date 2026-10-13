@@ -2,9 +2,9 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AnalyticsTable } from '../../components/analytics/AnalyticsTable';
 
-function Example() {
+function Example({ pageSize }: { pageSize?: number }) {
   return (
-    <AnalyticsTable>
+    <AnalyticsTable pageSize={pageSize}>
       <caption>Provider totals</caption>
       <thead>
         <tr>
@@ -150,4 +150,25 @@ it('filters collapsed custom content and sorts by its explicit value', () => {
   expect(
     within(screen.getByRole('table')).getAllByRole('row')[1]
   ).toHaveTextContent('other');
+});
+
+it('paginates after filtering and sorting the entire dataset', () => {
+  render(<Example pageSize={2} />);
+  expect(names()).toEqual(['Ohio State', 'Indiana']);
+  expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  expect(names()).toEqual(['Missing provider', 'Michigan']);
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Views' }));
+  expect(names()).toEqual(['Indiana', 'Michigan']);
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  fireEvent.change(screen.getByRole('searchbox'), {
+    target: { value: 'Indiana' },
+  });
+  expect(names()).toEqual(['Indiana']);
+  expect(
+    screen.queryByRole('button', { name: 'Next' })
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+  expect(names()).toEqual(['Ohio State', 'Indiana']);
 });
