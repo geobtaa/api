@@ -309,6 +309,19 @@ export function AnalyticsPage() {
     (row[overviewMetric] ?? 0) > (peak[overviewMetric] ?? 0) ? row : peak
   );
 
+  const recordedDailyValues = overviewDaily
+    .map((row) => row[overviewMetric])
+    .filter((value): value is number => value != null);
+  const dailyTotal = recordedDailyValues.reduce((sum, value) => sum + value, 0);
+  const dailyAverage = recordedDailyValues.length
+    ? dailyTotal / recordedDailyValues.length
+    : 0;
+  const busiestDayCount = Math.min(3, recordedDailyValues.length);
+  const busiestDaysTotal = [...recordedDailyValues]
+    .sort((a, b) => b - a)
+    .slice(0, busiestDayCount)
+    .reduce((sum, value) => sum + value, 0);
+
   const queryCategoryCounts = Array.from(
     new Set(topSearchTerms.map((query) => query.category))
   )
@@ -1508,6 +1521,51 @@ export function AnalyticsPage() {
                     className="analytics-chart-notes"
                     aria-label="Activity context"
                   >
+                    {recordedDailyValues.length > 0 && (
+                      <div>
+                        <h3>Daily average</h3>
+                        <p>
+                          <strong>
+                            {wholeNumber.format(Math.round(dailyAverage))}
+                          </strong>{' '}
+                          {overviewMetricLabels[overviewMetric].toLowerCase()}{' '}
+                          per recorded day.
+                          {dailyAverage > 0 && (
+                            <>
+                              {' '}
+                              The busiest day, {overviewPeak.day}, recorded{' '}
+                              <strong>
+                                {(
+                                  (overviewPeak[overviewMetric] ?? 0) /
+                                  dailyAverage
+                                ).toFixed(1)}{' '}
+                                times
+                              </strong>{' '}
+                              that average.
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    {overviewMetric !== 'visits' &&
+                      dailyTotal > 0 &&
+                      busiestDayCount === 3 && (
+                        <div>
+                          <h3>Activity across the period</h3>
+                          <p>
+                            The three busiest days accounted for{' '}
+                            <strong>
+                              {((busiestDaysTotal / dailyTotal) * 100).toFixed(
+                                1
+                              )}
+                              %
+                            </strong>{' '}
+                            of recorded{' '}
+                            {overviewMetricLabels[overviewMetric].toLowerCase()}{' '}
+                            across {recordedDailyValues.length} days.
+                          </p>
+                        </div>
+                      )}
                     <div>
                       <h3>Peak API traffic</h3>
                       <p>
