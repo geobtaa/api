@@ -55,7 +55,7 @@ describe('MonthlyComparison', () => {
       })
     ).toHaveTextContent('701.7');
     fireEvent.change(
-      screen.getByRole('combobox', { name: 'Metric', exact: true }),
+      screen.getByRole('combobox', { name: 'Metric' }),
       { target: { value: 'requests' } }
     );
     expect(
