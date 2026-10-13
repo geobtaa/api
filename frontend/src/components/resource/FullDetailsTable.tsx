@@ -552,14 +552,14 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
   return (
     <div
       id="full-details"
-      className="bg-white rounded-lg shadow-md overflow-hidden"
+      className="bg-white rounded-lg shadow-md overflow-hidden [overflow-wrap:anywhere]"
     >
       <h2 className="text-lg font-semibold text-gray-950 px-6 py-4">
         Full Details
       </h2>
       <div className="flex flex-col sm:flex-row">
-        <div className="w-full sm:w-2/3">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="min-w-0 w-full sm:w-2/3">
+          <table className="w-full table-fixed divide-y divide-gray-200">
             <tbody className="divide-y divide-gray-200">
               {documentMetadata.map(([key, value]) => (
                 <tr key={key} className="hover:bg-gray-50">
@@ -582,7 +582,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             </tbody>
           </table>
         </div>
-        <div className="w-full sm:w-1/3">
+        <div className="min-w-0 w-full sm:w-1/3">
           <div className="sr-only px-6 py-4 bg-gray-50 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-950">
               Metadata Facets
