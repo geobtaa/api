@@ -4592,8 +4592,8 @@ h3.analytics-widget-heading {
 }
 .analytics-brief-btaa-mark {
   display: block;
-  width: 112px;
-  height: 55.6px;
+  width: 84px;
+  height: 41.7px;
   flex: 0 0 auto;
   background: currentColor;
   /* Crop the source logo’s transparent margins to align its visible ink. */
@@ -4605,7 +4605,7 @@ h3.analytics-widget-heading {
   border-left: 1px solid currentColor;
   font-size: 1.9rem;
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.2;
   letter-spacing: -0.02em;
 }
 .analytics-brief-header h1 {
@@ -4618,6 +4618,7 @@ h3.analytics-widget-heading {
 .analytics-brief-institution-icon {
   width: clamp(3rem, 8vw, 4.5rem);
   height: clamp(3rem, 8vw, 4.5rem);
+  transform: translateY(-20%);
   flex: 0 0 auto;
   background: var(--analytics-brand);
   -webkit-mask: var(--institution-icon) center / contain no-repeat;
@@ -4822,8 +4823,8 @@ h3.analytics-widget-heading {
     gap: 0.5rem;
   }
   .analytics-brief-btaa-mark {
-    width: 76px;
-    height: 37.7px;
+    width: 60px;
+    height: 29.8px;
   }
   .analytics-brief-lockup-name {
     padding-left: 0.5rem;
@@ -4861,8 +4862,8 @@ h3.analytics-widget-heading {
     gap: 3mm;
   }
   .analytics-brief-btaa-mark {
-    width: 19mm;
-    height: 9.43mm;
+    width: 15mm;
+    height: 7.45mm;
   }
   .analytics-brief-lockup-name {
     padding-left: 3mm;
