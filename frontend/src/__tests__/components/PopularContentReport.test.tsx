@@ -1,6 +1,6 @@
 import { renderAnalytics as render } from '../utils/renderAnalytics';
 import { screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { AnalyticsTestRouter as MemoryRouter } from '../utils/AnalyticsTestRouter';
 import { PopularContentReport } from '../../components/analytics/PopularContentReport';
 import { AllTimeAnalyticsPage } from '../../components/analytics/AllTimeAnalyticsPage';
 import snapshots from '../../data/analytics/monthlySnapshots.json';

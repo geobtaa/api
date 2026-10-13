@@ -34,7 +34,9 @@ def _logging_key_hashes(key: str, salt: str):
         hashlib.pbkdf2_hmac(
             "sha256", key.encode(), salt.encode(), API_KEY_HASH_ITERATIONS, dklen=32
         ).hex(),
-        hashlib.sha256(key.encode()).hexdigest(),
+        # Match existing legacy registry rows after configured-key verification.
+        # New key storage continues to use PBKDF2; this is lookup compatibility.
+        APIKeyService.legacy_hash_api_key(key),
     )
 
 

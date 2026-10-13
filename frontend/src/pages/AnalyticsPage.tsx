@@ -6,7 +6,7 @@ import { MetricHeading } from '../components/analytics/MetricHeading';
 import { Users } from 'lucide-react';
 import { ReportPanelHeader } from '../components/analytics/ReportPanelHeader';
 import {
-  publishedMonths,
+  selectedSnapshotPeriod,
   latestMonth,
   monthDays as daysInMonth,
   periodRange as monthlyRange,
@@ -138,9 +138,7 @@ export function AnalyticsPage() {
   const report = selectedAnalyticsReport(searchParams, pathname);
   const isAllTime = searchParams.get('month') === 'all';
   const reportMonth = isAllTime ? 'All time' : analyticsMonth(searchParams);
-  const selectedPeriod = isAllTime
-    ? 'all'
-    : searchParams.get('month') || latestMonth;
+  const selectedPeriod = selectedSnapshotPeriod(searchParams.get('month'));
   const activeMonth = isAllTime ? latestMonth : selectedPeriod;
   const selectedSnapshot =
     monthlySnapshots[activeMonth] ?? monthlySnapshots[latestMonth];
@@ -545,15 +543,6 @@ export function AnalyticsPage() {
     day.views > peak.views ? day : peak
   );
 
-  if (!isAllTime && !publishedMonths.includes(selectedPeriod)) {
-    return (
-      <div className="analytics-page">
-        <AnalyticsHeader activeReport={activeReport} />
-        <p>Reporting period unavailable.</p>
-      </div>
-    );
-  }
-
   if (
     isAllTime &&
     ![
@@ -804,7 +793,7 @@ export function AnalyticsPage() {
                     >
                       {memberSelectorEntries.find(
                         (member) => member.code === selectedMemberCode
-                      )?.shortName ?? 'All BTAA'}
+                      )?.shortName ?? 'All BTAA'}{' '}
                       <span>
                         {institutionPickerOpen ? 'Close' : 'Change institution'}
                       </span>

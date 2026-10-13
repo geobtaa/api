@@ -55,6 +55,7 @@ def update(archives, supplemental, frontend, through):
             shutil.copytree(public / month, destination / month, dirs_exist_ok=True)
         names = [
             "monthlySnapshots.json",
+            "memberLeadingContent.json",
             "popularHistory2026.json",
             "allTimeCurrent.json",
             "memberAllTimeCurrent.json",

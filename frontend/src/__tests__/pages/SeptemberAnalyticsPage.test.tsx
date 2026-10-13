@@ -1,6 +1,6 @@
 import { renderAnalytics as render } from '../utils/renderAnalytics';
 import { fireEvent, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router';
+import { AnalyticsTestRouter as BrowserRouter } from '../utils/AnalyticsTestRouter';
 import { HelmetProvider } from 'react-helmet-async';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
@@ -14,7 +14,8 @@ vi.mock('../../components/layout/Footer', () => ({
   Footer: () => <div data-testid="footer">Footer</div>,
 }));
 
-vi.mock('recharts', () => ({
+vi.mock('recharts', async () => ({
+  ...(await import('../utils/analyticsCharts')).analyticsCharts,
   Area: () => null,
   AreaChart: ({ data }: { data?: Array<Record<string, unknown>> }) => (
     <div
@@ -84,7 +85,7 @@ describe(
     it('shows the real PennPilot title and labels its empty Provider field precisely', () => {
       const { container } = page('content');
       const resource = Array.from(
-        container.querySelectorAll('#top-resources .analytics-ranking-row')
+        container.querySelectorAll('#top-resources .analytics-ranking-item')
       ).find((row) =>
         row.textContent?.includes(
           'PennPilot (Historical Aerial Photo Library) [Pennsylvania]'
@@ -103,12 +104,13 @@ describe(
       (report) => {
         const { container } = page(report);
         expect(container.querySelector('.analytics-panel')).not.toBeNull();
-        expect(container.querySelector('table')).not.toBeNull();
+        if (report !== 'members')
+          expect(container.querySelector('table')).not.toBeNull();
         expect(container.textContent).not.toContain('NaN');
         expect(container.textContent).not.toContain('September 31');
         if (report === 'members') {
           expect(
-            screen.getByRole('button', { name: 'All BTAA' })
+            screen.getByRole('button', { name: /All BTAA Change institution/ })
           ).toBeInTheDocument();
           expect(september.members).toHaveLength(17);
         }
@@ -131,27 +133,30 @@ describe(
     });
     it.each([
       ['2026-07', 50],
-      ['2026-08', 43],
-      ['2026-09', 44],
+      ['2026-08', 50],
+      ['2026-09', 50],
       ['all', 50],
     ] as const)(
       'shows the Top 50 in all Popular content sections for %s',
       (month, collections) => {
         const { container } = page('content', month);
         expect(
-          container.querySelectorAll('#top-resources .analytics-ranking-row')
-        ).toHaveLength(50);
+          container.querySelectorAll('#top-resources .analytics-ranking-item')
+            .length
+        ).toBe(50);
+        expect(
+          container.querySelectorAll('#collections .analytics-ranking-item')
+            .length
+        ).toBe(collections);
+        expect(
+          container.querySelectorAll('#downloads .analytics-ranking-item')
+            .length
+        ).toBe(50);
         expect(
           container.querySelectorAll(
-            '#collections .analytics-collection-list > li'
-          )
-        ).toHaveLength(collections);
-        expect(
-          container.querySelectorAll('#downloads .analytics-download-list > li')
-        ).toHaveLength(50);
-        expect(
-          container.querySelectorAll('#outlinked-resources tbody tr')
-        ).toHaveLength(50);
+            '#outlinked-resources .analytics-ranking-item'
+          ).length
+        ).toBe(50);
       }
     );
     it('reconciles all daily totals and includes exactly 30 September dates', () => {

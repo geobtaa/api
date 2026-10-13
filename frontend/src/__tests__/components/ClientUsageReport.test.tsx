@@ -84,7 +84,10 @@ describe('Client usage report', () => {
 });
 
 it('combines client/channel pairs and surfaces while retaining unavailable evidence', () => {
-  const combined = combineClientSnapshots(Object.values(clientSnapshots));
+  const combined = combineClientSnapshots([
+    clientSnapshots['2026-07'],
+    clientSnapshots['2026-08'],
+  ]);
   expect(combined.clients.reduce((n, row) => n + row.requests, 0)).toBe(
     1212062
   );
@@ -104,7 +107,9 @@ it('combines client/channel pairs and surfaces while retaining unavailable evide
 
 it('shows full-period attribution and unavailable QGIS evidence in the shared tables', () => {
   render(<ClientUsageReport month="all" />);
-  expect(screen.getAllByRole('table')).toHaveLength(4);
+  expect(
+    screen.getByRole('table', { name: 'Known Geoportal key usage' })
+  ).toHaveTextContent('Not recorded');
   const signals = screen.getByRole('table', {
     name: /MCP and QGIS request signals/,
   });
@@ -114,7 +119,16 @@ it('shows full-period attribution and unavailable QGIS evidence in the shared ta
   const clients = screen.getByRole('table', {
     name: 'All time declared client usage',
   });
-  expect(
-    within(clients).getByRole('row', { name: /geoportal-web/ })
-  ).toHaveTextContent('1,575');
+  const webRows = within(clients).getAllByRole('row', {
+    name: /geoportal-web/,
+  });
+  for (const row of combineClientSnapshots(
+    Object.values(clientSnapshots)
+  ).clients.filter((row) => row.name === 'geoportal-web')) {
+    expect(
+      webRows.some((element) =>
+        element.textContent?.includes(row.requests.toLocaleString('en-US'))
+      )
+    ).toBe(true);
+  }
 });

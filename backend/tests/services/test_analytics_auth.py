@@ -233,3 +233,22 @@ def test_local_preview_explains_unknown_address_and_request_limit(setup, monkeyp
         "/analytics/auth/request", json={"email": "reader@example.org"}, headers=headers
     )
     assert response.status_code == 429
+
+
+@pytest.mark.parametrize(
+    "email",
+    [
+        "!" * 240,
+        "a@" + "!" * 240,
+        "a@@example.org",
+        "a@.org",
+        "a@example.",
+        "a b@example.org",
+        "a<@example.org",
+    ],
+)
+def test_malformed_addresses_are_rejected_without_delivery(setup, email):
+    client, store, sent = setup
+    assert client.post("/analytics/auth/request", json={"email": email}).status_code == 422
+    assert not sent
+    assert not store.values

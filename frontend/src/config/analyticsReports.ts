@@ -1,4 +1,9 @@
-import { latestMonth, monthLabel, comparisonLabel } from './analyticsPeriods';
+import {
+  latestMonth,
+  monthLabel,
+  comparisonLabel,
+  selectedSnapshotPeriod,
+} from './analyticsPeriods';
 export const analyticsReports = [
   {
     id: 'overview',
@@ -70,7 +75,7 @@ export function analyticsMonth(params: URLSearchParams) {
   return monthLabel(
     params.get('month') === 'all'
       ? latestMonth
-      : params.get('month') || latestMonth
+      : selectedSnapshotPeriod(params.get('month'))
   ).replace(/ \d{4}$/, '');
 }
 
@@ -96,6 +101,6 @@ export function selectedAnalyticsReport(
         period:
           params.get('month') === 'all'
             ? 'All time'
-            : monthLabel(params.get('month') || latestMonth),
+            : monthLabel(selectedSnapshotPeriod(params.get('month'))),
       };
 }

@@ -4,11 +4,23 @@ import {
   monthLabel,
   publishedMonths,
   latestMonth,
+  selectedSnapshotPeriod,
 } from '../../config/analyticsPeriods';
 import { monthlySnapshots } from '../../data/analytics/september2026';
 import allTime from '../../data/analytics/allTimeCurrent.json';
 
 describe('monthly publication contract', () => {
+  it.each([null, '', 'invalid', '2026-13', '2029-01', 'ay-2026'])(
+    'uses the latest snapshot for unsupported input %s',
+    (input) => {
+      expect(selectedSnapshotPeriod(input)).toBe(latestMonth);
+    }
+  );
+  it('preserves published and cumulative snapshot selections', () => {
+    expect(selectedSnapshotPeriod('all')).toBe('all');
+    for (const month of publishedMonths)
+      expect(selectedSnapshotPeriod(month)).toBe(month);
+  });
   it('handles year transitions and leap years', () => {
     expect(monthLabel('2027-01')).toBe('January 2027');
     expect(monthDays('2027-02')).toBe(28);

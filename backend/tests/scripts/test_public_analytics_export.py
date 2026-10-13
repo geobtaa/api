@@ -139,3 +139,14 @@ def test_runtime_publication_projects_before_storage(monkeypatch):
     documents = [json.loads(item["document"]) for item in stored if "document" in item]
     assert documents
     assert all(item["privacyVersion"] == "2" for item in documents)
+
+
+def test_frontend_contract_fixture_is_an_actual_public_projection():
+    import json
+    from pathlib import Path
+
+    fixture_path = Path(__file__).resolve().parents[1] / "fixtures/analytics/public-report.json"
+    document = json.loads(fixture_path.read_text())
+    assert public_report(document) == document
+    assert "sourceCoverage" not in document
+    assert "queries" not in document

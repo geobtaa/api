@@ -26,7 +26,15 @@ class VerifyRequest(BaseModel):
 @router.post("/request", dependencies=[Depends(auth.same_origin)])
 def request_link(payload: LoginRequest, request: Request, tasks: BackgroundTasks):
     email = auth.normalize(payload.email)
-    if not re.fullmatch(r"[^\s@<>\x00-\x1f]+@[^\s@<>\x00-\x1f]+\.[^\s@<>\x00-\x1f]+", email):
+    local, separator, domain = email.partition("@")
+    # Linear checks avoid overlapping regex repetitions on untrusted addresses.
+    if (
+        not local
+        or not separator
+        or "@" in domain
+        or "." not in domain[1:-1]
+        or any(char.isspace() or ord(char) < 32 or char in "<>" for char in email)
+    ):
         raise HTTPException(422, "Enter a valid email address")
     try:
         ip = request.client.host if request.client else "unknown"

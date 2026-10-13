@@ -124,6 +124,6 @@ describe('August analytics reconciliation', () => {
       selectedAnalyticsReport(
         new URLSearchParams({ report: 'comparison', month: '2026-07' })
       ).period
-    ).toBe('July–September 2026');
+    ).toBe('July 2026 – September 2026');
   });
 });

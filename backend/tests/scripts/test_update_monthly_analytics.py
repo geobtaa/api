@@ -54,3 +54,57 @@ def test_incomplete_new_month_cannot_replace_reports(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="Incomplete monthly source coverage"):
         monthly.update([], tmp_path / "counts.json", tmp_path, date(2026, 10, 1))
     assert not (tmp_path / "public").exists()
+
+
+def test_successful_refresh_installs_member_rankings(tmp_path, monkeypatch):
+    data = tmp_path / "src/data/analytics"
+    destination = tmp_path / "private-analytics-reports"
+    data.mkdir(parents=True)
+    destination.mkdir()
+    (data / "memberLeadingContent.json").write_text('{"all": "old rankings"}')
+    months = ["2026-07", "2026-08", "2026-09", "2026-10"]
+    monkeypatch.setattr(monthly, "reporting_boundary", lambda: date(2026, 11, 1))
+
+    def exported(archives, through, output, selected):
+        output.mkdir()
+        for period in selected:
+            (output / period).mkdir()
+        (output / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "latest": months[-1],
+                    "periods": [{"id": m, "complete": True} for m in selected],
+                }
+            )
+        )
+
+    def projected(archives, public, output, supplemental, month):
+        # Distinct sentinel rankings prove the generated output replaces old history.
+        for name in (
+            "popularHistory2026",
+            "allTimeCurrent",
+            "memberAllTimeCurrent",
+            "outcomesCurrent",
+            "collectionSearchesCurrent",
+            "collectionViewsCurrent",
+            "popularMomentumCurrent",
+            "reliabilityEndpointsCurrent",
+        ):
+            (output / f"{name}.json").write_text("{}")
+        (output / f"month-{month}.json").write_text(json.dumps({"month": month}))
+        (output / "memberLeadingContent.json").write_text(
+            json.dumps(
+                {
+                    "all": {"views": 99},
+                    month: {"views": 12},
+                }
+            )
+        )
+
+    monkeypatch.setattr(monthly, "export", exported)
+    monkeypatch.setattr(monthly, "run", projected)
+    monthly.update([], tmp_path / "counts.json", tmp_path, date(2026, 11, 1))
+    rankings = json.loads((data / "memberLeadingContent.json").read_text())
+    assert rankings == {"all": {"views": 99}, "2026-10": {"views": 12}}
+    assert json.loads((destination / "manifest.json").read_text())["latest"] == "2026-10"
+    assert set(json.loads((data / "monthlySnapshots.json").read_text())) == set(months[2:])

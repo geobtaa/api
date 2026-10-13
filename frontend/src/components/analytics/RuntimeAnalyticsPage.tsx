@@ -182,7 +182,7 @@ function DataTable({
   name: string;
   rows: Row[];
   columns: string[];
-  report: RuntimeReport;
+  report: Pick<RuntimeReport, 'period' | 'revision' | 'complete'>;
   table: string;
   downloadArchive?: string;
 }) {
@@ -253,6 +253,142 @@ function DataTable({
         </p>
       )}
     </section>
+  );
+}
+
+/** The runtime API deliberately publishes only these screened aggregate tables. */
+export type AggregateReport = Pick<
+  RuntimeReport,
+  | 'schemaVersion'
+  | 'revision'
+  | 'period'
+  | 'start'
+  | 'endExclusive'
+  | 'complete'
+  | 'missingMonths'
+  | 'sources'
+  | 'totals'
+  | 'daily'
+  | 'comparison'
+  | 'categories'
+  | 'zeroCategories'
+  | 'latency'
+> & {
+  privacyVersion: string;
+  calculationVersion: string;
+  trackedVisits: {
+    value?: number | null;
+    relativeStandardError?: number | null;
+  };
+  zeroResultPercent?: number | null;
+};
+
+export function AggregateReportView({
+  report,
+  active,
+}: {
+  report: AggregateReport;
+  active: string;
+}) {
+  const table = (
+    name: string,
+    key: 'daily' | 'comparison' | 'categories' | 'zeroCategories',
+    columns: string[]
+  ) => (
+    <DataTable
+      name={name}
+      rows={report[key]}
+      columns={columns}
+      report={report}
+      table={key}
+    />
+  );
+  return (
+    <>
+      <p>{report.sources.overview}</p>
+      {!report.complete && (
+        <p role="status">
+          This period has incomplete historical coverage. Missing months:{' '}
+          {report.missingMonths.join(', ') || 'source evidence is incomplete'}.
+        </p>
+      )}
+      {active === 'overview' && (
+        <>
+          <dl className="analytics-runtime-totals">
+            {Object.entries(overviewMetrics).map(([key, label]) => (
+              <div key={key}>
+                <dt>{label}</dt>
+                <dd>{display(report.totals[key])}</dd>
+              </div>
+            ))}
+          </dl>
+          <p>
+            Tracked visits:{' '}
+            {report.trackedVisits.value == null
+              ? 'Unavailable'
+              : `approximately ${report.trackedVisits.value.toLocaleString()}`}
+            .
+          </p>
+          {report.trackedVisits.relativeStandardError != null && (
+            <p>
+              Expected relative standard error:{' '}
+              {(report.trackedVisits.relativeStandardError * 100).toFixed(2)}%.
+            </p>
+          )}
+          {table('Daily totals', 'daily', [
+            'date',
+            'requests',
+            'visits',
+            'views',
+            'searches',
+            'downloads',
+            'sourceClicks',
+          ])}
+        </>
+      )}
+      {active === 'comparison' &&
+        table('Month comparison', 'comparison', [
+          'month',
+          'requests',
+          'views',
+          'searches',
+          'downloads',
+        ])}
+      {active === 'discovery' && (
+        <>
+          <p>
+            Searches without results:{' '}
+            {report.zeroResultPercent == null
+              ? 'Unavailable'
+              : `${report.zeroResultPercent.toFixed(1)}%`}
+            .
+          </p>
+          {table('Query categories', 'categories', ['category', 'count'])}
+          {table('Zero-result query categories', 'zeroCategories', [
+            'category',
+            'count',
+          ])}
+          <p>
+            Query text and search context are unavailable in runtime aggregate
+            reports.
+          </p>
+        </>
+      )}
+      {active === 'platform' && (
+        <p>
+          Mean response time:{' '}
+          {report.latency.meanMs?.toFixed(1) ?? 'Unavailable'} ms. 95th
+          percentile (approximate): {report.latency.p95Ms ?? 'Unavailable'} ms.
+          Endpoint details are unavailable in runtime aggregate reports.
+        </p>
+      )}
+      {['content', 'members', 'clients'].includes(active) && (
+        <p role="status">
+          Detailed rankings and attribution are unavailable in runtime aggregate
+          reports.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -663,7 +799,7 @@ export function RuntimeReportView({
 export function RuntimeAnalyticsPage() {
   const [params, setParams] = useSearchParams();
   const [manifest, setManifest] = useState<ReportingManifest | null>(null);
-  const [report, setReport] = useState<RuntimeReport | null>(null);
+  const [report, setReport] = useState<AggregateReport | null>(null);
   const [error, setError] = useState('');
   const { pathname } = useLocation();
   const active = selectedAnalyticsReport(params, pathname).id;
@@ -706,7 +842,7 @@ export function RuntimeAnalyticsPage() {
         if (!r.ok) throw new Error('Could not load this report.');
         return r.json();
       })
-      .then((data: RuntimeReport) => {
+      .then((data: AggregateReport) => {
         if (data.schemaVersion !== 1 || data.revision !== entry.revision)
           throw new Error('Report version mismatch.');
         setReport(data);
@@ -757,7 +893,7 @@ export function RuntimeAnalyticsPage() {
             <p>
               {report.start} through {report.endExclusive} (end exclusive, UTC)
             </p>
-            <RuntimeReportView report={report} active={active} />
+            <AggregateReportView report={report} active={active} />
             <p>Report revision {report.revision.slice(0, 12)}</p>
           </>
         )}

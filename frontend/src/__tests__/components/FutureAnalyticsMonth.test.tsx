@@ -1,7 +1,6 @@
 import { renderAnalytics as render } from '../utils/renderAnalytics';
 import { screen, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
 
 vi.mock(
   '../../../private-analytics-reports/manifest.json',
@@ -35,18 +34,10 @@ vi.mock(
     return { default: { ...original, '2026-10': october } };
   }
 );
-vi.mock('recharts', () => ({
-  Bar: () => null,
-  Legend: () => null,
-  BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  CartesianGrid: () => null,
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Tooltip: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-}));
+vi.mock(
+  'recharts',
+  async () => (await import('../utils/analyticsCharts')).analyticsCharts
+);
 import { ReportingPeriodPicker } from '../../components/analytics/ReportingPeriodPicker';
 import { MonthlyComparison } from '../../components/analytics/MonthlyComparison';
 import { selectedAnalyticsReport } from '../../config/analyticsReports';
@@ -65,7 +56,7 @@ it('adds a fourth month to navigation, defaults, comparisons, and daily columns'
     screen.getByRole('option', { name: 'October 2026' })
   ).toBeInTheDocument();
   expect(
-    screen.getByText('October compared with September')
+    screen.getByRole('heading', { name: 'Monthly activity' })
   ).toBeInTheDocument();
   const table = screen.getByRole('table', { name: /portal totals/i });
   expect(

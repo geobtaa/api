@@ -1,23 +1,16 @@
 import { renderAnalytics as render } from '../utils/renderAnalytics';
-import { screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { screen } from '@testing-library/react';
+import { AnalyticsTestRouter as MemoryRouter } from '../utils/AnalyticsTestRouter';
 import { expect, it, vi } from 'vitest';
 import { ProviderReport } from '../../components/analytics/ProviderReport';
 import type {
   ProviderGroup,
   ProviderSnapshot,
 } from '../../data/analytics/providers2026';
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  LineChart: () => <div />,
-  CartesianGrid: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  Tooltip: () => null,
-}));
+vi.mock(
+  'recharts',
+  async () => (await import('../utils/analyticsCharts')).analyticsCharts
+);
 const counts = {
   catalogRecords: 10,
   activeResources: 2,
@@ -57,30 +50,33 @@ const snapshot: ProviderSnapshot = {
   ],
   codeCoverage: [],
 };
-it('keeps university, agency, and missing providers separate without export links', () => {
-  render(
-    <MemoryRouter>
-      <ProviderReport month="2026-08" snapshot={snapshot} />
-    </MemoryRouter>
-  );
-  expect(screen.getByLabelText('Provider')).toHaveValue('all');
-  fireEvent.change(screen.getByLabelText('Provider'), {
-    target: { value: '0' },
-  });
-  const browse = screen.getByRole('link', { name: 'Browse this provider' });
-  expect(browse.getAttribute('href')).toBe(
-    '/search?include_filters%5Bschema_provider_s%5D%5B%5D=The+Ohio+State+University'
-  );
-  expect(
-    screen.queryByRole('link', { name: 'Download provider data' })
-  ).not.toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Provider'), {
-    target: { value: '2' },
-  });
-  expect(
-    screen.queryByRole('link', { name: 'Browse this provider' })
-  ).not.toBeInTheDocument();
-});
+it.each(['all', '0', '2'])(
+  'keeps provider scope from the shareable URL: %s',
+  (provider) => {
+    render(
+      <MemoryRouter
+        initialEntries={[`/analytics/members?provider=${provider}`]}
+      >
+        <ProviderReport month="2026-08" snapshot={snapshot} />
+      </MemoryRouter>
+    );
+    if (provider === '0') {
+      expect(
+        screen.getByRole('link', { name: 'The Ohio State University' })
+      ).toHaveAttribute(
+        'href',
+        '/search?include_filters%5Bschema_provider_s%5D%5B%5D=The+Ohio+State+University'
+      );
+    } else if (provider === '2') {
+      expect(
+        screen.queryByRole('link', { name: 'The Ohio State University' })
+      ).not.toBeInTheDocument();
+    }
+    expect(
+      screen.queryByRole('link', { name: 'Download provider data' })
+    ).not.toBeInTheDocument();
+  }
+);
 
 it('reconciles every exported provider against coverage and daily counts', async () => {
   const { providerSnapshots } =

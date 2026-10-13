@@ -1,6 +1,5 @@
 import { renderAnalytics as render } from '../utils/renderAnalytics';
 import { fireEvent, screen, within } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import { MonthlyComparison } from '../../components/analytics/MonthlyComparison';
 import {
@@ -11,18 +10,10 @@ import {
 import { memberPerformance } from '../../data/analytics/july2026';
 import { comparisonChange } from '../../utils/analyticsComparison';
 
-vi.mock('recharts', () => ({
-  Area: () => null,
-  Legend: () => null,
-  AreaChart: ({ children }: { children: ReactNode }) => <svg>{children}</svg>,
-  CartesianGrid: () => null,
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Tooltip: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-}));
+vi.mock(
+  'recharts',
+  async () => (await import('../utils/analyticsCharts')).analyticsCharts
+);
 
 describe('MonthlyComparison', () => {
   it('reports verified totals and changes without export links', () => {
@@ -46,7 +37,7 @@ describe('MonthlyComparison', () => {
   it('leads with all-month activity and normalizes by calendar days', () => {
     const { container } = render(<MonthlyComparison />);
     expect(
-      screen.getByRole('heading', { name: 'July 2026 – September 2026' })
+      screen.getByRole('region', { name: 'Monthly comparison' })
     ).toBeInTheDocument();
     expect(container.querySelector('.analytics-panel h3')).toHaveTextContent(
       'Monthly activity'

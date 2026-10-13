@@ -26,6 +26,7 @@ export function ReportingPeriodPicker({
       </label>
       <select
         id={id}
+        aria-label={comparison ? 'Comparison period' : label}
         value={comparison ? 'comparison' : value}
         disabled={comparison}
         onChange={(event) => onChange(event.target.value)}

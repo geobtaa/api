@@ -106,10 +106,11 @@ def test_calculation_change_republishes_without_raw_changes(conn, monkeypatch): 
     archives = [MemoryArchive("primary"), MemoryArchive("recovery")]
     insert(conn)
     first = pipeline.run(BoundEngine(), today=date(2026, 8, 1), archives=archives)
-    monkeypatch.setattr(pipeline, "CALCULATION_VERSION", "test-next")
-    monkeypatch.setattr(reports, "CALCULATION_VERSION", "test-next")
+    next_version = str(int(reports.CALCULATION_VERSION) + 1)
+    monkeypatch.setattr(pipeline, "CALCULATION_VERSION", next_version)
+    monkeypatch.setattr(reports, "CALCULATION_VERSION", next_version)
     second = pipeline.run(BoundEngine(), today=date(2026, 8, 1), archives=archives)
-    assert second["calculationVersion"] == "test-next"
+    assert second["calculationVersion"] == next_version
     assert first["revision"] != second["revision"]
     assert conn.execute(text("SELECT count(*) FROM analytics_reporting_publications")).scalar() == 6
 

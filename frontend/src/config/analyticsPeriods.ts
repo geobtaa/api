@@ -4,6 +4,11 @@ export const publishedMonths = manifest.periods
   .filter((id) => /^\d{4}-\d{2}$/.test(id))
   .sort();
 export const latestMonth = manifest.latest;
+export function selectedSnapshotPeriod(value: string | null) {
+  return value === 'all' || publishedMonths.includes(value ?? '')
+    ? value!
+    : latestMonth;
+}
 export function monthLabel(period: string, short = false) {
   return new Date(`${period}-01T00:00:00Z`).toLocaleDateString('en-US', {
     month: short ? 'short' : 'long',

@@ -1,8 +1,10 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router';
+import { AnalyticsTestRouter as MemoryRouter } from '../utils/AnalyticsTestRouter';
 import {
   RuntimeAnalyticsPage,
+  AggregateReportView,
+  type AggregateReport,
   RuntimeReportView,
   type RuntimeReport,
 } from '../../components/analytics/RuntimeAnalyticsPage';
@@ -154,3 +156,45 @@ it('shows access rankings independently and labels unavailable audience measures
     screen.getByRole('combobox', { name: 'Audience chart metric' })
   ).toHaveValue('searches');
 });
+
+it.each([
+  'overview',
+  'comparison',
+  'discovery',
+  'content',
+  'members',
+  'clients',
+  'platform',
+])(
+  'renders the actual aggregate API contract for %s without private fields or broken downloads',
+  async (active) => {
+    const { default: exported } =
+      await import('../../../../backend/tests/fixtures/analytics/public-report.json');
+    render(
+      <AggregateReportView
+        report={exported as AggregateReport}
+        active={active}
+      />
+    );
+    expect(
+      screen.getByText(
+        'Aggregate counts only. Visitor text and identifiers are excluded.'
+      )
+    ).toBeInTheDocument();
+    for (const link of screen.queryAllByRole('link', {
+      name: /Download CSV|Download JSON/,
+    })) {
+      expect(link.getAttribute('href')).toMatch(
+        /\/download\/(daily|comparison|categories|zeroCategories)\?format=(csv|json)$/
+      );
+    }
+    if (['content', 'members', 'clients'].includes(active)) {
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'unavailable in runtime aggregate reports'
+      );
+      expect(
+        screen.queryByText('No recorded rows for this period.')
+      ).not.toBeInTheDocument();
+    }
+  }
+);

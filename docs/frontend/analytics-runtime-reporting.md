@@ -167,3 +167,17 @@ September and refreshed cumulative reports are available as reviewed static
 snapshots generated from the same preserved-input report contract. This does not
 enable the runtime publication gate. See the [September update](monthly-analytics.md#september-2026-update)
 for local regeneration, coverage, and downloadable-table behavior.
+
+### Runtime response and dashboard contract
+
+Runtime API responses use the screened aggregate projection. The runtime dashboard
+renders only its daily totals, month comparisons, query-category counts, and
+latency summary. Resource rankings, member/client attribution, query text, search
+context, and endpoint details are explicitly unavailable in this projection.
+Download links are limited to the four aggregate tables accepted by the API.
+The detailed authenticated snapshot dashboard retains its separate report shape.
+
+`backend/tests/fixtures/analytics/public-report.json` is a shared contract fixture:
+backend tests verify it is an unchanged public projection and frontend tests
+render every runtime report section from it. Keep both checks when changing the
+projection; do not add private dimensions merely to satisfy a UI expectation.

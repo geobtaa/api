@@ -810,3 +810,25 @@ total Geoportal key usage. “Not declared” must not be reassigned to SSR, and
 requests cannot be recovered by relabeling aggregates. The Clients report explains
 these gaps. New logging applies after the updated API and worker are deployed;
 deployment verification belongs in the restricted operations runbook.
+
+### Refresh and regression checks
+
+The staged monthly refresh installs `memberLeadingContent.json` together with
+the other generated data before switching the report manifest. This keeps the
+member rankings and cumulative summaries on the same reporting boundary.
+The successful-refresh test covers a fourth month and replacement of prior
+cumulative rankings, in addition to the existing failure-preservation checks.
+
+Snapshot period selection is shared between metadata and page rendering.
+Missing, malformed, or unpublished snapshot periods fall back to the latest
+published month; `all` retains cumulative selection. Runtime period selection
+uses its own live manifest and explicitly reports unavailable periods.
+
+Analytics tests share structural chart mocks and a data-router wrapper for
+components containing the sign-out form. Chart-specific tests may override the
+shared mocks. Assert DOM collection counts as numbers so failed assertions do
+not serialize entire report trees.
+
+The full analytics page suite uses jsdom for axe compatibility with escaped
+selectors in quoted query labels. Its router wrapper disposes history listeners
+on unmount so repeated navigation tests do not retain prior page trees.
