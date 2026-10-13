@@ -4585,15 +4585,16 @@ h3.analytics-widget-heading {
   color: #496271;
 }
 .analytics-brief-lockup {
+  /* Production lockup ratios: 100px mark, 21px gap, 43px divider, 17px gap. */
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  align-items: flex-start;
+  gap: 21px;
   color: var(--analytics-brand);
 }
 .analytics-brief-btaa-mark {
   display: block;
-  width: 84px;
-  height: 41.7px;
+  width: 100px;
+  height: 49.64px;
   flex: 0 0 auto;
   background: currentColor;
   /* Crop the source logo’s transparent margins to align its visible ink. */
@@ -4601,12 +4602,12 @@ h3.analytics-widget-heading {
   mask: url('/btaa-logo.png') 50.538% 66.981% / 116.667% 138.267% no-repeat;
 }
 .analytics-brief-lockup-name {
-  padding-left: 1rem;
+  padding-left: 17px;
   border-left: 1px solid currentColor;
-  font-size: 1.9rem;
+  font-size: 32px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  line-height: 43px;
+  letter-spacing: 0;
 }
 .analytics-brief-header h1 {
   margin: 1rem 0 0.7rem;
@@ -4820,15 +4821,16 @@ h3.analytics-widget-heading {
 }
 @media (max-width: 760px) {
   .analytics-brief-lockup {
-    gap: 0.5rem;
+    gap: 14.7px;
   }
   .analytics-brief-btaa-mark {
-    width: 60px;
-    height: 29.8px;
+    width: 70px;
+    height: 34.75px;
   }
   .analytics-brief-lockup-name {
-    padding-left: 0.5rem;
-    font-size: 1.25rem;
+    padding-left: 11.9px;
+    font-size: 22.4px;
+    line-height: 30.1px;
   }
   .analytics-findings-grid,
   .analytics-brief-collections ol,
@@ -4859,15 +4861,16 @@ h3.analytics-widget-heading {
 }
 @media print {
   .analytics-brief-lockup {
-    gap: 3mm;
+    gap: 3.57mm;
   }
   .analytics-brief-btaa-mark {
-    width: 15mm;
-    height: 7.45mm;
+    width: 17mm;
+    height: 8.44mm;
   }
   .analytics-brief-lockup-name {
-    padding-left: 3mm;
-    font-size: 17pt;
+    padding-left: 2.89mm;
+    font-size: 5.44mm;
+    line-height: 7.31mm;
   }
   .analytics-brief-institution-icon {
     width: 13mm;
