@@ -109,9 +109,16 @@ export function CampusBrief({
       <main id="analytics-main" className="analytics-brief-sheet" tabIndex={-1}>
         <header className="analytics-brief-header">
           <div>
-            <p className="analytics-eyebrow">
-              Big Ten Academic Alliance · Geoportal
-            </p>
+            <div
+              className="analytics-brief-lockup"
+              role="img"
+              aria-label="Big Ten Academic Alliance Geoportal"
+            >
+              <span className="analytics-brief-btaa-mark" aria-hidden="true" />
+              <span className="analytics-brief-lockup-name" aria-hidden="true">
+                Geoportal
+              </span>
+            </div>
             <p className="analytics-brief-kicker">Resource activity brief</p>
             <h1>{name}</h1>
             <p className="analytics-brief-period">

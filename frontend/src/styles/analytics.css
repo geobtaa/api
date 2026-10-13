@@ -4586,9 +4586,32 @@ h3.analytics-widget-heading {
   color: #496271;
 }
 .analytics-brief-kicker {
-  margin: 1.6rem 0 0.35rem;
+  margin: 1rem 0 0.35rem;
   color: #496271;
   font-size: 0.8rem;
+}
+.analytics-brief-lockup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--analytics-brand);
+}
+.analytics-brief-btaa-mark {
+  display: block;
+  width: 112px;
+  height: 66px;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: url('/btaa-logo.png') center / contain no-repeat;
+  mask: url('/btaa-logo.png') center / contain no-repeat;
+}
+.analytics-brief-lockup-name {
+  padding-left: 1rem;
+  border-left: 1px solid currentColor;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
 }
 .analytics-brief-header h1 {
   margin: 0 0 0.7rem;
@@ -4801,6 +4824,17 @@ h3.analytics-widget-heading {
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
+  .analytics-brief-lockup {
+    gap: 0.5rem;
+  }
+  .analytics-brief-btaa-mark {
+    width: 76px;
+    height: 45px;
+  }
+  .analytics-brief-lockup-name {
+    padding-left: 0.5rem;
+    font-size: 1.25rem;
+  }
   .analytics-findings-grid,
   .analytics-brief-collections ol,
   .analytics-brief-findings,
@@ -4829,6 +4863,22 @@ h3.analytics-widget-heading {
   }
 }
 @media print {
+  .analytics-brief-lockup {
+    gap: 3mm;
+  }
+  .analytics-brief-btaa-mark {
+    width: 19mm;
+    height: 11.2mm;
+  }
+  .analytics-brief-lockup-name {
+    padding-left: 3mm;
+    font-size: 17pt;
+  }
+  .analytics-brief-institution-icon {
+    width: 13mm;
+    height: 13mm;
+    padding: 0;
+  }
   @page analyticsBrief {
     size: auto;
     margin: 12mm;

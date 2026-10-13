@@ -82,9 +82,9 @@ describe('campus brief', () => {
     expect(
       screen.queryByText(/does not verify this brief/)
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('img')).toHaveAccessibleName(
-      /Daily resource views across 30 days/
-    );
+    expect(
+      screen.getByRole('img', { name: /Daily resource views/ })
+    ).toHaveAccessibleName(/Daily resource views across 30 days/);
     expect((await axe(container)).violations).toEqual([]);
     const print = vi.spyOn(window, 'print').mockImplementation(() => {});
     fireEvent.click(screen.getByRole('button', { name: 'Print / save PDF' }));
@@ -98,7 +98,9 @@ describe('campus brief', () => {
       screen.getByText(/Historical coverage incomplete/)
     ).toBeInTheDocument();
     expect(screen.getAllByText('No prior-period comparison')).toHaveLength(4);
-    expect(screen.getByRole('img')).toHaveAccessibleName(/across 92 days/);
+    expect(
+      screen.getByRole('img', { name: /Daily resource views/ })
+    ).toHaveAccessibleName(/across 92 days/);
   });
 
   it('ranks collections using the selected campus and period', () => {
