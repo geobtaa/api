@@ -55,6 +55,11 @@ export const analyticsReports = [
   },
 ] as const;
 
+// Hide client reporting until API-key and traffic attribution are reliable.
+export const visibleAnalyticsReports = analyticsReports.filter(
+  (report) => report.id !== 'clients'
+);
+
 export type AnalyticsReport = (typeof analyticsReports)[number]['id'];
 
 export function analyticsReportHref(

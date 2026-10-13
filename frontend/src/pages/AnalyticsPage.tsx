@@ -78,7 +78,7 @@ import { MonthlyComparison } from '../components/analytics/MonthlyComparison';
 import { Footer } from '../components/layout/Footer';
 import { AnalyticsHeader } from '../components/analytics/AnalyticsHeader';
 import {
-  analyticsReports,
+  visibleAnalyticsReports,
   analyticsReportHref,
 } from '../config/analyticsReports';
 import { Seo } from '../components/Seo';
@@ -1579,7 +1579,7 @@ export function AnalyticsPage() {
                   reporting period.
                 </p>
                 <div className="analytics-report-cards">
-                  {analyticsReports
+                  {visibleAnalyticsReports
                     .filter((entry) => entry.id !== 'overview')
                     .map((entry) => (
                       <Link

@@ -2,7 +2,7 @@ import { CircleCheck, LogOut, X } from 'lucide-react';
 import { Form, Link, useSearchParams } from 'react-router';
 
 import {
-  analyticsReports,
+  visibleAnalyticsReports,
   analyticsReportHref,
   type AnalyticsReport,
 } from '../../config/analyticsReports';
@@ -57,7 +57,7 @@ export function AnalyticsHeader({
           className="analytics-shell analytics-report-nav"
           aria-label="Analytics reports"
         >
-          {analyticsReports.map((report) => (
+          {visibleAnalyticsReports.map((report) => (
             <Link
               key={report.id}
               to={reportHref(report.id)}

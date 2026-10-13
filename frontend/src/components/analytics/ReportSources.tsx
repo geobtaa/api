@@ -65,7 +65,7 @@ const definitions: Record<
     grouping:
       'Requests are grouped by service address and day in UTC. Categories include API documentation, security checks, activity recording, and other services. The busiest-day breakdown uses the date with the most requests. Server errors are responses with HTTP status 500 or higher.',
     limits:
-      'Traffic includes automated requests and system checks, not just visits. Response-time statistics describe the requests that were recorded. Service categories here differ from the broader categories on Applications & API access.',
+      'Traffic includes automated requests and system checks, not just visits. Response-time statistics describe the requests that were recorded.',
   },
 };
 

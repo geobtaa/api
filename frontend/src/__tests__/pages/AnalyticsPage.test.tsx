@@ -444,19 +444,15 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).not.toBeInTheDocument();
   });
 
-  it('opens client reporting from navigation and switches its reporting month', () => {
+  it('hides client reporting from navigation and the report directory', () => {
     renderPage('overview');
-    fireEvent.click(
-      within(
-        screen.getByRole('navigation', { name: 'Analytics reports' })
-      ).getByRole('link', { name: 'Applications & API access' })
-    );
     expect(
-      screen.getByRole('link', {
-        name: 'Applications & API access',
-        current: 'page',
-      })
-    ).toBeInTheDocument();
+      screen.queryByRole('link', { name: /Applications & API access/ })
+    ).not.toBeInTheDocument();
+  });
+
+  it('preserves direct client reporting links and reporting-month selection', () => {
+    renderPage('clients');
     expect(
       screen.getByRole('table', { name: 'August 2026 declared client usage' })
     ).toBeInTheDocument();
