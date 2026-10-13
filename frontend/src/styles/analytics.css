@@ -1,4 +1,5 @@
 .analytics-page {
+  --analytics-report-gap: 1.5rem;
   --analytics-brand: rgb(var(--color-primary));
   --analytics-active: rgb(var(--color-active));
   --analytics-active-hover: #1d4ed8;
@@ -5010,4 +5011,43 @@ h3.analytics-widget-heading {
 }
 #api-endpoints td {
   overflow-wrap: anywhere;
+}
+
+/* Report containers own vertical spacing. Panels keep only their internal
+   padding, so adjacent reports cannot accumulate independent margins. */
+.analytics-content,
+.analytics-content .analytics-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--analytics-report-gap);
+}
+.analytics-content {
+  padding-top: var(--analytics-report-gap);
+}
+.analytics-content .analytics-section {
+  padding-block: 0;
+}
+.analytics-content > *,
+.analytics-content .analytics-section > * {
+  margin-block: 0;
+  min-width: 0;
+}
+.analytics-content .analytics-report-directory {
+  padding-block: 0;
+}
+.analytics-content
+  :is(
+    .analytics-platform-grid,
+    .analytics-charts-grid,
+    .analytics-search-chart-grid,
+    .analytics-insights-grid,
+    .analytics-taxonomy-grid,
+    .analytics-member-kpi-grid,
+    .analytics-member-detail-grid,
+    .analytics-member-leading-content,
+    .analytics-member-standouts,
+    .analytics-pulse-grid,
+    .analytics-report-cards
+  ) {
+  row-gap: var(--analytics-report-gap);
 }
