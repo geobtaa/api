@@ -145,22 +145,24 @@ export function AudienceReport({
         />
       )}
       <div className="analytics-outcomes-body">
-        <div className="analytics-audience-cards">
-          <div className="analytics-metric-card">
-            <MetricHeading icon={Users}>
-              Tracked visits{visitsAreEstimated(period) ? ' (estimated)' : ''}
-            </MetricHeading>
-            <strong>
-              {visitsAreEstimated(period) ? '≈ ' : ''}
-              {n.format(report.audience.trackedVisits)}
-            </strong>
-            <p>
-              {visitsAreEstimated(period)
-                ? 'Estimated visits across searches and resource activity, tracked within each browser tab. These are not individual people; the estimate has about 0.81% relative standard error.'
-                : 'Visits across searches and resource activity, tracked within each browser tab. These are not individual people.'}
-            </p>
+        {!embedded && (
+          <div className="analytics-audience-cards">
+            <div className="analytics-metric-card">
+              <MetricHeading icon={Users}>
+                Tracked visits{visitsAreEstimated(period) ? ' (estimated)' : ''}
+              </MetricHeading>
+              <strong>
+                {visitsAreEstimated(period) ? '≈ ' : ''}
+                {n.format(report.audience.trackedVisits)}
+              </strong>
+              <p>
+                {visitsAreEstimated(period)
+                  ? 'Estimated visits across searches and resource activity, tracked within each browser tab. These are not individual people; the estimate has about 0.81% relative standard error.'
+                  : 'Visits across searches and resource activity, tracked within each browser tab. These are not individual people.'}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
         {!embedded && (
           <>
             <label className="analytics-query-category-filter">

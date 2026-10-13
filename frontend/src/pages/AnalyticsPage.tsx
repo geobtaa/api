@@ -1527,31 +1527,6 @@ export function AnalyticsPage() {
                       <strong>{formatCompact(summary.impressions)}</strong>
                       <p>resource appearances in search results</p>
                     </div>
-                    <div className="analytics-metric-card">
-                      <div>
-                        <CheckCircle2 className="h-5 w-5" aria-hidden />
-                        <span>
-                          Tracked visits
-                          {visitsAreEstimated(selectedPeriod)
-                            ? ' (estimated)'
-                            : ''}
-                        </span>
-                      </div>
-                      <strong>
-                        {visitsAreEstimated(selectedPeriod) ? '≈ ' : ''}
-                        {wholeNumber.format(
-                          outcomes.periods[selectedPeriod].audience
-                            .trackedVisits
-                        )}
-                      </strong>
-                      <p>
-                        {visitsAreEstimated(selectedPeriod)
-                          ? 'Estimated distinct'
-                          : 'Distinct'}{' '}
-                        browser-tab visits recorded in searches or events; not
-                        unique people
-                      </p>
-                    </div>
                   </aside>
                 </div>
                 <div
