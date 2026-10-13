@@ -75,3 +75,56 @@ def test_titles_use_verified_fallbacks_without_replacing_saved_titles():
         "stanford-example": "Global Map",
     }
     assert all(row["views"] == 3 for row in rows)
+
+
+def test_member_collections_follow_saved_eligibility_and_monthly_attribution():
+    from app.services.analytics_reporting.collection_views import member_collection_views
+
+    def document(month, code, memberships, count):
+        return {
+            "month": month,
+            "catalog": {
+                "resource": {
+                    "code": code,
+                    "eligible": True,
+                    "content": {"attributes": {"collections": memberships}},
+                },
+                "excluded": {"code": code, "eligible": False, "attributes": {"collections": ["a"]}},
+                "other": {"code": "Other", "attributes": {"collections": ["a"]}},
+                "a": {"title": "Collection A"},
+                "b": {"title": "Collection B"},
+            },
+            "daily": [
+                {
+                    "dimensions": {
+                        "source": "analytics_events",
+                        "event": event,
+                        "resource": resource,
+                    },
+                    "metrics": {"count": value},
+                }
+                for resource, event, value in [
+                    ("resource", "resource_view", count),
+                    ("excluded", "resource_view", 999),
+                    ("other", "resource_view", 999),
+                    ("resource", "download_click", 999),
+                ]
+            ],
+        }
+
+    rows = member_collection_views(
+        [
+            document("2026-07-01", "University of Chicago", ["a", "a", "b"], 5),
+            document("2026-08-01", "The Ohio State University", ["b"], 7),
+        ]
+    )
+    assert rows["12"] == [
+        {"id": "a", "title": "Collection A", "views": 5},
+        {"id": "b", "title": "Collection B", "views": 5},
+    ]
+    assert rows["11"] == [{"id": "b", "title": "Collection B", "views": 7}]
+    assert rows["all"] == [
+        {"id": "b", "title": "Collection B", "views": 12},
+        {"id": "a", "title": "Collection A", "views": 5},
+    ]
+    assert rows["01"] == []

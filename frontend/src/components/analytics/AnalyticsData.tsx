@@ -1,6 +1,10 @@
 import { createContext, useContext, useMemo } from 'react';
 import { restoreAnalyticsHelpers } from './analyticsHelpers';
 export type AnalyticsData = {
+  memberCollectionViews: Record<
+    string,
+    Record<string, { id: string; title: string; views: number }[]>
+  >;
   memberLeadingContent: Record<
     string,
     Record<

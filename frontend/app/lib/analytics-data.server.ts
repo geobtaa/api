@@ -1,4 +1,5 @@
 import memberLeadingContent from '../../src/data/analytics/memberLeadingContent.json';
+import memberCollectionViews from '../../src/data/analytics/memberCollectionViews.json';
 import queryTranslations from '../../src/data/analytics/queryTranslations.json';
 // Server-only snapshot payload; the route authenticates before returning it.
 // Functions are restored on the client from this authenticated data payload.
@@ -29,6 +30,7 @@ export const analyticsSnapshot = JSON.parse(
     'collectionViewsCurrent.json': { default: collectionViewsCurrent },
     queryTranslations,
     memberLeadingContent,
+    memberCollectionViews,
     outcomes: outcomes,
     'allTimeCurrent.json': { default: allTimeCurrent },
     'monthlySnapshots.json': { default: monthlySnapshots },

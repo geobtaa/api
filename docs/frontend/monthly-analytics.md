@@ -867,9 +867,17 @@ content. Sparse data and cumulative periods use explicit fallback copy.
 
 In Members, select the contribution grouping, reporting period and institution,
 then choose **Open campus brief**. The `brief=1` view preserves the selected period
-and institution in its URL. It provides four activity measures, raw count changes
-from the prior calendar month when available, catalog reach, days with views, daily attention, and the first five
-view/download leaders from the same saved ranking used by the member report.
+and institution in its URL. Activity measures appear in this order: views,
+impressions, source-site clicks and download clicks. The brief includes raw count
+changes from the prior calendar month when available, catalog reach, days with
+views, a daily trend, and five view/download leaders from the member report.
+Popular collections shows the top three collections by views of the selected
+campus's resources. The monthly exporter derives `memberCollectionViews.json`
+from complete preserved view dimensions, eligible contribution-stream attribution
+and collection membership for each month. Cumulative rankings sum those monthly
+assignments. Resources in multiple collections contribute to each collection;
+unmapped or ineligible resources are excluded. Rankings are delivered through the
+authenticated analytics payload and refreshed with the other dashboard data.
 All recorded contributions can also be summarized together. Unavailable campuses
 and Provider grouping do not offer a brief.
 

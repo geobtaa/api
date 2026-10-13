@@ -13,9 +13,9 @@ export type CampusCounts = {
 const number = new Intl.NumberFormat('en-US');
 const metrics = [
   ['resourceViews', 'Resource views'],
-  ['downloadClicks', 'Download clicks'],
-  ['sourceClicks', 'Source-site clicks'],
   ['impressions', 'Search impressions'],
+  ['sourceClicks', 'Source-site clicks'],
+  ['downloadClicks', 'Download clicks'],
 ] as const;
 
 export function CampusBrief({
@@ -29,6 +29,7 @@ export function CampusBrief({
   previous,
   previousLabel,
   topContent,
+  collections,
   daily,
   report,
   reportHref,
@@ -46,6 +47,7 @@ export function CampusBrief({
     viewed: readonly MemberContentEntry[];
     downloaded: readonly MemberContentEntry[];
   };
+  collections: { id: string; title: string; views: number }[];
   daily: { day: string; views: number; downloads: number }[];
   report: {
     id: string;
@@ -238,6 +240,29 @@ export function CampusBrief({
             </section>
           ))}
         </div>
+        <section
+          className="analytics-brief-collections"
+          aria-label="Popular collections"
+        >
+          <h2>Popular collections</h2>
+          <p>Views of resources in this report; collections can overlap.</p>
+          <ol>
+            {collections.slice(0, 3).map((collection) => (
+              <li key={collection.id}>
+                <a
+                  href={`/resources/${encodeURIComponent(collection.id)}`}
+                  title={collection.title}
+                >
+                  {collection.title}
+                </a>
+                <strong>
+                  {number.format(collection.views)} <span>views</span>
+                </strong>
+              </li>
+            ))}
+          </ol>
+          {!collections.length && <p>No collection-linked views recorded.</p>}
+        </section>
         <footer className="analytics-brief-evidence">
           <p>
             Counts describe activity, not people or confirmed downloads.

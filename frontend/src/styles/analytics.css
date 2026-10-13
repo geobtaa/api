@@ -4735,6 +4735,44 @@ h3.analytics-widget-heading {
   line-height: 1.5;
   color: #475b67;
 }
+.analytics-brief-collections {
+  margin-top: 1rem;
+}
+.analytics-brief-collections > p {
+  margin: 0 0 0.6rem;
+  color: #496271;
+  font-size: 0.7rem;
+}
+.analytics-brief-collections ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.analytics-brief-collections li {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.4rem;
+  border-top: 1px solid #dce5e9;
+  padding-top: 0.5rem;
+}
+.analytics-brief-collections a {
+  color: #12394b;
+  font-size: 0.77rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.analytics-brief-collections strong {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.analytics-brief-collections strong span {
+  font-size: 0.65rem;
+  font-weight: 400;
+}
 .analytics-brief-evidence p {
   margin: 0.5rem 0;
 }
@@ -4749,6 +4787,7 @@ h3.analytics-widget-heading {
 }
 @media (max-width: 760px) {
   .analytics-findings-grid,
+  .analytics-brief-collections ol,
   .analytics-brief-findings,
   .analytics-brief-leaders {
     grid-template-columns: 1fr;
@@ -4790,7 +4829,7 @@ h3.analytics-widget-heading {
   .analytics-brief-sheet {
     page: analyticsBrief;
     max-width: none;
-    padding: 7mm 6mm 0;
+    padding: 4mm 6mm 0;
     box-shadow: none;
     border-top-width: 2mm;
   }
@@ -4801,7 +4840,7 @@ h3.analytics-widget-heading {
     font-size: 23pt;
   }
   .analytics-brief-kicker {
-    margin-top: 4mm;
+    margin-top: 2mm;
   }
   .analytics-brief-intro {
     margin: 3mm 0;
@@ -4821,7 +4860,7 @@ h3.analytics-widget-heading {
     display: flex;
   }
   .analytics-brief-activity svg {
-    height: 16mm;
+    height: 14mm;
   }
   .analytics-brief-leaders {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4830,22 +4869,36 @@ h3.analytics-widget-heading {
   .analytics-brief-findings {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 5mm;
-    padding: 2mm 0;
+    padding: 1.3mm 0;
   }
   .analytics-brief-findings p {
     font-size: 8pt;
   }
   .analytics-brief-leaders li {
-    padding: 2mm 0;
+    padding: 1.3mm 0;
   }
   .analytics-brief-leaders a {
     font-size: 8pt;
     -webkit-line-clamp: 2;
   }
   .analytics-brief-evidence {
-    margin-top: 3mm;
-    padding-top: 3mm;
+    margin-top: 2mm;
+    padding-top: 2mm;
     font-size: 7pt;
+  }
+  .analytics-brief-collections {
+    margin-top: 2mm;
+  }
+  .analytics-brief-collections ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4mm;
+  }
+  .analytics-brief-collections a {
+    font-size: 8pt;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .analytics-brief-sheet section,
   .analytics-brief-metrics,

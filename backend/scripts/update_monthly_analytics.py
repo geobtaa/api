@@ -56,6 +56,7 @@ def update(archives, supplemental, frontend, through):
         names = [
             "monthlySnapshots.json",
             "memberLeadingContent.json",
+            "memberCollectionViews.json",
             "popularHistory2026.json",
             "allTimeCurrent.json",
             "memberAllTimeCurrent.json",

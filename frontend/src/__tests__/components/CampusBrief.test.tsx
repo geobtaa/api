@@ -52,6 +52,14 @@ describe('campus brief', () => {
       (row: { slug: string }) => row.slug === institution
     )!;
     const metrics = container.querySelector('.analytics-brief-metrics')!;
+    expect(
+      Array.from(metrics.querySelectorAll('dt'), (node) => node.textContent)
+    ).toEqual([
+      'Resource views',
+      'Search impressions',
+      'Source-site clicks',
+      'Download clicks',
+    ]);
     expect(metrics).toHaveTextContent(
       current.resourceViews.toLocaleString('en-US')
     );
@@ -91,6 +99,27 @@ describe('campus brief', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('No prior-period comparison')).toHaveLength(4);
     expect(screen.getByRole('img')).toHaveAccessibleName(/across 92 days/);
+  });
+
+  it('ranks collections using the selected campus and period', () => {
+    open(
+      '/analytics/members?month=2026-09&institution=university-of-chicago&brief=1'
+    );
+    const collections = within(
+      screen.getByRole('region', { name: 'Popular collections' })
+    );
+    expect(collections.getAllByRole('listitem')).toHaveLength(3);
+    expect(collections.getAllByRole('listitem')[0]).toHaveTextContent(
+      'Research Institutes Geospatial Data Collection842 views'
+    );
+    expect(
+      collections.getByRole('link', {
+        name: 'Research Institutes Geospatial Data Collection',
+      })
+    ).toHaveAttribute(
+      'href',
+      '/resources/b0153110-e455-4ced-9114-9b13250a7093'
+    );
   });
 
   it('does not create a brief for unavailable institutions', () => {

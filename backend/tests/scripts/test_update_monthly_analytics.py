@@ -62,6 +62,7 @@ def test_successful_refresh_installs_member_rankings(tmp_path, monkeypatch):
     data.mkdir(parents=True)
     destination.mkdir()
     (data / "memberLeadingContent.json").write_text('{"all": "old rankings"}')
+    (data / "memberCollectionViews.json").write_text('{"all": "old collections"}')
     months = ["2026-07", "2026-08", "2026-09", "2026-10"]
     monkeypatch.setattr(monthly, "reporting_boundary", lambda: date(2026, 11, 1))
 
@@ -92,6 +93,9 @@ def test_successful_refresh_installs_member_rankings(tmp_path, monkeypatch):
         ):
             (output / f"{name}.json").write_text("{}")
         (output / f"month-{month}.json").write_text(json.dumps({"month": month}))
+        (output / "memberCollectionViews.json").write_text(
+            json.dumps({month: {"12": [{"id": "collection", "views": 42}]}})
+        )
         (output / "memberLeadingContent.json").write_text(
             json.dumps(
                 {
@@ -106,5 +110,8 @@ def test_successful_refresh_installs_member_rankings(tmp_path, monkeypatch):
     monthly.update([], tmp_path / "counts.json", tmp_path, date(2026, 11, 1))
     rankings = json.loads((data / "memberLeadingContent.json").read_text())
     assert rankings == {"all": {"views": 99}, "2026-10": {"views": 12}}
+    assert json.loads((data / "memberCollectionViews.json").read_text()) == {
+        "2026-10": {"12": [{"id": "collection", "views": 42}]}
+    }
     assert json.loads((destination / "manifest.json").read_text())["latest"] == "2026-10"
     assert set(json.loads((data / "monthlySnapshots.json").read_text())) == set(months[2:])

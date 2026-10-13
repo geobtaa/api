@@ -615,6 +615,11 @@ export function AnalyticsPage() {
           previousPeriod ? monthLabel(previousPeriod, true) : undefined
         }
         topContent={selectedTopContent ?? { viewed: [], downloaded: [] }}
+        collections={
+          analytics.memberCollectionViews[selectedPeriod]?.[
+            selectedMemberCode
+          ] ?? []
+        }
         daily={selectedDailyActivity}
         report={archive}
         reportHref={memberReportHref}
