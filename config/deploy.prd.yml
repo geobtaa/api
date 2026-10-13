@@ -143,6 +143,10 @@ env:
     - OPENAI_MODEL
     - ADMIN_USERNAME
     - ADMIN_PASSWORD
+<% if ENV.fetch('ANALYTICS_GOOGLE_CLIENT_ID', '').strip != '' %>
+    - ANALYTICS_GOOGLE_CLIENT_ID
+    - ANALYTICS_GOOGLE_CLIENT_SECRET
+<% end %>
 <% if ENV.fetch('ANALYTICS_APPROVED_EMAILS', '').strip != '' %>
     - ANALYTICS_APPROVED_EMAILS
 <% end %>

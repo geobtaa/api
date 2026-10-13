@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.services import analytics_auth as auth
+from app.services import analytics_google_auth as google
 from app.services.feedback_service import email_preview_enabled
 
 router = APIRouter(prefix="/analytics/auth")
@@ -73,6 +74,14 @@ def verify(payload: VerifyRequest, request: Request):
         email = auth.store().getdel("analytics:link:" + auth.digest(payload.token))
         if not email or not auth.approved(email):
             raise HTTPException(400, "This link is invalid or expired")
+        return create_session(email, request)
+    except redis.RedisError:
+        raise HTTPException(503, "Analytics login is unavailable") from None
+
+
+def create_session(email: str, request: Request):
+    """Rotate the opaque session after either email or Google authentication."""
+    try:
         token = secrets.token_urlsafe(32)
         auth.store().set("analytics:session:" + auth.digest(token), email, ex=auth.SESSION_TTL)
         old = request.cookies.get(auth.COOKIE)
@@ -109,5 +118,47 @@ def logout(request: Request):
     response = JSONResponse({"authenticated": False}, headers=HEADERS)
     response.delete_cookie(
         auth.COOKIE, path="/", secure=auth.secure_cookie(), httponly=True, samesite="lax"
+    )
+    return response
+
+
+@router.get("/options")
+def login_options():
+    return JSONResponse({"google": google.configured()}, headers=HEADERS)
+
+
+@router.post("/google/start", dependencies=[Depends(auth.same_origin)])
+def google_start(request: Request):
+    try:
+        url, browser = google.start(request)
+    except redis.RedisError:
+        raise HTTPException(503, "Analytics login is unavailable") from None
+    response = JSONResponse({"url": url}, headers=HEADERS)
+    response.set_cookie(
+        google.COOKIE,
+        browser,
+        max_age=google.TTL,
+        httponly=True,
+        secure=auth.secure_cookie(),
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
+class GoogleCallback(BaseModel):
+    code: str = Field(min_length=1, max_length=4096)
+    state: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+
+
+@router.post("/google/callback", dependencies=[Depends(auth.same_origin)])
+def google_callback(payload: GoogleCallback, request: Request):
+    try:
+        email = google.finish(payload.code, payload.state, request.cookies.get(google.COOKIE, ""))
+        response = create_session(email, request)
+    except redis.RedisError:
+        raise HTTPException(503, "Analytics login is unavailable") from None
+    response.delete_cookie(
+        google.COOKIE, path="/", secure=auth.secure_cookie(), httponly=True, samesite="lax"
     )
     return response

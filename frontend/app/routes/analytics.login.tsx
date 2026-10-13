@@ -16,6 +16,8 @@ import {
   data,
   redirect,
   useActionData,
+  useLoaderData,
+  type LoaderFunctionArgs,
   useNavigation,
   useSubmit,
   type ActionFunctionArgs,
@@ -28,8 +30,28 @@ export const meta = () => [
   { title: 'Sign in — BTAA Analytics' },
   { name: 'robots', content: 'noindex, nofollow' },
 ];
-export function loader() {
-  return data(null, { headers: analyticsHeaders });
+export async function loader({ request }: LoaderFunctionArgs) {
+  let google = false;
+  let unavailable = false;
+  try {
+    const response = await serverFetch('/analytics/auth/options');
+    if (!response.ok) throw new Error('Unavailable');
+    google = (await response.json()).google === true;
+  } catch {
+    unavailable = true;
+  }
+  const failure = new URL(request.url).searchParams.get('error');
+  const error =
+    failure === 'google-denied'
+      ? 'This Google account does not have access. Choose your approved account or contact the project team.'
+      : failure === 'google-cancelled'
+        ? 'Google sign-in was cancelled. You can try again when you’re ready.'
+        : failure === 'google-failed'
+          ? 'Google sign-in could not be completed. Please try again.'
+          : unavailable
+            ? 'Sign-in is temporarily unavailable. Please try again.'
+            : '';
+  return data({ google, unavailable, error }, { headers: analyticsHeaders });
 }
 export async function action({ request }: ActionFunctionArgs) {
   // Require browser same-origin POSTs before forwarding cookies to the API.
@@ -48,7 +70,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   const form = await request.formData();
   const intent = form.get('intent');
-  if (!['request', 'verify', 'logout'].includes(String(intent))) {
+  if (!['request', 'verify', 'logout', 'google'].includes(String(intent))) {
     throw new Response('Invalid action', {
       status: 400,
       headers: analyticsHeaders,
@@ -56,19 +78,22 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   let response: Response;
   try {
-    response = await serverFetch(`/analytics/auth/${intent}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Origin: request.headers.get('origin')!,
-        Cookie: request.headers.get('cookie') ?? '',
-      },
-      body: JSON.stringify(
-        intent === 'request'
-          ? { email: form.get('email') }
-          : { token: form.get('token') }
-      ),
-    });
+    response = await serverFetch(
+      `/analytics/auth/${intent === 'google' ? 'google/start' : intent}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: request.headers.get('origin')!,
+          Cookie: request.headers.get('cookie') ?? '',
+        },
+        body: JSON.stringify(
+          intent === 'request'
+            ? { email: form.get('email') }
+            : { token: form.get('token') }
+        ),
+      }
+    );
   } catch {
     return data(
       {
@@ -95,6 +120,16 @@ export async function action({ request }: ActionFunctionArgs) {
   const headers = new Headers(analyticsHeaders);
   const cookie = response.headers.get('set-cookie');
   if (cookie) headers.set('Set-Cookie', cookie);
+  if (intent === 'google') {
+    const { url } = await response.json();
+    const destination = new URL(url);
+    if (destination.origin !== 'https://accounts.google.com')
+      throw new Response('Invalid sign-in destination', {
+        status: 502,
+        headers: analyticsHeaders,
+      });
+    return redirect(destination.href, { headers });
+  }
   if (intent === 'verify')
     return redirect('/analytics?welcome=1', {
       headers,
@@ -117,6 +152,9 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function AnalyticsLogin() {
   const result = useActionData<typeof action>();
+  const options = useLoaderData<typeof loader>();
+  const google = options?.google ?? false;
+  const error = result?.error || options?.error;
   const busy = useNavigation().state !== 'idle';
   const submit = useSubmit();
   const verifying = useRef(false);
@@ -202,7 +240,9 @@ export default function AnalyticsLogin() {
                   ? 'preview' in result && result.preview
                     ? 'Your local email is ready'
                     : 'Check your inbox'
-                  : 'Sign in with your email'}
+                  : google
+                    ? 'Sign in with Google'
+                    : 'Sign in with your email'}
             </h2>
             <p
               id="analytics-email-help"
@@ -210,9 +250,11 @@ export default function AnalyticsLogin() {
             >
               {confirming
                 ? 'Opening the Overview report…'
-                : 'Enter your approved email address. We’ll send you a secure sign-in link—no password needed.'}
+                : google
+                  ? 'Choose the Google account associated with your approved email address.'
+                  : 'Enter your approved email address. We’ll send you a secure sign-in link—no password needed.'}
             </p>
-            {result?.error && (
+            {error && (
               <div
                 role="alert"
                 className="mb-6 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
@@ -221,7 +263,7 @@ export default function AnalyticsLogin() {
                   aria-hidden="true"
                   className="mt-1 h-4 w-4 shrink-0"
                 />
-                <p>{result.error}</p>
+                <p>{error}</p>
               </div>
             )}
             {result?.message && (
@@ -293,7 +335,15 @@ export default function AnalyticsLogin() {
                 Open local email preview
               </a>
             )}
-            {confirming ? (
+            {options?.unavailable ? null : google && !confirming ? (
+              <Form method="post" reloadDocument>
+                <input type="hidden" name="intent" value="google" />
+                <button disabled={busy} className={buttonClass}>
+                  Continue with Google{' '}
+                  <ArrowRight size={16} aria-hidden="true" />
+                </button>
+              </Form>
+            ) : confirming ? (
               <p role="status">Signing in…</p>
             ) : (
               <Form
@@ -337,8 +387,9 @@ export default function AnalyticsLogin() {
               </Form>
             )}
             <p className="mt-5 text-sm leading-6 text-gray-500">
-              Sign-in links expire after 24 hours and can be used once. Your
-              access lasts for 24 hours after signing in.
+              {google
+                ? 'Your access lasts for 24 hours. Google shares your email address to confirm your access; we do not request access to your email or files.'
+                : 'Sign-in links expire after 24 hours and can be used once. Your access lasts for 24 hours after signing in.'}
             </p>
           </section>
           <aside

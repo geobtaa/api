@@ -688,22 +688,23 @@ All monthly Popular content rankings display percent change against the previous
 
 Collection title corrections are preserved in collectionTitlesCurrent.json with their catalog lookup date. The view-ranking export uses these verified public labels only when the sealed catalog lacks a usable title; archived titles take precedence and view counts remain unchanged. New exports capture all catalog records, including collection records.
 
-## Email-link access
+## Analytics sign-in
 
 The sign-in page follows `DESIGN.md`: the shared analytics brand header, BTAA/GIN
 logo assets, theme colors, shared primary CTA styles, and responsive page gutters.
 Report navigation appears only on the authenticated dashboard; login confirmation
 and error states retain the same institutional layout.
 
-All analytics pages require a session for an approved email address. Requests
+All analytics pages require a session for an approved email address. Google
+sign-in is available when configured (see Google sign-in below). Email-link requests
 show the same confirmation for approved and unknown addresses. Approved users
 receive a single-use link that expires after 24 hours. Opening the email link
 automatically signs in and opens Overview with a 24-hour access notice. The
 fragment token is removed from the address bar before verification. Sessions expire
 after 24 hours. Sign out invalidates the session on the server.
 
-The API checks the approved list on every report/session request. There is no
-domain restriction. Addresses are trimmed and compared case-insensitively.
+The API checks the approved list on every report/session request. The email-link
+flow has no domain restriction. Addresses are trimmed and compared case-insensitively.
 An empty or unreadable list denies access. Local development accepts a
 comma-separated `ANALYTICS_APPROVED_EMAILS` setting or a JSON array in the file
 specified by `ANALYTICS_APPROVED_EMAILS_FILE`. The file takes precedence and is
@@ -897,3 +898,35 @@ API fields unchanged. Use everyday wording in visible summaries and keep
 technical definitions, identifiers, and evidence available in the report
 notes. Missing records are unavailable, never zero. Keep monthly and cumulative
 views consistent, and preserve precise limits on what verification establishes.
+
+### Google sign-in
+
+Set both `ANALYTICS_GOOGLE_CLIENT_ID` and `ANALYTICS_GOOGLE_CLIENT_SECRET`
+on the API to replace the email form with Google sign-in. The frontend reads
+provider availability from the API; the client secret stays on the server.
+Without Google credentials, the existing email flow remains available for local
+preview and existing links remain valid. Neither method bypasses the approved list.
+
+For local development, register a Google OAuth **Web application** client with
+`http://localhost:3000/analytics/google/callback` as an authorized redirect URI.
+Use an External audience to support accounts outside one Workspace organization.
+Only `openid email` scopes are requested. JavaScript origins are not required for
+this server-side authorization-code flow. Keep credentials in the local environment,
+never in frontend build variables or version control. Restart the API after
+changing its configuration. Deployed integration setup belongs in restricted
+operations documentation.
+
+The callback is always derived from `ANALYTICS_BASE_URL` (or `APPLICATION_URL`),
+not an incoming Host header. Login uses state, nonce, PKCE, and a ten-minute,
+single-use Redis challenge bound to an HttpOnly browser cookie. Google's library
+verifies the ID token's signature, issuer, audience, and expiration. Access
+requires a verified, approved Gmail or managed Google Workspace email address.
+A Google account registered with another email provider is not sufficient:
+Google may not be authoritative for its current email ownership. Campus Google
+administrators may also need to permit the OAuth client.
+
+Successful login rotates the existing 24-hour analytics session. Provider tokens
+are not persisted. Removing an email from the approved list invalidates access
+on its next request. Automated tests mock provider HTTP calls and exercise
+browser binding, replay prevention, identity checks, session rotation, revocation,
+provider failures, and frontend callback handling without sending email.

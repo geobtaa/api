@@ -6,6 +6,7 @@ export default [
   route('about', 'routes/about.tsx'),
   route('help', 'routes/help.tsx'),
   route('feedback', 'routes/feedback.tsx'),
+  route('analytics/google/callback', 'routes/analytics.google.callback.ts'),
   route('analytics/login', 'routes/analytics.login.tsx'),
   route('analytics-reports/*', 'routes/analytics.download.ts'),
   route('analytics/:report?', 'routes/analytics.tsx'),

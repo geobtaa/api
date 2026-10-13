@@ -252,3 +252,199 @@ def test_malformed_addresses_are_rejected_without_delivery(setup, email):
     assert client.post("/analytics/auth/request", json={"email": email}).status_code == 422
     assert not sent
     assert not store.values
+
+
+@pytest.fixture
+def google_login(setup, monkeypatch):
+    from app.services import analytics_google_auth as google
+
+    client, store, sent = setup
+    monkeypatch.setenv("ANALYTICS_GOOGLE_CLIENT_ID", "test-client")
+    monkeypatch.setenv("ANALYTICS_GOOGLE_CLIENT_SECRET", "test-secret")
+    monkeypatch.setenv("ANALYTICS_APPROVED_EMAILS", "reader@gmail.com,person@umn.edu")
+    exchange = Mock(return_value=Mock(json=lambda: {"id_token": "signed-token"}))
+    monkeypatch.setattr(google.httpx, "post", exchange)
+    return client, store, google, exchange
+
+
+def google_challenge(client, store):
+    from urllib.parse import parse_qs, urlsplit
+
+    response = client.post("/analytics/auth/google/start")
+    assert response.status_code == 200
+    query = {k: v[0] for k, v in parse_qs(urlsplit(response.json()["url"]).query).items()}
+    record = json.loads(store.get("analytics:google:" + auth.digest(query["state"])))
+    return query, record
+
+
+def google_claims(query, **overrides):
+    return dict(
+        {
+            "email": "reader@gmail.com",
+            "email_verified": True,
+            "sub": "google-user",
+            "nonce": query["nonce"],
+        },
+        **overrides,
+    )
+
+
+def google_finish(client, query):
+    return client.post(
+        "/analytics/auth/google/callback", json={"code": "one-use-code", "state": query["state"]}
+    )
+
+
+def test_google_login_rotates_session_and_rejects_replay(google_login, monkeypatch):
+    import base64
+    import hashlib
+
+    client, store, google, exchange = google_login
+    assert client.get("/analytics/auth/options").json() == {"google": True}
+    query, record = google_challenge(client, store)
+    assert query["scope"] == "openid email"
+    assert query["redirect_uri"] == "https://testserver/analytics/google/callback"
+    assert query["code_challenge_method"] == "S256"
+    assert query["code_challenge"] == base64.urlsafe_b64encode(
+        hashlib.sha256(record["verifier"].encode()).digest()
+    ).decode().rstrip("=")
+    assert store.ttls["analytics:google:" + auth.digest(query["state"])] == 600
+    verify = Mock(return_value=google_claims(query))
+    monkeypatch.setattr(google.id_token, "verify_oauth2_token", verify)
+    old = "z" * 43
+    store.set("analytics:session:" + auth.digest(old), "reader@gmail.com", ex=86400)
+    client.cookies.set(auth.COOKIE, old)
+    response = google_finish(client, query)
+    assert response.status_code == 200
+    assert store.get("analytics:session:" + auth.digest(old)) is None
+    cookies = response.headers.get_list("set-cookie")
+    assert any("HttpOnly" in c and "Secure" in c and "Max-Age=86400" in c for c in cookies)
+    assert any(google.COOKIE in c and "Max-Age=0" in c for c in cookies)
+    assert verify.call_args.kwargs["audience"] == "test-client"
+    assert exchange.call_args.kwargs["data"]["code_verifier"] == record["verifier"]
+    assert google_finish(client, query).status_code == 400
+    assert exchange.call_count == 1
+    # Revoking approval also revokes an existing Google-authenticated session.
+    client.cookies.clear()
+    for cookie in response.cookies.jar:
+        client.cookies.set(cookie.name, cookie.value)
+    assert client.get("/analytics/auth/session").json() == {"email": "reader@gmail.com"}
+    monkeypatch.setenv("ANALYTICS_APPROVED_EMAILS", "")
+    assert client.get("/analytics/auth/session").status_code == 401
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"email": "stranger@gmail.com"},
+        {"email_verified": False},
+        {"email_verified": "true"},
+        {"nonce": "wrong"},
+        {"sub": ""},
+        {"email": None},
+        {"email": "person@umn.edu"},  # Non-Gmail requires a managed Workspace identity.
+    ],
+)
+def test_google_rejects_unapproved_or_unverified_identity(google_login, monkeypatch, overrides):
+    client, store, google, _ = google_login
+    query, _ = google_challenge(client, store)
+    monkeypatch.setattr(
+        google.id_token, "verify_oauth2_token", lambda *a, **k: google_claims(query, **overrides)
+    )
+    assert google_finish(client, query).status_code == 403
+    assert not any(key.startswith("analytics:session:") for key in store.values)
+
+
+def test_google_workspace_email_is_supported(google_login, monkeypatch):
+    client, store, google, _ = google_login
+    query, _ = google_challenge(client, store)
+    monkeypatch.setattr(
+        google.id_token,
+        "verify_oauth2_token",
+        lambda *a, **k: google_claims(query, email="Person@umn.edu", hd="umn.edu"),
+    )
+    assert google_finish(client, query).status_code == 200
+
+
+@pytest.mark.parametrize("kind", ["missing_cookie", "wrong_cookie", "expired"])
+def test_google_requires_same_browser_and_live_state(google_login, kind):
+    client, store, google, exchange = google_login
+    query, _ = google_challenge(client, store)
+    if kind == "expired":
+        store.delete("analytics:google:" + auth.digest(query["state"]))
+    else:
+        client.cookies.clear()
+        if kind == "wrong_cookie":
+            client.cookies.set(google.COOKIE, "other-browser")
+    assert google_finish(client, query).status_code == 400
+    exchange.assert_not_called()
+
+
+def test_google_provider_failure_and_storage_failure_fail_closed(google_login, monkeypatch):
+    client, store, google, exchange = google_login
+    query, _ = google_challenge(client, store)
+    exchange.side_effect = RuntimeError("provider secret response")
+    response = google_finish(client, query)
+    assert response.status_code == 400
+    assert "secret" not in response.text
+    monkeypatch.setattr(store, "getdel", Mock(side_effect=redis.RedisError))
+    assert google_finish(client, query).status_code == 503
+
+
+def test_google_configuration_and_origin_checks(setup, monkeypatch):
+    client, _, _ = setup
+    monkeypatch.delenv("ANALYTICS_GOOGLE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("ANALYTICS_GOOGLE_CLIENT_SECRET", raising=False)
+    assert client.get("/analytics/auth/options").json() == {"google": False}
+    assert client.post("/analytics/auth/google/start").status_code == 503
+    for path in ["start", "callback"]:
+        response = client.post(
+            "/analytics/auth/google/" + path,
+            headers={"Origin": "https://evil.example"},
+            json={"code": "code", "state": "s" * 43},
+        )
+        assert response.status_code == 403
+
+
+@pytest.mark.parametrize("invalid", [None, "audience", "issuer", "expired", "signature"])
+def test_google_signed_tokens_are_validated(google_login, monkeypatch, invalid):
+    """Exercise the real Google verifier with locally signed tokens, no network."""
+    import time
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from google.auth import crypt, jwt
+
+    client, store, google, exchange = google_login
+    query, _ = google_challenge(client, store)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private = key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    )
+    public = (
+        key.public_key()
+        .public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        .decode()
+    )
+    claims = google_claims(query)
+    now = int(time.time())
+    claims.update(
+        aud="test-client", iss="https://accounts.google.com", iat=now - 60, exp=now + 3600
+    )
+    if invalid == "audience":
+        claims["aud"] = "another-app"
+    if invalid == "issuer":
+        claims["iss"] = "https://evil.example"
+    if invalid == "expired":
+        claims.update(iat=now - 7200, exp=now - 3600)
+    token = jwt.encode(crypt.RSASigner.from_string(private, key_id="test"), claims).decode()
+    if invalid == "signature":
+        head, body, signature = token.split(".")
+        token = head + "." + body + "." + ("A" if signature[0] != "A" else "B") + signature[1:]
+    exchange.return_value.json = lambda: {"id_token": token}
+    monkeypatch.setattr(
+        google,
+        "BoundedGoogleRequest",
+        lambda: Mock(return_value=Mock(status=200, data=json.dumps({"test": public}).encode())),
+    )
+    assert google_finish(client, query).status_code == (200 if invalid is None else 400)

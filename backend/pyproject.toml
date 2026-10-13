@@ -67,6 +67,7 @@ dependencies = [
     "tornado==6.5.9",
     "Pygments==2.20.0",
     "httpx>=0.24.0",
+    "google-auth>=2.40.0,<3",
     "boto3>=1.37.32,<2",
 ]
 
