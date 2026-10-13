@@ -23,9 +23,16 @@ describe('report provenance', () => {
       );
       expect(
         panel.getByText(
-          `Recorded source coverage: ${entry.complete ? 'Complete' : 'Incomplete'}.`
+          entry.complete
+            ? 'Recorded source coverage is complete.'
+            : 'Historical coverage is partial.'
         )
       ).toBeInTheDocument();
+      const details = panel
+        .getByText('View verification details')
+        .closest('details');
+      expect(details).not.toHaveAttribute('open');
+      details?.setAttribute('open', '');
       expect(
         panel.getByRole('link', { name: 'Download report evidence packet' })
       ).toHaveAttribute(
@@ -38,9 +45,9 @@ describe('report provenance', () => {
       expect(panel.getByText(/detailed rankings/)).toHaveTextContent(
         'require separate evidence'
       );
-      expect(panel.getByText(/Report integrity verified/)).toHaveTextContent(
-        '6 aggregate metrics'
-      );
+      expect(
+        panel.getByText(/Daily totals reconcile with preserved records/)
+      ).toHaveTextContent('6 aggregate metrics');
       expect((await axe(container)).violations).toEqual([]);
     }
   );
@@ -53,11 +60,15 @@ describe('report provenance', () => {
         snapshotPeriod="2026-09"
       />
     );
+    screen
+      .getByText('View verification details')
+      .closest('details')
+      ?.setAttribute('open', '');
     expect(
       screen.getByRole('link', { name: 'Download report evidence packet' })
     ).toHaveAttribute('href', expect.stringContaining('/all/'));
     expect(
-      screen.getByText('Recorded source coverage: Incomplete.')
+      screen.getByText('Historical coverage is partial.')
     ).toBeInTheDocument();
   });
 
@@ -73,7 +84,7 @@ describe('report provenance', () => {
       />
     );
     expect(
-      screen.queryByText(/Report integrity verified/)
+      screen.queryByText(/Daily totals reconcile with preserved records/)
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(
