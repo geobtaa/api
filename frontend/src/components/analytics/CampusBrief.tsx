@@ -154,7 +154,7 @@ export function CampusBrief({
             </p>
           </div>
           <div>
-            <h2>Attention throughout the period</h2>
+            <h2>Activity throughout the period</h2>
             <p>
               <strong>
                 {number.format(daily.filter((row) => row.views > 0).length)} of{' '}
@@ -170,10 +170,10 @@ export function CampusBrief({
         </section>
         <section
           className="analytics-brief-activity"
-          aria-label="Daily resource attention"
+          aria-label="Daily resource views"
         >
           <div>
-            <h2>When resources drew attention</h2>
+            <h2>Daily resource views</h2>
             <p>
               {peak && peak.views > 0
                 ? `Peak: ${number.format(peak.views)} resource views on ${peak.day}.`
