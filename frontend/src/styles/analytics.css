@@ -4576,14 +4576,14 @@ h3.analytics-widget-heading {
   align-items: flex-start;
   gap: 1.25rem;
   padding: 1rem;
-  background: var(--analytics-brand);
-  color: #fff;
+  background: #fff;
+  color: var(--analytics-brand);
   border-bottom: 1px solid var(--analytics-brand);
 }
 .analytics-brief-header .analytics-eyebrow,
 .analytics-brief-header .analytics-brief-kicker,
 .analytics-brief-header .analytics-brief-period span {
-  color: #dbeaf3;
+  color: #496271;
 }
 .analytics-brief-kicker {
   margin: 1.6rem 0 0.35rem;
