@@ -302,3 +302,14 @@ rg -n "^[a-zA-Z0-9_-]+:.*##" Makefile
 See [monthly analytics](frontend/monthly-analytics.md#repeatable-monthly-refresh)
 for the local input contract. Deployed schedules and extraction stay in restricted
 operations documentation.
+
+### Analytics evidence
+
+- `make analytics-evidence ARCHIVES='/path/to/verified/*.json.gz'` creates screened,
+  versioned evidence packets for existing reports without changing their revisions.
+- `make analytics-evidence-check ARCHIVES='/path/to/verified/*.json.gz'` regenerates
+  the packets and verifies byte-for-byte equality. Supply the same preserved inputs.
+
+Without `ARCHIVES`, generation is limited to report integrity and arithmetic and
+cannot replace archive-backed evidence. See the
+[report evidence contract](frontend/analytics-runtime-reporting.md#report-evidence-packets).

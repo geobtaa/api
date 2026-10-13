@@ -1,3 +1,4 @@
+import { ReportProvenance } from './ReportProvenance';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router';
 import {
@@ -388,6 +389,10 @@ export function AggregateReportView({
           reports.
         </p>
       )}
+      <ReportProvenance
+        report={report}
+        downloadUrl={`${getApiBasePath()}/analytics/reports/${report.period}/${report.revision}/evidence`}
+      />
     </>
   );
 }

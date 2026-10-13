@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.analytics_reporting.archive import validate_document  # noqa: E402
+from app.services.analytics_reporting.evidence import build_evidence, evidence_text  # noqa: E402
 from app.services.analytics_reporting.public_export import public_report  # noqa: E402
 from app.services.analytics_reporting.reports import build_report  # noqa: E402
 from app.services.analytics_reporting.storage import canonical, checksum  # noqa: E402
@@ -67,7 +68,26 @@ def zip_entry(archive, name, body):
     archive.writestr(info, body)
 
 
-def export(archives, through, output, selected):
+def write_evidence(report, directory, documents=None):
+    evidence = build_evidence(report, documents)
+    name = f"evidence-{evidence['evidenceChecksum']}"
+    (directory / f"{name}.json").write_bytes(canonical(evidence))
+    with zipfile.ZipFile(directory / f"{name}.zip", "w") as archive:
+        zip_entry(archive, "README.txt", evidence_text(evidence))
+        zip_entry(archive, "evidence.json", canonical(evidence))
+        zip_entry(archive, "report.json", canonical(report))
+        for table in ("daily", "comparison", "categories", "zeroCategories"):
+            zip_entry(archive, f"{table}.csv", table_csv(report[table]))
+    return {
+        "checksum": evidence["evidenceChecksum"],
+        "preservedInputReplay": evidence["verification"]["preservedInputReplay"],
+        "reconciledMetrics": [
+            r["metric"] for r in evidence["reconciliation"] if r["status"] == "passed"
+        ],
+    }
+
+
+def load_archives(archives):
     documents = []
     seen = set()
     for path in archives:
@@ -80,6 +100,11 @@ def export(archives, through, output, selected):
             raise ValueError("Supply exactly one archive revision per month")
         seen.add(document["month"])
         documents.append(document)
+    return documents
+
+
+def export(archives, through, output, selected):
+    documents = load_archives(archives)
     output.mkdir(parents=True, exist_ok=True)
     manifest = {"schemaVersion": 1, "throughExclusive": str(through), "periods": []}
     for period in selected:
@@ -112,6 +137,7 @@ def export(archives, through, output, selected):
                 "start": report["start"],
                 "endExclusive": report["endExclusive"],
                 "previewChecksum": checksum(json.loads(compact)),
+                "evidence": write_evidence(report, directory, documents),
             }
         )
         print(

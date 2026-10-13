@@ -1,3 +1,4 @@
+import { ReportProvenance } from './ReportProvenance';
 import { useAnalyticsData } from './AnalyticsData';
 import { allTimeRange } from '../../config/analyticsPeriods';
 import manifest from '../../../private-analytics-reports/manifest.json';
@@ -141,6 +142,14 @@ export function AllTimeAnalyticsPage({
                 before selecting the top 50.
               </p>
             )}
+            <ReportProvenance
+              report={archive}
+              downloadUrl={
+                archive.evidence
+                  ? `/analytics-reports/all/${archive.revision}/evidence-${archive.evidence.checksum}.zip`
+                  : undefined
+              }
+            />
           </div>
         </ReportContentLayout>
       </main>

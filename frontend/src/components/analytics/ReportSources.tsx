@@ -1,3 +1,4 @@
+import { ReportProvenance } from './ReportProvenance';
 import { useAnalyticsData } from './AnalyticsData';
 import { BookOpen } from 'lucide-react';
 import { ReportPanelHeader } from './ReportPanelHeader';
@@ -83,69 +84,88 @@ export function ReportSources({
   const outcomes = analytics['outcomes'].outcomes;
 
   const info = definitions[report];
-  const archive = manifest.periods.find((entry) => entry.id === snapshotPeriod);
+  const archive = manifest.periods.find(
+    (entry) => entry.id === (report === 'comparison' ? 'all' : snapshotPeriod)
+  );
   return (
-    <section
-      className="analytics-panel analytics-report-sources"
-      id="report-sources"
-      aria-label="Sources and grouping"
-    >
-      <ReportPanelHeader
-        title="Sources and grouping"
-        icon={BookOpen}
-        level={2}
-      />
-      <p>
-        <strong>Period:</strong>{' '}
-        {report === 'comparison'
-          ? comparisonLabel
-          : (period ?? `${month} 1–31, 2026`)}{' '}
-        (UTC). Static aggregate snapshots, not live traffic.
-      </p>
-      {report === 'content' && (
+    <>
+      <section
+        className="analytics-panel analytics-report-sources"
+        id="report-sources"
+        aria-label="Sources and grouping"
+      >
+        <ReportPanelHeader
+          title="Sources and grouping"
+          icon={BookOpen}
+          level={2}
+        />
         <p>
-          Resource titles and Provider fields refreshed{' '}
-          {new Date(outcomes.contentCatalogCapturedAt).toLocaleDateString(
-            'en-US',
-            { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }
-          )}
-          , independently of campus inventory eligibility. “Provider not
-          recorded” means the Provider field is empty; “Provider metadata
-          unavailable” means no metadata could be retrieved.
+          <strong>Period:</strong>{' '}
+          {report === 'comparison'
+            ? comparisonLabel
+            : (period ?? `${month} 1–31, 2026`)}{' '}
+          (UTC). Static aggregate snapshots, not live traffic.
         </p>
-      )}
-      <div className="analytics-sources-table-wrap">
-        <table className="analytics-sources-table">
-          <caption className="sr-only">
-            Sources and grouping definitions
-          </caption>
-          <tbody>
-            <tr>
-              <th scope="row">Source</th>
-              <td>{info.source}</td>
-            </tr>
-            <tr>
-              <th scope="row">Grouping</th>
-              <td>{info.grouping}</td>
-            </tr>
-            <tr>
-              <th scope="row">Reading the figures</th>
-              <td>{info.limits}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        {report === 'content' && (
+          <p>
+            Resource titles and Provider fields refreshed{' '}
+            {new Date(outcomes.contentCatalogCapturedAt).toLocaleDateString(
+              'en-US',
+              {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+                timeZone: 'UTC',
+              }
+            )}
+            , independently of campus inventory eligibility. “Provider not
+            recorded” means the Provider field is empty; “Provider metadata
+            unavailable” means no metadata could be retrieved.
+          </p>
+        )}
+        <div className="analytics-sources-table-wrap">
+          <table className="analytics-sources-table">
+            <caption className="sr-only">
+              Sources and grouping definitions
+            </caption>
+            <tbody>
+              <tr>
+                <th scope="row">Source</th>
+                <td>{info.source}</td>
+              </tr>
+              <tr>
+                <th scope="row">Grouping</th>
+                <td>{info.grouping}</td>
+              </tr>
+              <tr>
+                <th scope="row">Reading the figures</th>
+                <td>{info.limits}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {archive && (
+          <p className="analytics-source-download">
+            <a
+              className="analytics-snapshot-download"
+              href={`/analytics-reports/${archive.id}/${archive.revision}/tables.zip`}
+              download
+            >
+              Download aggregate report (CSV and JSON)
+            </a>
+          </p>
+        )}
+      </section>
       {archive && (
-        <p className="analytics-source-download">
-          <a
-            className="analytics-snapshot-download"
-            href={`/analytics-reports/${archive.id}/${archive.revision}/tables.zip`}
-            download
-          >
-            Download aggregate report (CSV and JSON)
-          </a>
-        </p>
+        <ReportProvenance
+          report={archive}
+          downloadUrl={
+            archive.evidence
+              ? `/analytics-reports/${archive.id}/${archive.revision}/evidence-${archive.evidence.checksum}.zip`
+              : undefined
+          }
+        />
       )}
-    </section>
+    </>
   );
 }

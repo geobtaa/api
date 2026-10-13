@@ -10,7 +10,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   await requireAnalyticsSession(request);
   const resource = params['*'] ?? '';
   if (
-    !/^(manifest\.json|(?:\d{4}-\d{2}|ay-\d{4}|all)\/[a-f0-9]{64}\/(?:report\.json|tables\.zip))$/.test(
+    !/^(manifest\.json|(?:\d{4}-\d{2}|ay-\d{4}|all)\/[a-f0-9]{64}\/(?:report\.json|tables\.zip|evidence-[a-f0-9]{64}\.(?:json|zip)))$/.test(
       resource
     )
   ) {

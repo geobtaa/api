@@ -1,4 +1,5 @@
 // @vitest-environment node
+import manifest from '../../private-analytics-reports/manifest.json';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { serverFetch } from '../../app/lib/server-api';
 import {
@@ -93,6 +94,32 @@ describe('analytics access boundaries', () => {
     expect(response.headers.get('Content-Disposition')).toContain('attachment');
     expect(await response.json()).toHaveProperty('periods');
   });
+  it('protects evidence downloads and serves the exact authenticated packet', async () => {
+    const entry = manifest.periods[0];
+    const resource = `${entry.id}/${entry.revision}/evidence-${entry.evidence.checksum}.json`;
+    fetchMock.mockResolvedValue(new Response('', { status: 401 }));
+    await expect(
+      downloadLoader(args(`/analytics-reports/${resource}`, { '*': resource }))
+    ).rejects.toMatchObject({ status: 302 });
+    fetchMock.mockImplementation(async () =>
+      Response.json({ email: 'reader@example.org' })
+    );
+    const response = await downloadLoader(
+      args(`/analytics-reports/${resource}`, { '*': resource })
+    );
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(await response.json()).toMatchObject({
+      reportRevision: entry.revision,
+      evidenceChecksum: entry.evidence.checksum,
+    });
+    await expect(
+      downloadLoader(
+        args('/analytics-reports/private', {
+          '*': `${entry.id}/${entry.revision}/receipts.json`,
+        })
+      )
+    ).rejects.toMatchObject({ status: 404 });
+  });
   it('does not accept open redirects', () => {
     for (const path of [
       'https://evil.example',
@@ -184,7 +211,7 @@ describe('analytics access boundaries', () => {
     expect(response.headers.get('Location')).toBe('/analytics/login');
     expect(response.headers.get('Set-Cookie')).toContain('Max-Age=0');
     expect(fetchMock.mock.calls[0][0]).toContain('/analytics/auth/logout');
-    expect(new Headers(fetchMock.mock.calls[0][1].headers).get('Cookie')).toBe(
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('Cookie')).toBe(
       'btaa_analytics_session=existing'
     );
   });

@@ -69,3 +69,32 @@ def test_reporting_openapi_uses_standard_errors_and_typed_success():
         for status in COMMON_ERROR_RESPONSES:
             assert str(status) in response
         assert response["200"]["content"]["application/json"]["schema"]
+
+
+def test_evidence_download_is_screened_and_does_not_claim_source_replay(monkeypatch):
+    document = analytics_reports.public_report(
+        {
+            "period": "2026-09",
+            "calculationVersion": "3",
+            "start": "2026-09-01",
+            "endExclusive": "2026-10-01",
+            "totals": {"requests": 3},
+            "daily": [{"date": "2026-09-01", "requests": 3}],
+            "receipts": [{"source_id": "private"}],
+        }
+    )
+    monkeypatch.setattr(analytics_reports, "read_document", lambda *args: document)
+    app = FastAPI()
+    app.dependency_overrides[analytics_reports.require_analytics_session] = (
+        lambda: "reader@example.org"
+    )
+    app.include_router(analytics_reports.router)
+    client = TestClient(app)
+    path = f"/analytics/reports/2026-09/{document['revision']}/evidence"
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "private, no-store"
+    assert response.json()["report"] == document
+    assert response.json()["evidence"]["verification"]["preservedInputReplay"] == "not-verified"
+    assert "source_id" not in response.text
+    assert client.get(path.replace(document["revision"], "a" * 64)).status_code == 404

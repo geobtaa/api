@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from app.api.errors import COMMON_ERROR_RESPONSES
 from app.services.analytics_auth import require_analytics_session
+from app.services.analytics_reporting.evidence import build_evidence
 from app.services.analytics_reporting.public_export import PUBLIC_TABLES, public_report
 from app.services.analytics_reporting.storage import checksum
 from db.migrations.analytics_storage import analytics_storage_engine
@@ -106,6 +107,22 @@ def report(period: str, revision: str):
     return JSONResponse(
         public_document(period, revision),
         headers={"Cache-Control": "no-store", "ETag": f'"{revision}"'},
+    )
+
+
+@router.get("/{period}/{revision}/evidence", response_model=dict[str, Any])
+def evidence(period: str, revision: str):
+    document = public_document(period, revision)
+    try:
+        packet = build_evidence(document)
+    except ValueError:
+        raise HTTPException(409, "Report evidence could not be reconciled") from None
+    return JSONResponse(
+        {"report": document, "evidence": packet},
+        headers={
+            "Content-Disposition": f'attachment; filename="analytics-{period}-evidence.json"',
+            "Cache-Control": "private, no-store",
+        },
     )
 
 

@@ -181,3 +181,51 @@ The detailed authenticated snapshot dashboard retains its separate report shape.
 backend tests verify it is an unchanged public projection and frontend tests
 render every runtime report section from it. Keep both checks when changing the
 projection; do not add private dimensions merely to satisfy a UI expectation.
+
+## Report evidence packets
+
+The dashboard's **Data provenance and coverage** section links a screened,
+content-addressed evidence packet for the selected period. Month comparison uses
+cumulative evidence. The ZIP contains the unchanged report JSON, aggregate CSV
+tables, a readable `README.txt`, and machine-readable `evidence.json`.
+
+The packet identifies the report revision, calculation/disclosure versions, UTC
+bounds, report checksum and its own checksum. It records each additive metric's
+reported total and daily sum. Archive-based generation also validates processing
+receipts, reproduces the exact aggregate report, and includes archive hashes,
+catalog capture dates and per-source receipt counts alongside declared baselines.
+Inputs used only by the comparison table are labeled separately.
+No queries, visitor tokens, source-record IDs, storage paths or credentials are
+exported. Old evidence files remain addressable when new evidence is generated.
+
+A passed replay proves that these preserved inputs reproduce this report. It does
+not prove complete instrumentation or independently authenticate the baseline
+counts. Missing source baselines stay unavailable; legacy aggregates are identified
+separately from processing receipts. July and cumulative coverage remain incomplete.
+The verification scope is the aggregate download, not detailed dashboard rankings,
+member attribution, client classification or supplemental data. Visit sketches
+are estimates and are never reconciled by adding daily estimates.
+
+For local generation against existing reports:
+
+```sh
+make analytics-evidence ARCHIVES='/path/to/verified/*.json.gz'
+make analytics-evidence-check ARCHIVES='/path/to/verified/*.json.gz'
+```
+
+The check regenerates the packets and compares every byte without changing the
+published files. Omitting `ARCHIVES` supports report-only evidence, explicitly
+marking input replay not verified; it cannot replace archive-backed evidence.
+`analytics-monthly-update` automatically generates evidence from its supplied
+archives. CI checks the committed packet/report linkage and reconciliation;
+private archive replay requires the preserved local inputs.
+
+The authenticated runtime endpoint
+`GET /api/v1/analytics/reports/{period}/{revision}/evidence` returns report JSON
+and screened evidence together, with private/no-store headers. Its checks cover
+stored aggregate integrity and arithmetic; it does not assert archive replay.
+It obeys the existing shadow-mode gate and rejects unreconciled reports.
+
+Independent baseline authentication and deployed preservation verification remain
+separate release gates. Record those checks in restricted operations documentation;
+this public packet does not certify them or constitute a signed, append-only audit log.

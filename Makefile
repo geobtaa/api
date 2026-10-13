@@ -1941,5 +1941,12 @@ analytics-monthly-update: ## Stage verified archives into all monthly dashboard 
 	python backend/scripts/update_monthly_analytics.py $(ARCHIVES) --supplemental "$(SUPPLEMENTAL)" $(if $(THROUGH),--through $(THROUGH),)
 
 analytics-monthly-check: ## Validate published analytics periods, rankings, and existing dashboard layouts
-	cd backend && python -m pytest --confcutdir=tests/scripts tests/scripts/test_update_monthly_analytics.py tests/scripts/test_export_analytics_snapshots.py -q
+	cd backend && python -m pytest --confcutdir=tests/scripts tests/scripts/test_update_monthly_analytics.py tests/scripts/test_export_analytics_snapshots.py tests/scripts/test_analytics_evidence.py -q
 	cd frontend && npx vitest run src/__tests__/components/AnalyticsPeriods.test.ts src/__tests__/components/FutureAnalyticsMonth.test.tsx src/__tests__/components/TopSearchesData.test.ts src/__tests__/components/MonthlyComparison.test.tsx src/__tests__/pages/SeptemberAnalyticsPage.test.tsx src/__tests__/components/DiscoveryOutcomes.test.tsx
+
+.PHONY: analytics-evidence analytics-evidence-check
+analytics-evidence: ## Generate screened evidence for existing analytics snapshots (optional ARCHIVES)
+	python backend/scripts/export_analytics_evidence.py frontend/private-analytics-reports $(if $(ARCHIVES),--archives $(ARCHIVES),)
+
+analytics-evidence-check: ## Reproduce and verify evidence packets without changing published files
+	python backend/scripts/export_analytics_evidence.py frontend/private-analytics-reports --check $(if $(ARCHIVES),--archives $(ARCHIVES),)

@@ -832,3 +832,13 @@ not serialize entire report trees.
 The full analytics page suite uses jsdom for axe compatibility with escaped
 selectors in quoted query labels. Its router wrapper disposes history listeners
 on unmount so repeated navigation tests do not retain prior page trees.
+
+### Answering questions about the numbers
+
+Open **Data provenance and coverage** at the bottom of a report and download the
+report evidence packet. Share its readable summary with the exact report revision;
+the included report JSON and daily CSV allow colleagues to check totals themselves.
+The evidence distinguishes reproduced inputs from independently verified source
+completeness. July and cumulative reports retain their incomplete coverage label.
+See [report evidence packets](analytics-runtime-reporting.md#report-evidence-packets)
+for scope, definitions, limitations and local regeneration.
