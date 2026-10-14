@@ -67,7 +67,7 @@ def test_sync_invalidation_disposes_connections_before_loop_closes(fail):
         events.append(("dispose", asyncio.get_running_loop()))
 
     cache = MagicMock()
-    cache._redis_client.aclose = AsyncMock()
+    cache._redis_client.connection_pool.disconnect = AsyncMock()
 
     with (
         patch.object(service, "_invalidate_success_caches_async", side_effect=invalidate),
@@ -89,7 +89,7 @@ def test_sync_invalidation_disposes_connections_before_loop_closes(fail):
     assert events[2][1] is events[3][1]
     assert events[0][1] is not events[2][1]
     assert all(loop.is_closed() for _, loop in events)
-    assert cache._redis_client.aclose.await_count == 2
+    assert cache._redis_client.connection_pool.disconnect.await_count == 2
 
 
 @pytest.mark.asyncio

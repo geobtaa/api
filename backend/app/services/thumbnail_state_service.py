@@ -204,7 +204,7 @@ class ThumbnailStateService:
                     finally:
                         cache = CacheService()
                         if cache._redis_client is not None:
-                            await cache._redis_client.aclose()
+                            await cache._redis_client.connection_pool.disconnect()
 
             asyncio.run(_run_and_dispose())
         else:
