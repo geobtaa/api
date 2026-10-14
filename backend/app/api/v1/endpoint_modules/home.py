@@ -1,6 +1,7 @@
+import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.api.errors import PUBLIC_ERROR_RESPONSES
 from app.api.schemas import HomeBlogPostsResponse
@@ -10,19 +11,9 @@ from app.services.gin_blog_service import GINBlogService
 
 router = APIRouter()
 gin_blog_service = GINBlogService()
+logger = logging.getLogger(__name__)
 
 HOME_BLOG_CACHE_TTL = 3600  # 1 hour
-
-
-def _empty_home_blog_payload() -> dict:
-    return {
-        "data": [],
-        "meta": {
-            "pinned_slugs": [],
-            "total_count": 0,
-            "fetched_at": None,
-        },
-    }
 
 
 @router.get(
@@ -48,6 +39,13 @@ async def list_home_blog_posts(
             pinned_slugs=resolved_pins,
             tag=tag,
         )
-    except Exception:
-        payload = _empty_home_blog_payload()
+    except Exception as exc:
+        logger.exception("Failed to load homepage blog posts")
+        # Let the cache retain a previous successful response on refresh failure.
+        # A cold-cache failure must not become a cached claim that no stories exist.
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to load GIN stories right now.",
+            headers={"Cache-Control": "no-store"},
+        ) from exc
     return create_response(payload)

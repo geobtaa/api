@@ -384,3 +384,42 @@ The public MkDocs site has its own Material theme configuration and extra CSS un
 - Don't use heavy shadows where a border or tonal shift is enough.
 - Don't replace existing theme assets or institution logos with generated art.
 - Don't hard-code BTAA colors in new theme-aware components when `brand`/`brand-active` would work.
+
+
+## Analytics charts (Recharts)
+
+Use `frontend/src/components/analytics/chartTheme.ts` as the shared source of
+chart presentation. Searches, Overview, and Month comparison should look like
+parts of the same reporting system; do not use Recharts’ default axis styling.
+
+- **Axis labels:** Inter with a system sans-serif fallback, 11px, weight 500,
+  muted gray `#6B7280`. Hide axis lines and tick marks. Use short month/day dates
+  in UTC, enough space between labels to prevent collisions, and integer ticks
+  for event counts.
+- **Grid:** horizontal lines only, `#E5E7EB`, with a `2 6` dash pattern.
+- **Time series:** linear interpolation, a 3px active-blue `#2563EB` stroke,
+  no point dots, and no entrance animation. Use an area fill fading vertically
+  from the series color at 24% opacity to transparent. Give gradient IDs unique
+  values when multiple charts can appear together. Comparisons may use distinct
+  series colors while retaining the same axis, stroke, and fill treatment.
+- **Tooltips:** white background, `#D1D5DB` border, 8px radius, Inter/system font
+  at 12px, dark `#111827` text, and a semibold label. Time-series cursors use
+  active blue with a `3 3` dash pattern. Format counts with thousands separators.
+- **Pie charts:** reuse the tooltip theme, separate slices with white borders,
+  and size the radius relative to the available panel width. Show a text legend
+  with exact counts and shares; never rely on color alone. Explain the population
+  represented by the slices (for example, top 50 query terms rather than all
+  searches).
+- **Layout and accessibility:** use responsive containers with explicit chart
+  heights and zero minimum width. Stack adjacent chart panels on narrow screens.
+  Enable Recharts’ accessibility layer and provide descriptive chart labels plus
+  exact values in an adjacent legend or expandable table.
+
+### Analytics report introductions
+
+Use one report title and a concise description in the page header, alongside its
+filters. Begin the report body with its charts, metrics, or tables; do not repeat
+the title, period, or selected institution in a second introductory heading.
+Keep headings for substantive report sections, and build the section navigation
+from those headings. Put essential interpretation guidance in the page description
+or alongside the relevant metric.

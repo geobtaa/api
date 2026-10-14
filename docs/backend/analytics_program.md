@@ -311,8 +311,9 @@ If a raw field needs to survive beyond raw retention:
 
 - `analytics_daily_search_metrics` and `analytics_daily_resource_metrics` do not include the current day until the next maintenance run.
 - `analytics_daily_resource_metrics` summarizes resource-scoped events. Events without `resource_id` are not preserved there.
-- Search impression counts are preserved in `analytics_daily_search_metrics`; there is not currently a separate daily impression rollup table.
+- Search impression totals are preserved in `analytics_daily_search_metrics`; per-resource daily counts are also preserved in `analytics_daily_resource_impressions` independently of raw impression retention.
 - Raw data outside retention windows is intentionally discarded once its month is safely rolled up.
+- Published dashboard snapshots preserve their exported fields, but the current exporters still depend on expiring raw history for some metrics. See the [pre-merge reporting audit](../frontend/analytics-merge-readiness.md) for the remaining durability and automatic-publication requirements.
 
 ## Related Docs
 
@@ -320,3 +321,41 @@ If a raw field needs to survive beyond raw retention:
 - [Backend Scripts](scripts.md)
 - [Deployment](deployment.md)
 - [Makefile Tasks](../make_tasks.md)
+
+
+### Durable resource impression history
+
+`analytics_daily_resource_impressions` retains one row per UTC day and resource,
+with an impression count. It contains no visitor tokens or search identifiers
+and is not subject to raw-partition expiry. This preserves distinct resource
+reach and permits later grouping by Provider or contribution code. Historical
+catalog attribution still requires a catalog snapshot; current metadata is not
+necessarily the metadata that existed when an impression occurred.
+
+Daily maintenance archives completed days. Immediately before expiring a raw
+impression partition, it locks that partition, refreshes its aggregates, and
+compares counts for **every resource/day**. Any mismatch aborts the transaction
+and preserves the raw partition. A final pass includes late-arriving impressions;
+repeat aggregation replaces counts instead of incrementing them. Maintenance
+runs are serialized, and aggregation uses UTC. Search-level impression totals
+are also refreshed before the raw partition is removed.
+
+For local recovery from a complete CSV export, validate the independently known
+monthly count before writing aggregates:
+
+```sh
+cd backend
+PYTHONPATH=. python scripts/recover_resource_impressions.py /path/to/impressions.csv.gz \
+  --month 2026-07 --expected-count 99482
+```
+
+Add `--write` to persist the verified resource/day counts in the configured local
+database. Conflicting saved counts abort the transaction. Repeated imports are
+idempotent. The importer rejects duplicate IDs, missing resource IDs, records
+outside the requested month, and totals that do not reconcile. Raw exports must
+remain outside version control; dashboard snapshots contain aggregates only.
+
+The PostgreSQL regression suite uses `ANALYTICS_TEST_DATABASE_URL` pointing to an
+isolated test database and covers raw expiry, wrong attribution, late records,
+repeated imports, and retention failure. Deployment and backup procedures belong
+in the restricted operations documentation.

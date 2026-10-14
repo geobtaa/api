@@ -59,7 +59,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Manage analytics table storage.")
     parser.add_argument(
         "--mode",
-        choices=("ensure", "maintenance", "size-report"),
+        choices=("ensure", "maintenance", "reporting", "size-report"),
         default="maintenance",
         help="Action to run",
     )
@@ -78,8 +78,27 @@ def main() -> None:
             print(f"Ensured analytics storage schema: {summary}")
         return
 
-    if args.mode == "maintenance":
-        summary = run_analytics_maintenance()
+    if args.mode in ("maintenance", "reporting"):
+        from app.services.analytics_reporting.pipeline import run
+        from db.migrations.analytics_storage import analytics_storage_engine
+
+        ensure_analytics_storage_schema()
+        engine = analytics_storage_engine()
+        try:
+            # Preservation/publication failures produce a failing scheduler run.
+            # The retention guard independently refuses unsafe deletion.
+            report_manifest = run(engine)
+        except Exception as exc:
+            from app.services.analytics_reporting.storage import health
+
+            with engine.begin() as conn:
+                health(conn, "publication", "failed", type(exc).__name__)
+            logger.error("Analytics publication failed; previous manifest retained")
+            raise
+        finally:
+            engine.dispose()
+        summary = run_analytics_maintenance() if args.mode == "maintenance" else {}
+        summary["reporting_revision"] = report_manifest["revision"]
         if args.json:
             print(json.dumps(summary, indent=2, sort_keys=True))
         else:

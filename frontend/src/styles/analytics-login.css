@@ -1,0 +1,14 @@
+/* Match DESIGN.md page gutters without changing report table layouts. */
+.analytics-login .analytics-shell {
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .analytics-login .analytics-shell {
+    padding-inline: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .analytics-login .analytics-shell {
+    padding-inline: 2rem;
+  }
+}

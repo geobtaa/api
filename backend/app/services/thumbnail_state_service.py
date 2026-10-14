@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.services.distribution_repository import async_session_factory
 from app.services.thumbnail_alias_service import thumbnail_alias_service
 from db.models import resource_thumbnail_state
+from db.session import async_engine as _async_engine
 from db.session import sync_engine as _sync_engine
 
 logger = logging.getLogger(__name__)
@@ -189,7 +190,23 @@ class ThumbnailStateService:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            asyncio.run(_run())
+
+            async def _run_and_dispose() -> None:
+                try:
+                    await _run()
+                finally:
+                    # Sync workers create a fresh loop for each call. Close pooled
+                    # connections on their owning loop before asyncio.run closes it.
+                    from app.services.cache_service import CacheService
+
+                    try:
+                        await _async_engine.dispose()
+                    finally:
+                        cache = CacheService()
+                        if cache._redis_client is not None:
+                            await cache._redis_client.connection_pool.disconnect()
+
+            asyncio.run(_run_and_dispose())
         else:
             loop.create_task(_run())
 

@@ -53,10 +53,12 @@ class APIUsageLogService:
     def _build_log_entry(
         self,
         request,
-        tier_id: int,
+        tier_id: Optional[int],
         api_key_id: Optional[int] = None,
         response_time_ms: Optional[int] = None,
         status_code: int = 200,
+        authenticated_identity: Optional[str] = None,
+        verified_key_hashes: Optional[tuple[str, str]] = None,
     ) -> Dict[str, Any]:
         """Serialize the request into a Celery-safe analytics payload."""
         endpoint = request.url.path
@@ -75,14 +77,29 @@ class APIUsageLogService:
         for utm_key in ["utm_source", "utm_medium", "utm_term", "utm_content", "utm_campaign"]:
             query_params.pop(utm_key, None)
 
+        # API credentials accepted in query strings must never enter analytics.
+        for credential in ("api_key", "access_token", "token"):
+            query_params.pop(credential, None)
+
         properties = {
             "query_params": query_params,
         }
+        # Set only by authentication middleware, never inferred from request headers.
+        if authenticated_identity == "geoportal-unlimited":
+            properties["authenticated_identity"] = authenticated_identity
+            if not client_properties.get("client_name"):
+                client_properties["client_name"] = "geoportal-ssr"
+                client_properties.setdefault("client_channel", "ssr")
         origin = request.headers.get("Origin")
         if origin:
             properties["origin"] = origin[:500]
 
         return {
+            **(
+                {"_verified_key_hashes": list(verified_key_hashes)}
+                if authenticated_identity == "geoportal-unlimited" and verified_key_hashes
+                else {}
+            ),
             "api_key_id": api_key_id,
             "tier_id": tier_id,
             "visit_token": visit_token,
@@ -120,10 +137,12 @@ class APIUsageLogService:
     async def log_request(
         self,
         request,
-        tier_id: int,
+        tier_id: Optional[int],
         api_key_id: Optional[int] = None,
         response_time_ms: Optional[int] = None,
         status_code: int = 200,
+        authenticated_identity: Optional[str] = None,
+        verified_key_hashes: Optional[tuple[str, str]] = None,
     ):
         """
         Queue an API request for asynchronous analytics persistence.
@@ -151,6 +170,8 @@ class APIUsageLogService:
                 api_key_id=api_key_id,
                 response_time_ms=response_time_ms,
                 status_code=status_code,
+                authenticated_identity=authenticated_identity,
+                verified_key_hashes=verified_key_hashes,
             )
             write_api_usage_log.delay(log_entry)
         except Exception as e:

@@ -184,16 +184,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             api_key_id = tier_info.get("api_key_id")
             tier_id = tier_info.get("tier_id")
 
-            if tier_id is None:
-                if tier_info.get("source") == "env:BTAA_GEOSPATIAL_API_KEY":
-                    logger.debug(
-                        "Skipping API usage logging for configured server API key on %s",
-                        request.url.path,
-                    )
-                else:
-                    logger.warning(
-                        "No tier_id found while logging API usage for %s", request.url.path
-                    )
+            configured_geoportal_key = tier_info.get("source") == "env:BTAA_GEOSPATIAL_API_KEY"
+            if tier_id is None and not configured_geoportal_key:
+                logger.warning("No tier_id found while logging API usage for %s", request.url.path)
             else:
                 logger.info("Attempting to log API usage for a completed request")
                 await self.usage_log_service.log_request(
@@ -202,6 +195,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     api_key_id=api_key_id,
                     response_time_ms=response_time_ms,
                     status_code=response.status_code,
+                    verified_key_hashes=tier_info.get("logging_key_hashes")
+                    if configured_geoportal_key
+                    else None,
+                    authenticated_identity="geoportal-unlimited"
+                    if configured_geoportal_key
+                    else None,
                 )
         except Exception as e:
             # Don't fail the request if logging fails

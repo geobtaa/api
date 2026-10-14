@@ -101,5 +101,8 @@ async def ingest_analytics_events(request: Request):
         write_analytics_batch.delay(queued_payload)
     except Exception as exc:
         logger.warning("Failed to enqueue analytics batch: %s", exc, exc_info=True)
+        return JSONResponse(
+            content={"status": "unavailable"}, status_code=503, headers={"Retry-After": "5"}
+        )
 
     return JSONResponse(content={"status": "accepted"}, status_code=202)

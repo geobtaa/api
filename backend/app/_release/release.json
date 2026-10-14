@@ -1,5 +1,5 @@
 {
-  "version": "0.10.2",
-  "release_date": "2026-10-12",
-  "summary": "Restore reliable Kithe Bridge syncing with resumable page checkpoints, isolated scheduled runs, corrected cron settings, and cancellation cleanup."
+  "version": "0.11.0",
+  "release_date": "2026-10-14",
+  "summary": "Add password-protected analytics reporting, simplify resource citations, improve metadata wrapping, and fix thumbnail connection cleanup and homepage news caching."
 }

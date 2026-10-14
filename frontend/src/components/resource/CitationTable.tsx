@@ -7,7 +7,7 @@ import {
 
 export type CitationStyle = 'apa' | 'mla' | 'chicago';
 type CitationDataLayerEvent = 'cite_copy' | 'cite_export' | 'cite_url';
-type CitationExportFormat = 'RIS' | 'BibTeX' | 'JSON-LD';
+type CitationExportFormat = 'RIS' | 'BibTeX';
 
 interface CitationTableProps {
   /** Primary/default citation (APA format) - for backward compatibility */
@@ -15,7 +15,7 @@ interface CitationTableProps {
   /** All citation formats: apa, mla, chicago */
   citations?: Partial<Record<CitationStyle, string>>;
   permalink: string;
-  /** Resource ID for export links (JSON-LD, RIS, BibTeX) */
+  /** Resource ID for export links (RIS, BibTeX) */
   resourceId?: string;
   resourceTitle?: string;
   searchId?: string;
@@ -141,9 +141,7 @@ export function CitationTable({
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
       <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">
-          Cite &amp; Reference
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900">Citation</h2>
       </div>
       <table className="min-w-full divide-y divide-gray-200">
         <tbody className="divide-y divide-gray-200">
@@ -155,7 +153,7 @@ export function CitationTable({
                     htmlFor="citation-style"
                     className="text-sm font-medium text-gray-500"
                   >
-                    Citation
+                    Citation Style
                   </label>
                   {styleOptions.length > 1 && (
                     <select
@@ -228,25 +226,7 @@ export function CitationTable({
                     <Download size={14} />
                     BibTeX
                   </a>
-                  <a
-                    href={`${apiBase}/resources/${resourceId}/citation/json-ld`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() =>
-                      handleCitationExport(
-                        'JSON-LD',
-                        `${apiBase}/resources/${resourceId}/citation/json-ld`
-                      )
-                    }
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    JSON-LD
-                  </a>
                 </div>
-                <p className="text-xs text-gray-500 mt-1.5">
-                  RIS and BibTeX for Zotero, EndNote, Mendeley. JSON-LD for
-                  Schema.org/Google Dataset Search.
-                </p>
               </td>
             </tr>
           )}

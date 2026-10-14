@@ -307,7 +307,18 @@ app.add_middleware(AppSignalRouteNameMiddleware)
 # Add request IDs after other middleware so it runs first in the Starlette stack.
 app.add_middleware(RequestIDMiddleware)
 
+
 # Include routers
+@app.middleware("http")
+async def private_analytics_responses(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(("/api/v1/analytics/auth/", "/api/v1/analytics/reports/")):
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
 app.include_router(public_router, prefix="/api/v1")
 app.include_router(ogc_router, prefix="/api/v1/ogc")
 
