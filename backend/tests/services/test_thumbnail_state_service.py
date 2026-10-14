@@ -46,3 +46,72 @@ async def test_thumbnail_non_success_does_not_invalidate_resource_tag():
         await ThumbnailStateService()._invalidate_success_caches_async(payload)
 
     cache.invalidate_tags.assert_not_awaited()
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_sync_invalidation_disposes_connections_before_loop_closes(fail):
+    import asyncio
+
+    service = ThumbnailStateService()
+    payload = ThumbnailStatePayload(
+        resource_id="resource-1", state=ThumbnailState.SUCCESS, source_hash="abc123"
+    )
+    events = []
+
+    async def invalidate(_payload):
+        events.append(("invalidate", asyncio.get_running_loop()))
+        if fail:
+            raise RuntimeError("invalidation failed")
+
+    async def dispose():
+        events.append(("dispose", asyncio.get_running_loop()))
+
+    cache = MagicMock()
+    cache._redis_client.aclose = AsyncMock()
+
+    with (
+        patch.object(service, "_invalidate_success_caches_async", side_effect=invalidate),
+        patch(
+            "app.services.thumbnail_state_service._async_engine",
+            new=MagicMock(dispose=AsyncMock(side_effect=dispose)),
+        ),
+        patch("app.services.cache_service.CacheService", return_value=cache),
+    ):
+        for _ in range(2):
+            if fail:
+                with pytest.raises(RuntimeError, match="invalidation failed"):
+                    service._invalidate_success_caches_sync(payload)
+            else:
+                service._invalidate_success_caches_sync(payload)
+
+    assert [name for name, _ in events] == ["invalidate", "dispose", "invalidate", "dispose"]
+    assert events[0][1] is events[1][1]
+    assert events[2][1] is events[3][1]
+    assert events[0][1] is not events[2][1]
+    assert all(loop.is_closed() for _, loop in events)
+    assert cache._redis_client.aclose.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_sync_invalidation_preserves_callers_running_loop():
+    import asyncio
+
+    service = ThumbnailStateService()
+    payload = ThumbnailStatePayload(
+        resource_id="resource-1", state=ThumbnailState.SUCCESS, source_hash="abc123"
+    )
+    finished = asyncio.Event()
+
+    async def invalidate(_payload):
+        finished.set()
+
+    engine = MagicMock(dispose=AsyncMock())
+    with (
+        patch.object(service, "_invalidate_success_caches_async", side_effect=invalidate),
+        patch("app.services.thumbnail_state_service._async_engine", engine),
+    ):
+        service._invalidate_success_caches_sync(payload)
+        await asyncio.wait_for(finished.wait(), timeout=1)
+
+    engine.dispose.assert_not_awaited()
+    assert not asyncio.get_running_loop().is_closed()

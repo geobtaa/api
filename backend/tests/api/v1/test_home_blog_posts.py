@@ -1,4 +1,18 @@
+from unittest.mock import AsyncMock
+
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def isolate_story_cache(monkeypatch):
+    from app.services.cache_service import CacheService
+
+    monkeypatch.setattr(CacheService, "get_record", AsyncMock(return_value=None))
+    monkeypatch.setattr(CacheService, "acquire_lock", AsyncMock(return_value=True))
+    store = AsyncMock()
+    monkeypatch.setattr(CacheService, "set_record", store)
+    monkeypatch.setattr(CacheService, "tag_cache_key", AsyncMock())
+    return store
 
 
 @pytest.mark.asyncio
@@ -68,7 +82,9 @@ async def test_home_blog_posts_endpoint_does_not_live_fetch_when_empty(async_cli
 
 
 @pytest.mark.asyncio
-async def test_home_blog_posts_endpoint_returns_empty_payload_on_error(async_client, monkeypatch):
+async def test_home_blog_posts_endpoint_returns_uncached_error(
+    async_client, monkeypatch, isolate_story_cache
+):
     from app.api.v1.endpoint_modules import home as home_module
 
     async def mock_list_home_posts(*, limit, pinned_slugs, tag):
@@ -77,7 +93,9 @@ async def test_home_blog_posts_endpoint_returns_empty_payload_on_error(async_cli
     monkeypatch.setattr(home_module.gin_blog_service, "list_home_posts", mock_list_home_posts)
 
     response = await async_client.get("/api/v1/home/blog-posts?limit=3")
-    assert response.status_code == 200
+    assert response.status_code == 503
+    assert response.headers["cache-control"] == "no-store"
     payload = response.json()
-    assert payload["data"] == []
-    assert payload["meta"]["total_count"] == 0
+    assert payload["errors"][0]["code"] == "service_unavailable"
+    assert "database unavailable" not in response.text
+    isolate_story_cache.assert_not_awaited()
