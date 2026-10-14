@@ -29,6 +29,7 @@ from app.services.visual_asset_cache import (
     get_durable_visual_asset,
     get_durable_visual_asset_hash_for_resource,
     get_legacy_thumbnail,
+    legacy_thumbnail_source_hash,
 )
 from db.models import (
     generated_visual_asset_links,
@@ -122,7 +123,13 @@ def invalidate_thumbnail(resource_id: str, source_url: str, *, cache) -> bool:
                             generated_visual_asset_links.c.source_signature
                             == generated_visual_asset_links.c.asset_hash
                         )
-                        & generated_visual_asset_links.c.asset_hash.in_(legacy_hashes)
+                        & (
+                            generated_visual_asset_links.c.asset_hash.in_(legacy_hashes)
+                            | (
+                                generated_visual_asset_links.c.asset_hash
+                                == legacy_thumbnail_source_hash(source_url)
+                            )
+                        )
                     ),
                 )
             )

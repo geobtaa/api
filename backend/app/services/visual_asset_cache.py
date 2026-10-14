@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import time
@@ -234,10 +235,17 @@ def get_durable_visual_asset(asset_hash: str) -> tuple[bytes, str] | None:
     return (bytes(row._mapping["body"]), str(row._mapping["content_type"]))
 
 
+def legacy_thumbnail_source_hash(source_url: str) -> str:
+    """Exact source identity used by the pre-content-hash remote writer."""
+    return hashlib.sha256(("remote-thumb-normalized:v3:" + source_url).encode()).hexdigest()
+
+
 def get_legacy_thumbnail(resource_id: str, source_url: str) -> tuple[bytes, str] | None:
     """Read a pre-content-hash capture only with proof it belongs to this source.
 
     Old writers stored the URL hash as both asset hash and source signature.
+    An exact v3 source hash proves identity even after another capture overwrites
+    the status row. Resolved manifest URLs still require successful provenance.
     Never select an arbitrary previous asset: it may belong to a replaced source.
     """
     if not durable_visual_asset_enabled():
@@ -248,7 +256,7 @@ def get_legacy_thumbnail(resource_id: str, source_url: str) -> tuple[bytes, str]
             generated_visual_asset_links.join(
                 generated_visual_assets,
                 generated_visual_assets.c.asset_hash == generated_visual_asset_links.c.asset_hash,
-            ).join(
+            ).outerjoin(
                 resource_thumbnail_state,
                 (
                     resource_thumbnail_state.c.resource_id
@@ -266,8 +274,11 @@ def get_legacy_thumbnail(resource_id: str, source_url: str) -> tuple[bytes, str]
             generated_visual_assets.c.asset_kind == "thumbnail",
             generated_visual_asset_links.c.source_signature
             == generated_visual_asset_links.c.asset_hash,
-            resource_thumbnail_state.c.state == "success",
-            resource_thumbnail_state.c.source_url == source_url,
+            (generated_visual_asset_links.c.asset_hash == legacy_thumbnail_source_hash(source_url))
+            | (
+                (resource_thumbnail_state.c.state == "success")
+                & (resource_thumbnail_state.c.source_url == source_url)
+            ),
         )
     )
     try:

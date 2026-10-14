@@ -219,8 +219,10 @@ durable fallback across cache churn, restarts, and deploys.
 Deployed TTL, memory, and eviction settings are restricted operations material.
 
 Thumbnail lookup checks durable source mappings before queuing work. Older
-URL-keyed captures can be converted on read when their saved success state
-matches the currently selected source. Changing the selected source does not
+URL-keyed captures can be converted on read when their exact historical v3 URL
+hash proves the selected source, or their saved success state matches that source.
+The exact-key path survives status updates from other captures and still requires
+a thumbnail link for the same resource. Changing the selected source does not
 reuse an unrelated old thumbnail; explicit invalidation removes eligible legacy
 links as well as the current mapping. Source discovery itself does not queue jobs
 or overwrite capture state. Workers retain the original source identity while

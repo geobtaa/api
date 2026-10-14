@@ -258,6 +258,43 @@ def test_postgres_transaction_and_offline_restore(monkeypatch):
     assert capture.get_durable_visual_asset(legacy_hash) is not None
     assert capture.invalidate_thumbnail("thumbnail-test", "manifest", cache=cache)
     assert capture.find_thumbnail("thumbnail-test", "manifest", cache=cache) is None
+    # A later manifest capture overwrote status, but the exact curated URL key
+    # still proves ownership. Explicit invalidation must retire that path too.
+    source = "https://example.org/curated.jpg"
+    exact_hash = capture.legacy_thumbnail_source_hash(source)
+    with engine.begin() as conn:
+        conn.execute(
+            generated_visual_assets.insert().values(
+                asset_hash=exact_hash,
+                asset_kind="thumbnail",
+                content_type="image/png",
+                body=legacy_body,
+                byte_size=len(legacy_body),
+            )
+        )
+
+    def insert_exact_link():
+        with engine.begin() as conn:
+            conn.execute(
+                generated_visual_asset_links.insert().values(
+                    resource_id="thumbnail-test",
+                    asset_hash=exact_hash,
+                    asset_kind="thumbnail",
+                    source_signature=exact_hash,
+                )
+            )
+
+    insert_exact_link()
+    assert capture.invalidate_thumbnail("thumbnail-test", source, cache=cache)
+    assert capture.find_thumbnail("thumbnail-test", source, cache=cache) is None
+    insert_exact_link()
+    with patch("requests.get", side_effect=AssertionError("Must not fetch provider")):
+        exact_migrated = capture.find_thumbnail("thumbnail-test", source, cache=cache)
+    assert exact_migrated
+    cache.values.clear()
+    assert capture.find_thumbnail("thumbnail-test", source, cache=cache) == exact_migrated
+    assert capture.invalidate_thumbnail("thumbnail-test", source, cache=cache)
+    assert capture.find_thumbnail("thumbnail-test", source, cache=cache) is None
     engine.dispose()
 
 
@@ -356,8 +393,11 @@ def test_direct_iiif_fetch_preserves_original_mapping(storage):
     assert capture.find_thumbnail("map", source, cache=cache) == result.image_hash
 
 
-@pytest.mark.parametrize("mismatch", [None, "source", "state", "signature", "kind"])
-def test_legacy_reader_requires_source_and_success_provenance(monkeypatch, mismatch):
+@pytest.mark.parametrize("exact_source", [False, True])
+@pytest.mark.parametrize(
+    "mismatch", [None, "source", "state", "signature", "kind", "missing_state"]
+)
+def test_legacy_reader_requires_source_provenance(monkeypatch, mismatch, exact_source):
     from sqlalchemy import create_engine, text
 
     from app.services import visual_asset_cache as visual
@@ -373,7 +413,8 @@ def test_legacy_reader_requires_source_and_success_provenance(monkeypatch, misma
         conn.execute(text("INSERT INTO resources VALUES ('map')"))
     for table in (generated_visual_assets, generated_visual_asset_links, resource_thumbnail_state):
         table.create(engine)
-    old_hash = "a" * 64
+    source = "https://example.org/curated-map.jpg"
+    old_hash = visual.legacy_thumbnail_source_hash(source) if exact_source else "a" * 64
     body = png()
     with engine.begin() as conn:
         conn.execute(
@@ -393,19 +434,25 @@ def test_legacy_reader_requires_source_and_success_provenance(monkeypatch, misma
                 source_signature="b" * 64 if mismatch == "signature" else old_hash,
             )
         )
-        conn.execute(
-            resource_thumbnail_state.insert().values(
-                resource_id="map",
-                source_hash=old_hash,
-                source_url="other" if mismatch == "source" else "manifest",
-                state="queued" if mismatch == "state" else "success",
+        if mismatch != "missing_state":
+            conn.execute(
+                resource_thumbnail_state.insert().values(
+                    resource_id="map",
+                    source_hash=old_hash,
+                    source_url="other" if mismatch == "source" else source,
+                    state="queued" if mismatch == "state" else "success",
+                )
             )
-        )
     monkeypatch.setattr(visual, "_sync_engine", lambda: engine)
     monkeypatch.setattr(visual, "durable_visual_asset_enabled", lambda: True)
     try:
-        assert visual.get_legacy_thumbnail("map", "manifest") == (
-            (body, "image/png") if mismatch is None else None
+        matches = mismatch is None or (
+            exact_source and mismatch in {"source", "state", "missing_state"}
         )
+        assert visual.get_legacy_thumbnail("map", source) == (
+            (body, "image/png") if matches else None
+        )
+        assert visual.get_legacy_thumbnail("another-resource", source) is None
+        assert visual.get_legacy_thumbnail("map", source + "?changed") is None
     finally:
         engine.dispose()
