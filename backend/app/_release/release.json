@@ -1,5 +1,5 @@
 {
-  "version": "0.11.0",
+  "version": "0.11.1",
   "release_date": "2026-10-14",
-  "summary": "Add password-protected analytics reporting, simplify resource citations, improve metadata wrapping, and fix thumbnail connection cleanup and homepage news caching."
+  "summary": "Restore saved thumbnails after cache loss, recover pending thumbnails without refreshing, and fix stale map-scoped search results after clearing spatial filters."
 }
