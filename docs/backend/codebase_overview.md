@@ -129,7 +129,9 @@ Caching and generated asset services:
 
 - `cache_service.py`: endpoint response cache, cache keying, stale-while-
   revalidate behavior, Redis locks, tags, HTTP cache headers, ETags, and durable
-  L2 response integration.
+  L2 response integration. The homepage stories endpoint reports database
+  failures as an uncached HTTP 503; failed refreshes preserve the previous
+  successful cached response rather than replacing it with an empty story list.
 - `durable_response_cache.py`: Postgres-backed storage for generated API
   response cache records.
 - `visual_asset_cache.py`: Postgres-backed storage for generated thumbnail,
@@ -141,7 +143,9 @@ Caching and generated asset services:
   durable visual asset links.
 - `thumbnail_alias_service.py`: fast resource-id to thumbnail-hash redirects.
 - `thumbnail_state_service.py`: records thumbnail success, failure, placeholder,
-  and source state.
+  and source state. Synchronous cache invalidation closes database and Redis
+  connections before its temporary event loop exits, so later thumbnail tasks
+  can safely create new connections.
 - `thumbnail_queue_service.py`: prevents too many concurrent thumbnail jobs.
 
 Data, sync, and background services:
