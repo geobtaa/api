@@ -849,7 +849,10 @@ export function ResourceView({
                         <CitationTable
                           citation={data.meta?.ui?.citation ?? ''}
                           citations={data.meta?.ui?.citations}
-                          permalink={isMounted ? window.location.href : ''}
+                          permalink={
+                            currentUrl ||
+                            (isMounted ? window.location.href : '')
+                          }
                           resourceId={data.id}
                           resourceTitle={data.attributes.ogm.dct_title_s}
                           searchId={searchState?.searchId}

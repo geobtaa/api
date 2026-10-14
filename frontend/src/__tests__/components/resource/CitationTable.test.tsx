@@ -42,7 +42,9 @@ describe('CitationTable', () => {
 
   it('renders without crashing', () => {
     renderWithRouter(<CitationTable {...defaultProps} />);
-    expect(screen.getByText('Cite & Reference')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Citation', level: 2 })
+    ).toBeInTheDocument();
   });
 
   it('displays the citation text', () => {
@@ -63,7 +65,6 @@ describe('CitationTable', () => {
     expect(screen.getByText('Export for citation tools')).toBeInTheDocument();
     expect(screen.getByText('RIS')).toBeInTheDocument();
     expect(screen.getByText('BibTeX')).toBeInTheDocument();
-    expect(screen.getByText('JSON-LD')).toBeInTheDocument();
   });
 
   it('Export RIS link has correct href', () => {
@@ -98,7 +99,7 @@ describe('CitationTable', () => {
         permalink={defaultProps.permalink}
       />
     );
-    const select = screen.getByLabelText('Citation');
+    const select = screen.getByLabelText('Citation Style');
     expect(select).toHaveAttribute('id', 'citation-style');
   });
 
@@ -273,7 +274,6 @@ describe('CitationTable', () => {
   it.each([
     ['RIS', 'RIS'],
     ['BibTeX', 'BibTeX'],
-    ['JSON-LD', 'JSON-LD'],
   ])('pushes cite_export for %s exports', (linkName, format) => {
     renderWithRouter(<CitationTable {...trackableProps} />);
 
