@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { GeospatialFilterMap } from '../../components/search/GeospatialFilterMap.client';
 import { fetchMapH3 } from '../../services/api';
 import L from 'leaflet';
@@ -267,6 +267,106 @@ describe('GeospatialFilterMap client', () => {
       value: originalReadyState,
     });
   });
+
+  it.each([true, false])(
+    'resets the stale viewport after See all results (hex layer enabled: %s)',
+    async (hexEnabled) => {
+      localStorage.setItem('hex_layer_enabled', hexEnabled ? '1' : '0');
+      const scopedUrl =
+        '/search?q=cta+bus&include_filters[geo][type]=bbox&include_filters[geo][field]=dcat_bbox&include_filters[geo][relation]=intersects&include_filters[geo][top_left][lat]=7.02&include_filters[geo][top_left][lon]=99.84&include_filters[geo][bottom_right][lat]=-3.86&include_filters[geo][bottom_right][lon]=129.55';
+      const originalBounds = mockMapInstance.getBounds.getMockImplementation()!;
+      const originalZoom = mockMapInstance.getZoom.getMockImplementation()!;
+      let viewport = [99.84, -3.86, 129.55, 7.02];
+      let zoom = 6;
+      mockMapInstance.getBounds.mockImplementation(() => ({
+        getWest: () => viewport[0],
+        getSouth: () => viewport[1],
+        getEast: () => viewport[2],
+        getNorth: () => viewport[3],
+        getSouthWest: () => ({ lat: viewport[1], lng: viewport[0] }),
+        getNorthEast: () => ({ lat: viewport[3], lng: viewport[2] }),
+      }));
+      mockMapInstance.getZoom.mockImplementation(() => zoom);
+      mockMapInstance.setView.mockImplementation(() => {
+        viewport = [-180, -85, 180, 85];
+        zoom = 1;
+      });
+      mockMapInstance.fitBounds.mockImplementation((_bounds, options) => {
+        if (options.padding[0] === 20) {
+          viewport = [99.84, -3.86, 129.55, 7.02];
+          zoom = 6;
+        }
+      });
+      vi.mocked(fetchMapH3).mockImplementation(async (_query, bbox) => ({
+        // Chicago results are only discoverable outside the old Indonesia view.
+        hexes:
+          bbox === '-180,-85,180,85'
+            ? [{ h3: '8928308280fffff', count: 11 }]
+            : [],
+      }));
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[scopedUrl]}>
+          <GeospatialFilterMap />
+          <Link to="/search?q=cta+bus">See all results for cta bus</Link>
+          <Link to={scopedUrl}>Scope to Indonesia</Link>
+        </MemoryRouter>
+      );
+
+      try {
+        // Repeat the flow to verify revisiting the same unfiltered URL refits.
+        for (let visit = 0; visit < 2; visit++) {
+          await waitFor(() => {
+            expect(viewport[0]).toBe(99.84);
+          });
+          mockMapInstance.setView.mockClear();
+          mockMapInstance.fitBounds.mockClear();
+          fireEvent.click(screen.getByText('See all results for cta bus'));
+
+          expect(mockMapInstance.setView).toHaveBeenCalledWith([20, 0], 1, {
+            animate: false,
+          });
+          expect(
+            screen.queryByRole('button', { name: 'Clear location filter' })
+          ).not.toBeInTheDocument();
+          expect(
+            screen.queryByRole('button', { name: 'Search in this area' })
+          ).not.toBeInTheDocument();
+          if (hexEnabled) {
+            await waitFor(() => {
+              expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
+                expect.anything(),
+                { padding: [24, 24], maxZoom: 14 }
+              );
+            });
+            expect(fetchMapH3).toHaveBeenCalledWith(
+              'cta bus',
+              '-180,-85,180,85',
+              2,
+              expect.anything()
+            );
+          } else {
+            expect(fetchMapH3).not.toHaveBeenCalled();
+          }
+          if (visit === 0) {
+            fireEvent.click(screen.getByText('Scope to Indonesia'));
+            await waitFor(() => {
+              expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
+                expect.anything(),
+                { padding: [20, 20] }
+              );
+            });
+          }
+        }
+      } finally {
+        unmount();
+        mockMapInstance.getBounds.mockImplementation(originalBounds);
+        mockMapInstance.getZoom.mockImplementation(originalZoom);
+        mockMapInstance.setView.mockReset();
+        mockMapInstance.fitBounds.mockReset();
+        vi.mocked(fetchMapH3).mockResolvedValue({ hexes: [] });
+      }
+    }
+  );
 
   it('updates geo relation to within when toggle is clicked', async () => {
     render(

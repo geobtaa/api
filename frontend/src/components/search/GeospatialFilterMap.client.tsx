@@ -286,6 +286,9 @@ export function GeospatialFilterMap({
 
     const bbox = getBBoxFromParams();
     if (bbox) {
+      // Returning to an unfiltered search must fit again, even if its URL was
+      // previously visited before this bbox was applied.
+      lastAutoFitSearchKeyRef.current = null;
       // Always update map bounds when bbox params change
       // Use a small delay to ensure map is ready and to batch updates
       const timeoutId = setTimeout(() => {
@@ -362,14 +365,15 @@ export function GeospatialFilterMap({
       // Hide search button when bbox is cleared
       setShowSearchButton(false);
 
-      // Show world view only if zoomed out past minZoom
-      if (mapRef.current.getZoom() < 1) {
-        isUpdatingFromParamsRef.current = true;
-        mapRef.current.setView([20, 0], 1);
-        setTimeout(() => {
-          isUpdatingFromParamsRef.current = false;
-        }, 100);
-      }
+      // Start each unfiltered search from the same view as a fresh page load.
+      // Otherwise the hex request stays scoped to the previous viewport and
+      // cannot discover results elsewhere (e.g. Chicago after Indonesia).
+      isUpdatingFromParamsRef.current = true;
+      mapRef.current.setView([20, 0], 1, { animate: false });
+      const timeoutId = setTimeout(() => {
+        isUpdatingFromParamsRef.current = false;
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
   }, [getBBoxFromParams]);
 
@@ -459,8 +463,7 @@ export function GeospatialFilterMap({
         bounds.getNorth()
       );
       const resolution = zoomToResolution(zoom);
-      const queryString =
-        typeof window !== 'undefined' ? window.location.search.slice(1) : '';
+      const queryString = searchParams.toString();
 
       setHexLoading(true);
       try {
