@@ -286,6 +286,9 @@ export function GeospatialFilterMap({
 
     const bbox = getBBoxFromParams();
     if (bbox) {
+      // Returning to an unfiltered search must fit again, even if its URL was
+      // previously visited before this bbox was applied.
+      lastAutoFitSearchKeyRef.current = null;
       // Always update map bounds when bbox params change
       // Use a small delay to ensure map is ready and to batch updates
       const timeoutId = setTimeout(() => {
@@ -362,14 +365,15 @@ export function GeospatialFilterMap({
       // Hide search button when bbox is cleared
       setShowSearchButton(false);
 
-      // Show world view only if zoomed out past minZoom
-      if (mapRef.current.getZoom() < 1) {
-        isUpdatingFromParamsRef.current = true;
-        mapRef.current.setView([20, 0], 1);
-        setTimeout(() => {
-          isUpdatingFromParamsRef.current = false;
-        }, 100);
-      }
+      // Start each unfiltered search from the same view as a fresh page load.
+      // Otherwise the hex request stays scoped to the previous viewport and
+      // cannot discover results elsewhere (e.g. Chicago after Indonesia).
+      isUpdatingFromParamsRef.current = true;
+      mapRef.current.setView([20, 0], 1, { animate: false });
+      const timeoutId = setTimeout(() => {
+        isUpdatingFromParamsRef.current = false;
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
   }, [getBBoxFromParams]);
 
@@ -381,8 +385,10 @@ export function GeospatialFilterMap({
   useEffect(() => {
     if (!mapRef.current || !mapContainerRef.current) return;
 
+    let cancelled = false;
+    const pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
     const fitToBboxIfNeeded = () => {
-      const bbox = getBBoxFromParams();
+      const bbox = getBBoxFromParamsRef.current();
       if (!bbox || !mapRef.current) return;
       const bounds = L.latLngBounds(
         [bbox.bottomRight.lat, bbox.topLeft.lon],
@@ -408,13 +414,15 @@ export function GeospatialFilterMap({
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && mapRef.current) {
-            setTimeout(() => {
-              if (mapRef.current) {
+          if (!cancelled && entry.isIntersecting && mapRef.current) {
+            const timeoutId = setTimeout(() => {
+              pendingTimeouts.delete(timeoutId);
+              if (!cancelled && mapRef.current) {
                 mapRef.current.invalidateSize();
                 fitToBboxIfNeeded();
               }
             }, 100);
+            pendingTimeouts.add(timeoutId);
           }
         });
       },
@@ -424,6 +432,8 @@ export function GeospatialFilterMap({
     observer.observe(mapContainerRef.current);
 
     return () => {
+      cancelled = true;
+      pendingTimeouts.forEach(clearTimeout);
       observer.disconnect();
     };
   }, [getBBoxFromParams]);
@@ -452,15 +462,18 @@ export function GeospatialFilterMap({
     const updateHexLayer = async (shouldFitToHexes: boolean) => {
       const bounds = map.getBounds();
       const zoom = map.getZoom();
-      const bbox = clampBbox(
-        bounds.getWest(),
-        bounds.getSouth(),
-        bounds.getEast(),
-        bounds.getNorth()
-      );
-      const resolution = zoomToResolution(zoom);
-      const queryString =
-        typeof window !== 'undefined' ? window.location.search.slice(1) : '';
+      // Discover the current query's aggregation globally before fitting.
+      // Viewport clipping is only appropriate for subsequent pan/zoom requests.
+      const bbox = shouldFitToHexes
+        ? undefined
+        : clampBbox(
+            bounds.getWest(),
+            bounds.getSouth(),
+            bounds.getEast(),
+            bounds.getNorth()
+          );
+      const resolution = shouldFitToHexes ? 2 : zoomToResolution(zoom);
+      const queryString = searchParams.toString();
 
       setHexLoading(true);
       try {

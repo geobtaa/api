@@ -76,6 +76,12 @@ async def _current_hot_thumbnail_hash_for_resource(
             await thumbnail_alias_service.delete(resource_id)
             return None
 
+    if (
+        resource_dict.get("dct_accessrights_s", resource_dict.get("dct_accessRights_s"))
+        == "Restricted"
+    ):
+        return None
+
     distribution_context = await fetch_distribution_context(resource_id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
     if thumbnail_asset_url is None:
@@ -594,11 +600,10 @@ async def _get_resource_thumbnail_response(
                         state_detail="PMTiles thumbnail generation already queued",
                     )
                 )
-        elif image_service._is_manifest_url(source_url):
-            image_service._queue_thumbnail_processing(source_url, id)
         else:
-            standardized_url = image_service._standardize_iiif_url(source_url)
-            image_service._queue_thumbnail_processing(standardized_url, id)
+            # The worker may resize the fetch URL, but the stored identity must
+            # remain the original source used by this resolver and bulk priming.
+            image_service._queue_thumbnail_processing(source_url, id)
         logger.info(f"Triggered thumbnail generation for resource {id}")
     except Exception as e:
         logger.error(f"Error triggering thumbnail generation for resource {id}: {e}")
@@ -623,7 +628,10 @@ async def _get_resource_thumbnail_response(
         )
 
     # Thumbnail work has been queued; users should still see the normal resource-class fallback.
-    return await _svg_icon_for_resource(resource_dict, variant=variant)
+    response = await _svg_icon_for_resource(resource_dict, variant=variant)
+    response.headers["X-Thumbnail-Pending"] = "true"
+    response.headers["Retry-After"] = "2"
+    return response
 
 
 @router.get("/resources/{id}/thumbnail", response_class=Response)
