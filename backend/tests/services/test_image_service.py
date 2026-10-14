@@ -1562,7 +1562,7 @@ class TestIssue412ThumbnailSources:
                 )
                 == manifest_url
             )
-        queue.assert_called_once_with(manifest_url)
+        queue.assert_not_called()
 
     @pytest.mark.parametrize("service_as_list", [False, True])
     def test_osu_uses_loris_service_instead_of_catalog_page(self, service_as_list):

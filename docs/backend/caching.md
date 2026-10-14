@@ -218,6 +218,22 @@ durable fallback across cache churn, restarts, and deploys.
 `VISUAL_ASSET_CACHE_TTL_SECONDS=0` stores these hot Redis keys without expiry.
 Deployed TTL, memory, and eviction settings are restricted operations material.
 
+Thumbnail lookup checks durable source mappings before queuing work. Older
+URL-keyed captures can be converted on read when their saved success state
+matches the currently selected source. Changing the selected source does not
+reuse an unrelated old thumbnail; explicit invalidation removes eligible legacy
+links as well as the current mapping. Source discovery itself does not queue jobs
+or overwrite capture state. Workers retain the original source identity while
+normalizing the provider fetch URL separately.
+
+When a thumbnail must be captured, the resource resolver returns a non-cacheable
+fallback with `X-Thumbnail-Pending: true` and `Retry-After: 2`. Search list and
+gallery cards read that header and retry with bounded backoff (up to 12 requests),
+replacing the fallback without a page refresh. Permanent placeholders do not
+poll. Existing immutable image URLs retain normal browser delivery; a failed
+image falls back to the resource resolver. Requests and timers are canceled when
+the card unmounts. The frontend proxy preserves these response headers.
+
 ### Best-practice semantics used here
 
 - **Revalidation-style caching** on the image endpoints:

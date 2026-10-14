@@ -878,3 +878,49 @@ class TestResourceThumbnailNoCacheRemoteFlow:
             assert image.format == "JPEG"
             assert max(image.size) <= 512
             assert len(resp.content) < len(large_jpeg)
+
+
+@pytest.mark.asyncio
+async def test_pending_capture_keeps_original_source_and_signals_retry():
+    from app.api.v1.endpoint_modules.resources import thumbnail
+    from app.services.distribution_repository import build_distribution_context
+    from app.services.image_service import ImageService
+
+    source = "https://example.org/iiif/map/full/200,/0/default.jpg"
+    resource = {"id": "map", "b1g_image_ss": source}
+    with (
+        patch.object(thumbnail, "_fetch_resource_dict", AsyncMock(return_value=resource)),
+        patch.object(
+            thumbnail,
+            "fetch_distribution_context",
+            AsyncMock(return_value=build_distribution_context("map", [])),
+        ),
+        patch.object(thumbnail, "_get_thumbnail_asset_url", AsyncMock(return_value=None)),
+        patch.object(ImageService, "current_thumbnail_hash_for_source_sync", return_value=None),
+        patch.object(ImageService, "_queue_thumbnail_processing") as queue,
+        patch.object(
+            thumbnail,
+            "_svg_icon_for_resource",
+            AsyncMock(return_value=Response("<svg/>", headers={"Cache-Control": "no-store"})),
+        ),
+        patch.object(thumbnail, "THUMBNAIL_REQUEST_PROBE_ENABLED", False),
+    ):
+        response = await thumbnail._get_resource_thumbnail_response("map", MagicMock())
+    queue.assert_called_once_with(source, "map")
+    assert response.headers["X-Thumbnail-Pending"] == "true"
+    assert response.headers["Retry-After"] == "2"
+    assert response.headers["Cache-Control"] == "no-store"
+
+
+@pytest.mark.asyncio
+async def test_restricted_resource_never_restores_thumbnail():
+    from app.api.v1.endpoint_modules.resources import thumbnail
+
+    with patch.object(thumbnail, "fetch_distribution_context", AsyncMock()) as fetch:
+        assert (
+            await thumbnail._current_hot_thumbnail_hash_for_resource(
+                "map", resource_dict={"id": "map", "dct_accessrights_s": "Restricted"}
+            )
+            is None
+        )
+    fetch.assert_not_called()

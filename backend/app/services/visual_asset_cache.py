@@ -6,7 +6,11 @@ from typing import Any, Callable, TypeVar
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from db.models import generated_visual_asset_links, generated_visual_assets
+from db.models import (
+    generated_visual_asset_links,
+    generated_visual_assets,
+    resource_thumbnail_state,
+)
 from db.session import sync_engine as app_sync_engine
 
 logger = logging.getLogger(__name__)
@@ -228,3 +232,48 @@ def get_durable_visual_asset(asset_hash: str) -> tuple[bytes, str] | None:
     if not row:
         return None
     return (bytes(row._mapping["body"]), str(row._mapping["content_type"]))
+
+
+def get_legacy_thumbnail(resource_id: str, source_url: str) -> tuple[bytes, str] | None:
+    """Read a pre-content-hash capture only with proof it belongs to this source.
+
+    Old writers stored the URL hash as both asset hash and source signature.
+    Never select an arbitrary previous asset: it may belong to a replaced source.
+    """
+    if not durable_visual_asset_enabled():
+        return None
+    stmt = (
+        select(generated_visual_assets.c.body, generated_visual_assets.c.content_type)
+        .select_from(
+            generated_visual_asset_links.join(
+                generated_visual_assets,
+                generated_visual_assets.c.asset_hash == generated_visual_asset_links.c.asset_hash,
+            ).join(
+                resource_thumbnail_state,
+                (
+                    resource_thumbnail_state.c.resource_id
+                    == generated_visual_asset_links.c.resource_id
+                )
+                & (
+                    resource_thumbnail_state.c.source_hash
+                    == generated_visual_asset_links.c.asset_hash
+                ),
+            )
+        )
+        .where(
+            generated_visual_asset_links.c.resource_id == resource_id,
+            generated_visual_asset_links.c.asset_kind == "thumbnail",
+            generated_visual_assets.c.asset_kind == "thumbnail",
+            generated_visual_asset_links.c.source_signature
+            == generated_visual_asset_links.c.asset_hash,
+            resource_thumbnail_state.c.state == "success",
+            resource_thumbnail_state.c.source_url == source_url,
+        )
+    )
+    try:
+        with _sync_engine().connect() as conn:
+            row = conn.execute(stmt).fetchone()
+        return (bytes(row._mapping["body"]), str(row._mapping["content_type"])) if row else None
+    except Exception as exc:
+        logger.warning("Failed to read legacy thumbnail for %s: %s", resource_id, exc)
+        return None
