@@ -11,6 +11,7 @@ import { getHoverGeometryForResult } from '../utils/geometryUtils';
 import { getResultPrimaryImageUrl } from '../utils/resourceAssets';
 import { fetchResourceDetails } from '../services/api';
 import { scheduleAnalyticsBatch } from '../services/analytics';
+import { ThumbnailImage } from './search/ThumbnailImage';
 import { StaticResultMap } from './search/StaticResultMap';
 import { ResultCardPill } from './search/ResultCardPill';
 import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
@@ -182,7 +183,8 @@ export function SearchResults({
 
                   return hasThumbnail ? (
                     <div className={`${thumbnailSizeClass} rounded-l-lg`}>
-                      <img
+                      <ThumbnailImage
+                        resourceId={result.id}
                         src={primaryImageUrl}
                         alt=""
                         loading={index < 2 ? 'eager' : 'lazy'}

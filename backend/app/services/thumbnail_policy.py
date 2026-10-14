@@ -78,6 +78,9 @@ def normalize_thumbnail_image(
 
     try:
         with Image.open(io.BytesIO(content)) as opened:
+            # JPEG decoder downsampling avoids expanding old full-resolution
+            # captures before reducing them to a thumbnail. EXIF is applied next.
+            opened.draft("RGB", (THUMBNAIL_MAX_EDGE * 2, THUMBNAIL_MAX_EDGE * 2))
             opened.load()
             image = ImageOps.exif_transpose(opened)
 

@@ -46,8 +46,12 @@ A missing or invalid durable rendition is retried, not counted as a cache hit.
 
 API and workers must use matching thumbnail settings, including
 `THUMBNAIL_CACHE_VERSION`, `THUMBNAIL_MAX_EDGE`, `THUMBNAIL_JPEG_QUALITY` and
-`IIIF_THUMBNAIL_BOX`. Existing source-keyed thumbnails are not treated as v5
-successes. No new database columns are needed: publication uses the existing
+`IIIF_THUMBNAIL_BOX`. Older URL-keyed captures are converted locally to v5 only when
+the exact historical v3 source hash or saved success state proves that the image
+belongs to the currently selected source, with a matching resource link.
+Conversion normalizes and validates the bytes, commits a content-hash mapping,
+and retires legacy links without deleting their image bytes. No provider request
+is needed. Unmatched or invalid legacy captures still require capture. No new database columns are needed: publication uses the existing
 `generated_visual_assets` and `generated_visual_asset_links` tables.
 
 For selected resources in a local development database:

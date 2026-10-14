@@ -670,8 +670,6 @@ class ImageService:
         if manifest_url:
             # Resolve the manifest in the worker. A CONTENTdm compound object ID
             # need not identify an image, and manifest path formats vary.
-            self.logger.info(f"🚀 Queueing manifest resolution for {manifest_url}")
-            self._queue_manifest_processing(manifest_url)
             return manifest_url
 
         # Check for direct thumbnail URL first (support http and https keys).

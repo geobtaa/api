@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 
 import requests
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.services.provider_throttle import (
@@ -28,8 +28,14 @@ from app.services.visual_asset_cache import (
     durable_visual_asset_enabled,
     get_durable_visual_asset,
     get_durable_visual_asset_hash_for_resource,
+    get_legacy_thumbnail,
+    legacy_thumbnail_source_hash,
 )
-from db.models import generated_visual_asset_links, generated_visual_assets
+from db.models import (
+    generated_visual_asset_links,
+    generated_visual_assets,
+    resource_thumbnail_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +82,12 @@ def find_thumbnail(
         resource_id, asset_kind="thumbnail", source_signature=source_signature(source_url)
     )
     if not image_hash:
+        legacy = get_legacy_thumbnail(resource_id, source_url)
+        if legacy:
+            try:
+                return publish_thumbnail(source_url, resource_id, *legacy, cache=cache)
+            except Exception as exc:
+                logger.warning("Could not migrate thumbnail for %s: %s", resource_id, exc)
         return None
     durable = get_durable_visual_asset(image_hash)
     if not durable or not valid_thumbnail(durable[0], image_hash):
@@ -93,12 +105,32 @@ def invalidate_thumbnail(resource_id: str, source_url: str, *, cache) -> bool:
     """Forget one source mapping without deleting any immutable image bytes."""
     removed = 0
     if durable_visual_asset_enabled():
+        legacy_hashes = select(resource_thumbnail_state.c.source_hash).where(
+            resource_thumbnail_state.c.resource_id == resource_id,
+            resource_thumbnail_state.c.source_url == source_url,
+        )
         with app_sync_engine.begin() as conn:
             result = conn.execute(
                 delete(generated_visual_asset_links).where(
                     generated_visual_asset_links.c.resource_id == resource_id,
                     generated_visual_asset_links.c.asset_kind == "thumbnail",
-                    generated_visual_asset_links.c.source_signature == source_signature(source_url),
+                    (
+                        generated_visual_asset_links.c.source_signature
+                        == source_signature(source_url)
+                    )
+                    | (
+                        (
+                            generated_visual_asset_links.c.source_signature
+                            == generated_visual_asset_links.c.asset_hash
+                        )
+                        & (
+                            generated_visual_asset_links.c.asset_hash.in_(legacy_hashes)
+                            | (
+                                generated_visual_asset_links.c.asset_hash
+                                == legacy_thumbnail_source_hash(source_url)
+                            )
+                        )
+                    ),
                 )
             )
             removed = result.rowcount
@@ -106,7 +138,8 @@ def invalidate_thumbnail(resource_id: str, source_url: str, *, cache) -> bool:
     return bool(removed)
 
 
-def _persist_thumbnail(resource_id, signature, image_hash, body, mime):
+def _persist_thumbnail(resource_id, source_url, image_hash, body, mime):
+    signature = source_signature(source_url)
     # Both rows commit together. An error propagates to the caller, so a
     # rebuild cannot claim success for an image that exists only in Redis.
     with app_sync_engine.begin() as conn:
@@ -126,6 +159,28 @@ def _persist_thumbnail(resource_id, signature, image_hash, body, mime):
             )
         )
         if resource_id:
+            # Retire only this source's old links. Other sources may still need
+            # their saved bytes (e.g. curated images alongside a manifest).
+            legacy_hashes = select(resource_thumbnail_state.c.source_hash).where(
+                resource_thumbnail_state.c.resource_id == resource_id,
+                resource_thumbnail_state.c.source_url == source_url,
+            )
+            # Retire old URL-keyed links when publishing a content-hash mapping.
+            # This also prevents a later explicit invalidation from resurrecting
+            # an old capture through the compatibility reader. Bytes are retained.
+            conn.execute(
+                delete(generated_visual_asset_links).where(
+                    generated_visual_asset_links.c.resource_id == resource_id,
+                    generated_visual_asset_links.c.asset_kind == "thumbnail",
+                    generated_visual_asset_links.c.source_signature
+                    == generated_visual_asset_links.c.asset_hash,
+                    (generated_visual_asset_links.c.asset_hash.in_(legacy_hashes))
+                    | (
+                        generated_visual_asset_links.c.asset_hash
+                        == legacy_thumbnail_source_hash(source_url)
+                    ),
+                )
+            )
             link = pg_insert(generated_visual_asset_links).values(
                 resource_id=resource_id,
                 asset_kind="thumbnail",
@@ -150,10 +205,8 @@ def publish_thumbnail(
     image_hash = hashlib.sha256(body).hexdigest()
     if not valid_thumbnail(body, image_hash):
         raise ValueError("Thumbnail violates output policy")
-    signature = source_signature(source_url)
-
     if durable_visual_asset_enabled():
-        _persist_thumbnail(resource_id, signature, image_hash, body, mime)
+        _persist_thumbnail(resource_id, source_url, image_hash, body, mime)
     try:
         _warm_cache(cache, image_hash, body, mime)
         if resource_id:
@@ -199,7 +252,11 @@ def capture_thumbnail(
         if resolved_url == source_url:
             raise ValueError("Manifest did not resolve to an image")
     else:
-        resolved_url = _resolve_image_url(source_url)
+        resolved_url = (
+            source_url
+            if service._is_cog_url(source_url) or service._is_pmtiles_url(source_url)
+            else service._standardize_iiif_url(source_url)
+        )
     if provider_origin_cooldown_remaining(resolved_url) > 0:
         return CaptureResult("deferred", detail="Provider cooldown; retry required")
     mime = None

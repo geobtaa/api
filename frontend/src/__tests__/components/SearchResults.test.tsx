@@ -1270,3 +1270,14 @@ describe('SearchResults Component', () => {
     });
   });
 });
+
+// URL selection is tested here; pending-response behavior has dedicated tests.
+vi.mock('../../components/search/ThumbnailImage', () => ({
+  ThumbnailImage: ({
+    resourceId,
+    ...props
+  }: import('react').ComponentProps<'img'> & { resourceId: string }) => {
+    void resourceId;
+    return <img {...props} />;
+  },
+}));
