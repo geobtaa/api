@@ -41,7 +41,8 @@ def storage(monkeypatch):
     assets, links = {}, {}
     monkeypatch.setattr(capture, "get_legacy_thumbnail", lambda *args: None)
 
-    def persist(resource_id, signature, image_hash, body, mime):
+    def persist(resource_id, source_url, image_hash, body, mime):
+        signature = policy.source_signature(source_url)
         assets[image_hash] = (body, mime)
         links[(resource_id, signature)] = image_hash
 
@@ -288,6 +289,17 @@ def test_postgres_transaction_and_offline_restore(monkeypatch):
     assert capture.invalidate_thumbnail("thumbnail-test", source, cache=cache)
     assert capture.find_thumbnail("thumbnail-test", source, cache=cache) is None
     insert_exact_link()
+    # A concurrent capture for another source must not retire the preferred
+    # curated image's legacy mapping before it has been migrated.
+    capture.publish_thumbnail("manifest", "thumbnail-test", png("yellow"), "image/png", cache=cache)
+    with engine.connect() as conn:
+        assert (
+            conn.execute(
+                text("SELECT count(*) FROM generated_visual_asset_links WHERE asset_hash=:h"),
+                {"h": exact_hash},
+            ).scalar_one()
+            == 1
+        )
     with patch("requests.get", side_effect=AssertionError("Must not fetch provider")):
         exact_migrated = capture.find_thumbnail("thumbnail-test", source, cache=cache)
     assert exact_migrated

@@ -51,7 +51,15 @@ export function ThumbnailImage({
           signal: controller.signal,
           cache: 'no-store',
         });
-        if (!response.ok) throw new Error('Thumbnail unavailable');
+        if (
+          !response.ok ||
+          !response.headers
+            .get('Content-Type')
+            ?.toLowerCase()
+            .startsWith('image/')
+        ) {
+          throw new Error('Thumbnail unavailable');
+        }
         const blob = await response.blob();
         if (disposed) return;
         const previous = objectUrl;

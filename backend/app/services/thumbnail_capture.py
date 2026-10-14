@@ -138,7 +138,8 @@ def invalidate_thumbnail(resource_id: str, source_url: str, *, cache) -> bool:
     return bool(removed)
 
 
-def _persist_thumbnail(resource_id, signature, image_hash, body, mime):
+def _persist_thumbnail(resource_id, source_url, image_hash, body, mime):
+    signature = source_signature(source_url)
     # Both rows commit together. An error propagates to the caller, so a
     # rebuild cannot claim success for an image that exists only in Redis.
     with app_sync_engine.begin() as conn:
@@ -158,6 +159,12 @@ def _persist_thumbnail(resource_id, signature, image_hash, body, mime):
             )
         )
         if resource_id:
+            # Retire only this source's old links. Other sources may still need
+            # their saved bytes (e.g. curated images alongside a manifest).
+            legacy_hashes = select(resource_thumbnail_state.c.source_hash).where(
+                resource_thumbnail_state.c.resource_id == resource_id,
+                resource_thumbnail_state.c.source_url == source_url,
+            )
             # Retire old URL-keyed links when publishing a content-hash mapping.
             # This also prevents a later explicit invalidation from resurrecting
             # an old capture through the compatibility reader. Bytes are retained.
@@ -167,6 +174,11 @@ def _persist_thumbnail(resource_id, signature, image_hash, body, mime):
                     generated_visual_asset_links.c.asset_kind == "thumbnail",
                     generated_visual_asset_links.c.source_signature
                     == generated_visual_asset_links.c.asset_hash,
+                    (generated_visual_asset_links.c.asset_hash.in_(legacy_hashes))
+                    | (
+                        generated_visual_asset_links.c.asset_hash
+                        == legacy_thumbnail_source_hash(source_url)
+                    ),
                 )
             )
             link = pg_insert(generated_visual_asset_links).values(
@@ -193,10 +205,8 @@ def publish_thumbnail(
     image_hash = hashlib.sha256(body).hexdigest()
     if not valid_thumbnail(body, image_hash):
         raise ValueError("Thumbnail violates output policy")
-    signature = source_signature(source_url)
-
     if durable_visual_asset_enabled():
-        _persist_thumbnail(resource_id, signature, image_hash, body, mime)
+        _persist_thumbnail(resource_id, source_url, image_hash, body, mime)
     try:
         _warm_cache(cache, image_hash, body, mime)
         if resource_id:

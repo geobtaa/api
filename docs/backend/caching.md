@@ -224,7 +224,9 @@ hash proves the selected source, or their saved success state matches that sourc
 The exact-key path survives status updates from other captures and still requires
 a thumbnail link for the same resource. Changing the selected source does not
 reuse an unrelated old thumbnail; explicit invalidation removes eligible legacy
-links as well as the current mapping. Source discovery itself does not queue jobs
+links as well as the current mapping. Publishing a capture retires only that
+source's legacy links, preserving saved images belonging to other sources on the
+same resource. Source discovery itself does not queue jobs
 or overwrite capture state. Workers retain the original source identity while
 normalizing the provider fetch URL separately.
 
@@ -234,7 +236,8 @@ gallery cards read that header and retry with bounded backoff (up to 12 requests
 replacing the fallback without a page refresh. Permanent placeholders do not
 poll. Existing immutable image URLs retain normal browser delivery; a failed
 image falls back to the resource resolver. Requests and timers are canceled when
-the card unmounts. The frontend proxy preserves these response headers.
+the card unmounts. Non-image responses (including HTTP 200 HTML gateway pages)
+are retried within the same bound. The frontend proxy preserves these response headers.
 
 ### Best-practice semantics used here
 

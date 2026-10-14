@@ -117,9 +117,35 @@ describe('ThumbnailImage', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('retries a successful HTTP response containing a gateway HTML page', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response('<html>Unavailable</html>', {
+          headers: { 'Content-Type': 'text/html' },
+        })
+      )
+      .mockResolvedValueOnce(ready());
+    render(
+      <ThumbnailImage
+        resourceId="map"
+        src="/resources/map/thumbnail"
+        alt="map"
+      />
+    );
+    await flush();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.getByAltText('map')).toHaveAttribute('src', 'blob:pending');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('does not poll permanent placeholders', async () => {
     fetchMock.mockResolvedValue(
-      new Response('<svg/>', { headers: { 'X-Placeholder': 'true' } })
+      new Response('<svg/>', {
+        headers: { 'X-Placeholder': 'true', 'Content-Type': 'image/svg+xml' },
+      })
     );
     render(
       <ThumbnailImage
