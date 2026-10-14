@@ -11,6 +11,8 @@ import { GeospatialFilterMap } from '../../components/search/GeospatialFilterMap
 import { fetchMapH3 } from '../../services/api';
 import L from 'leaflet';
 
+let intersectionCallbacks: IntersectionObserverCallback[] = [];
+
 const mockControl = { addTo: vi.fn(), remove: vi.fn() };
 const mockMapInstance = {
   setView: vi.fn(),
@@ -115,7 +117,11 @@ describe('GeospatialFilterMap client', () => {
     vi.clearAllMocks();
     vi.useRealTimers();
     localStorage.clear();
+    intersectionCallbacks = [];
     class MockIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        intersectionCallbacks.push(callback);
+      }
       observe() {}
       disconnect() {}
     }
@@ -299,10 +305,7 @@ describe('GeospatialFilterMap client', () => {
       });
       vi.mocked(fetchMapH3).mockImplementation(async (_query, bbox) => ({
         // Chicago results are only discoverable outside the old Indonesia view.
-        hexes:
-          bbox === '-180,-85,180,85'
-            ? [{ h3: '8928308280fffff', count: 11 }]
-            : [],
+        hexes: bbox === undefined ? [{ h3: '8928308280fffff', count: 11 }] : [],
       }));
       const { unmount } = render(
         <MemoryRouter initialEntries={[scopedUrl]}>
@@ -320,6 +323,14 @@ describe('GeospatialFilterMap client', () => {
           });
           mockMapInstance.setView.mockClear();
           mockMapInstance.fitBounds.mockClear();
+          // A queued visibility callback can run after navigation and must not
+          // restore the bbox captured by the previous search.
+          act(() => {
+            intersectionCallbacks.at(-1)!(
+              [{ isIntersecting: true } as IntersectionObserverEntry],
+              {} as IntersectionObserver
+            );
+          });
           fireEvent.click(screen.getByText('See all results for cta bus'));
 
           expect(mockMapInstance.setView).toHaveBeenCalledWith([20, 0], 1, {
@@ -340,13 +351,20 @@ describe('GeospatialFilterMap client', () => {
             });
             expect(fetchMapH3).toHaveBeenCalledWith(
               'cta bus',
-              '-180,-85,180,85',
+              undefined,
               2,
               expect.anything()
             );
           } else {
+            await act(async () => {
+              await new Promise((resolve) => setTimeout(resolve, 150));
+            });
             expect(fetchMapH3).not.toHaveBeenCalled();
           }
+          expect(mockMapInstance.fitBounds).not.toHaveBeenCalledWith(
+            expect.anything(),
+            { padding: [20, 20] }
+          );
           if (visit === 0) {
             fireEvent.click(screen.getByText('Scope to Indonesia'));
             await waitFor(() => {

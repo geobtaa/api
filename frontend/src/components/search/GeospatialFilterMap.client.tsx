@@ -385,8 +385,10 @@ export function GeospatialFilterMap({
   useEffect(() => {
     if (!mapRef.current || !mapContainerRef.current) return;
 
+    let cancelled = false;
+    const pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
     const fitToBboxIfNeeded = () => {
-      const bbox = getBBoxFromParams();
+      const bbox = getBBoxFromParamsRef.current();
       if (!bbox || !mapRef.current) return;
       const bounds = L.latLngBounds(
         [bbox.bottomRight.lat, bbox.topLeft.lon],
@@ -412,13 +414,15 @@ export function GeospatialFilterMap({
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && mapRef.current) {
-            setTimeout(() => {
-              if (mapRef.current) {
+          if (!cancelled && entry.isIntersecting && mapRef.current) {
+            const timeoutId = setTimeout(() => {
+              pendingTimeouts.delete(timeoutId);
+              if (!cancelled && mapRef.current) {
                 mapRef.current.invalidateSize();
                 fitToBboxIfNeeded();
               }
             }, 100);
+            pendingTimeouts.add(timeoutId);
           }
         });
       },
@@ -428,6 +432,8 @@ export function GeospatialFilterMap({
     observer.observe(mapContainerRef.current);
 
     return () => {
+      cancelled = true;
+      pendingTimeouts.forEach(clearTimeout);
       observer.disconnect();
     };
   }, [getBBoxFromParams]);
@@ -456,13 +462,17 @@ export function GeospatialFilterMap({
     const updateHexLayer = async (shouldFitToHexes: boolean) => {
       const bounds = map.getBounds();
       const zoom = map.getZoom();
-      const bbox = clampBbox(
-        bounds.getWest(),
-        bounds.getSouth(),
-        bounds.getEast(),
-        bounds.getNorth()
-      );
-      const resolution = zoomToResolution(zoom);
+      // Discover the current query's aggregation globally before fitting.
+      // Viewport clipping is only appropriate for subsequent pan/zoom requests.
+      const bbox = shouldFitToHexes
+        ? undefined
+        : clampBbox(
+            bounds.getWest(),
+            bounds.getSouth(),
+            bounds.getEast(),
+            bounds.getNorth()
+          );
+      const resolution = shouldFitToHexes ? 2 : zoomToResolution(zoom);
       const queryString = searchParams.toString();
 
       setHexLoading(true);
