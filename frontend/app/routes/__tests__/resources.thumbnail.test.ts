@@ -13,6 +13,27 @@ describe('resource thumbnail loader', () => {
     vi.clearAllMocks();
   });
 
+  it('preserves pending and no-store headers so browser recovery can retry', async () => {
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response('<svg/>', {
+        headers: {
+          'Content-Type': 'image/svg+xml',
+          'X-Thumbnail-Pending': 'true',
+          'Retry-After': '2',
+          'Cache-Control': 'no-store',
+        },
+      })
+    );
+    const response = await loader({
+      params: { id: 'result-1' },
+      request: new Request('https://geo.btaa.org/resources/result-1/thumbnail'),
+    } as LoaderFunctionArgs);
+    expect(response.headers.get('X-Thumbnail-Pending')).toBe('true');
+    expect(response.headers.get('Retry-After')).toBe('2');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(await response.text()).toBe('<svg/>');
+  });
+
   it('forwards the icon-gradient variant used by list-view fallbacks', async () => {
     vi.mocked(serverFetch).mockResolvedValue(
       new Response('<svg></svg>', {
