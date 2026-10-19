@@ -205,6 +205,11 @@ restricted operations documentation. Local regression coverage lives in
 `tests/scripts/test_trigger_bridge_sync_cron.py`, and
 `tests/services/test_bridge_sync_report.py` under `backend/`.
 
+The scheduler regression tests execute both bridge commands in a clean shell
+from an unrelated directory and verify monitoring configuration discovery.
+The environment snapshot preserves monitoring settings as well as bridge
+authentication and database pool settings.
+
 ## Restricted Operational Scripts
 
 Some scripts are intended for deployment bootstrap, remote maintenance, backup,
