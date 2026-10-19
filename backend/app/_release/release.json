@@ -1,5 +1,5 @@
 {
-  "version": "0.11.1",
-  "release_date": "2026-10-14",
-  "summary": "Restore saved thumbnails after cache loss, recover pending thumbnails without refreshing, and fix stale map-scoped search results after clearing spatial filters."
+  "version": "0.11.2",
+  "release_date": "2026-10-19",
+  "summary": "Restore scheduled GEOMG record syncing by correcting cron's working directory and preserving monitoring configuration."
 }
