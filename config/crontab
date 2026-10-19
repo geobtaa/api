@@ -22,8 +22,8 @@ TZ=America/Chicago
 # One daily run sends the report, whether it succeeds or fails. Keep that run
 # outside the DST transition hour and exclude it from the other hourly runs.
 # Use venv Python: cron runs with minimal PATH and system python3 lacks requests/etc.
-7 0-2,4-23 * * * BRIDGE_TRIGGER=incremental_cron RUN_NOW=1 /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
-7 3 * * * BRIDGE_TRIGGER=nightly_cron RUN_NOW=1 /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
+7 0-2,4-23 * * * cd /app/backend && BRIDGE_TRIGGER=incremental_cron RUN_NOW=1 /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
+7 3 * * * cd /app/backend && BRIDGE_TRIGGER=nightly_cron RUN_NOW=1 /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
 
 # Daily 3:00 AM: run blog sync in a fresh process so database pools stay on one event loop.
 0 3 * * * RUN_NOW=1 /opt/venv/bin/python3 /app/scripts/trigger_blog_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
