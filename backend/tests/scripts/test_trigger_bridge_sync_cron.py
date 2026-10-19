@@ -183,7 +183,11 @@ def test_schedule_polls_every_hour_but_reports_once_daily(monkeypatch, report_po
             continue
         minute, hours, day, month, weekday, command = line.split(maxsplit=5)
         assert (minute, day, month, weekday) == ("7", "*", "*", "*")
-        trigger = command.split()[0].removeprefix("BRIDGE_TRIGGER=")
+        trigger = next(
+            word.removeprefix("BRIDGE_TRIGGER=")
+            for word in command.split()
+            if word.startswith("BRIDGE_TRIGGER=")
+        )
         assert "RUN_NOW=1" in command.split()
         for part in hours.split(","):
             start, _, end = part.partition("-")

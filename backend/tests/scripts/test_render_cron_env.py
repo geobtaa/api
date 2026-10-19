@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 from scripts.render_cron_env import DEFAULT_OUTPUT_PATH, render_cron_env_exports, write_cron_env
@@ -57,6 +59,8 @@ def test_clean_cron_shell_restores_bridge_auth_and_pool_limits(tmp_path):
         "DB_POOL_MAX": "2",
         "SQLALCHEMY_ASYNC_POOL_SIZE": "1",
         "SQLALCHEMY_ASYNC_MAX_OVERFLOW": "0",
+        "APPSIGNAL_BACKEND_ACTIVE": "false",
+        "APPSIGNAL_BACKEND_APP_NAME": "Cron regression test",
     }
     snapshot = write_cron_env(str(tmp_path / "cron.env"), expected)
     bootstrap = Path(__file__).resolve().parents[2] / "scripts" / "cron_env.sh"
@@ -69,3 +73,46 @@ def test_clean_cron_shell_restores_bridge_auth_and_pool_limits(tmp_path):
         text=True,
     )
     assert result.stdout.splitlines() == list(expected.values())
+
+
+def test_scheduled_bridge_commands_find_appsignal_config_from_clean_shell(tmp_path):
+    """Exercise both installed commands from cron's unrelated starting directory."""
+    backend = tmp_path / "backend"
+    backend.mkdir()
+    (backend / "__appsignal__.py").write_text(
+        "from appsignal import Appsignal\n"
+        "appsignal = Appsignal(name='cron-regression', active=False)\n"
+    )
+    probe = tmp_path / "probe.py"
+    probe.write_text(
+        "import os, appsignal\n"
+        "assert os.environ['APPSIGNAL_BACKEND_ACTIVE'] == 'false'\n"
+        "assert os.environ['RUN_NOW'] == '1'\n"
+        "appsignal.start()\n"
+        "print(os.environ['BRIDGE_TRIGGER'])\n"
+    )
+    snapshot = write_cron_env(str(tmp_path / "cron.env"), {"APPSIGNAL_BACKEND_ACTIVE": "false"})
+    root = Path(__file__).resolve().parents[3]
+    triggers = []
+    for line in (root / "config" / "crontab").read_text().splitlines():
+        if line.startswith("#") or "trigger_bridge_sync_cron.py" not in line:
+            continue
+        command = line.split(maxsplit=5)[5].split(" >> ", 1)[0]
+        command = command.replace("/app/backend", shlex.quote(str(backend)))
+        command = command.replace("/opt/venv/bin/python3", shlex.quote(sys.executable))
+        command = command.replace(
+            "/app/scripts/trigger_bridge_sync_cron.py", shlex.quote(str(probe))
+        )
+        result = subprocess.run(
+            ["/bin/bash", "-c", command],
+            cwd=tmp_path,
+            env={
+                "BASH_ENV": str(root / "backend" / "scripts" / "cron_env.sh"),
+                "CRON_ENV_OUTPUT_PATH": str(snapshot),
+            },
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        triggers.append(result.stdout.strip())
+    assert triggers == ["incremental_cron", "nightly_cron"]
