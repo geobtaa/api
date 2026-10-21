@@ -1,0 +1,24 @@
+{
+  "list": {
+    "schema_version": "1",
+    "items": [
+      {"source_id": "Source-B", "title": "Source-B", "description": "", "landing_page": null, "resource_count": 0},
+      {"source_id": "Source_A", "title": "Source_A", "description": "", "landing_page": null, "resource_count": 2}
+    ],
+    "total": 2,
+    "offset": 0,
+    "limit": 100
+  },
+  "detail": {
+    "schema_version": "1",
+    "source": {"source_id": "Source_A", "title": "Source_A", "description": "", "landing_page": null, "resource_count": 2}
+  },
+  "resources": {
+    "schema_version": "1",
+    "source_id": "Source_A",
+    "items": [{"id": "public-a", "title": "Public map"}, {"id": "public-b", "title": "Restricted data with public metadata"}],
+    "total": 2,
+    "offset": 0,
+    "limit": 100
+  }
+}
