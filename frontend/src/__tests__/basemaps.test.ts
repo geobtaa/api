@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type L from 'leaflet';
+import L from 'leaflet';
 
 const mocks = vi.hoisted(() => ({
   getCookie: vi.fn(),
@@ -13,6 +13,7 @@ vi.mock('js-cookie', () => ({
 }));
 
 import {
+  attachBasemapSwitcher,
   createBasemapLayer,
   getAvailableBasemapKeys,
   getSavedBasemapKey,
@@ -73,7 +74,53 @@ describe('basemap preferences', () => {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
+        referrerPolicy: 'strict-origin-when-cross-origin',
       }
     );
+  });
+});
+
+describe('basemap tile failures', () => {
+  it('preserves overlays, reports failures per layer, and detaches listeners on cleanup', () => {
+    mocks.getCookie.mockReturnValue(undefined);
+    const element = document.createElement('div');
+    document.body.appendChild(element);
+    const map = L.map(element).setView([45, -93], 5);
+    const overlay = L.layerGroup().addTo(map);
+    const onError = vi.fn();
+    const cleanup = attachBasemapSwitcher(map, L, 'topleft', onError);
+    let osm!: L.TileLayer;
+    map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) osm = layer;
+    });
+    const tile = document.createElement('img');
+    try {
+      expect(onError).toHaveBeenLastCalledWith(false);
+      osm.fire('tileerror', { tile });
+      expect(tile.style.visibility).toBe('hidden');
+      expect(onError).toHaveBeenLastCalledWith(true);
+      expect(map.hasLayer(overlay)).toBe(true);
+      osm.fire('tileload', { tile: document.createElement('img') });
+      expect(onError).toHaveBeenLastCalledWith(true);
+
+      const choices = element.querySelectorAll<HTMLInputElement>(
+        '.leaflet-control-layers-selector'
+      );
+      choices[1].click();
+      expect(onError).toHaveBeenLastCalledWith(false);
+      // A late failure from the inactive layer must not affect the alternative.
+      osm.fire('tileerror', { tile });
+      expect(onError).toHaveBeenLastCalledWith(false);
+      choices[0].click();
+      expect(onError).toHaveBeenLastCalledWith(true);
+      cleanup();
+      onError.mockClear();
+      osm.fire('tileerror', { tile });
+      expect(onError).not.toHaveBeenCalled();
+      expect(map.hasLayer(overlay)).toBe(true);
+    } finally {
+      map.remove();
+      element.remove();
+    }
   });
 });

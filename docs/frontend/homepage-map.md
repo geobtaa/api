@@ -127,3 +127,30 @@ The frontend creates a `WarpedMapLayer` from `@allmaps/leaflet` using the annota
 1. Add the resource ID to `FEATURED_RESOURCE_IDS` in `frontend/src/config/featured.ts`.
 2. For **Allmaps** items: Ensure the resource has an `resource_allmaps` record with `annotated = true` and a valid IIIF manifest. Run the Allmaps processing task if needed (see [scripts.md](../backend/scripts.md)).
 3. For **GeoBlacklight** items: Ensure `meta.ui.viewer` is populated (protocol, endpoint, geometry).
+
+
+## Resource Location map basemap resilience
+
+The resource sidebar Location map fits its geometry before attaching the shared
+Leaflet basemap switcher, avoiding tile requests for a temporary world view.
+Point resources start at zoom 14; bounds fitting is capped at zoom 18 so either
+configured basemap can display even very small extents.
+
+Shared Leaflet OpenStreetMap layers explicitly use
+`referrerPolicy: 'strict-origin-when-cross-origin'`. Browser HTTP caching remains
+unchanged.
+
+The Location map opts into tile-error reporting from `attachBasemapSwitcher`.
+Failed tiles are hidden without fetching a replacement image, while geometry,
+attribution, and the Layers control remain available. An accessible status
+message invites the user to select another basemap. Failures are remembered per
+basemap for the current map instance, so one successful tile cannot incorrectly
+clear a partial-failure warning. Selecting an unaffected layer clears the message;
+selecting a previously failed layer shows it again. Resource navigation resets
+this state and removes old listeners. There are no automatic retries or provider
+switches. This behavior does not diagnose the upstream reason for a failed tile.
+
+For local verification, open a resource map with browser Network recording enabled
+and **Disable cache unchecked**. Confirm its first tile requests match the resource
+view. Block the tile domain locally to exercise the warning, then select the
+alternative layer. Remove the browser request block when finished.

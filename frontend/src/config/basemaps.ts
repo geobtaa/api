@@ -20,6 +20,7 @@ const BASEMAP_DEFINITIONS = {
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     options: {
       maxZoom: 19,
+      referrerPolicy: 'strict-origin-when-cross-origin',
     },
   },
   esriWorldImagery: {
@@ -71,19 +72,40 @@ export function createBasemapLayer(
 export function attachBasemapSwitcher(
   map: L.Map,
   Leaflet: typeof L,
-  position: L.ControlPosition = 'topleft'
+  position: L.ControlPosition = 'topleft',
+  onTileErrorChange?: (unavailable: boolean) => void
 ): () => void {
   const basemapLayers = {} as Record<BasemapKey, L.TileLayer>;
   const labeledLayers: Record<string, L.TileLayer> = {};
 
+  // Remember failures per layer for this map's lifetime. A later successful
+  // tile must not hide a warning about other missing tiles in the same view.
+  const failedLayers = new Set<BasemapKey>();
+  const errorHandlers = new Map<
+    L.TileLayer,
+    (event: L.TileErrorEvent) => void
+  >();
+
   (Object.keys(BASEMAP_DEFINITIONS) as BasemapKey[]).forEach((key) => {
     const config = BASEMAP_DEFINITIONS[key];
     const layer = createBasemapLayer(Leaflet, key);
+    if (onTileErrorChange) {
+      const onTileError = (event: L.TileErrorEvent) => {
+        // A 403 can contain a provider's error image. Keep it from obscuring
+        // the resource geometry, without making another network request.
+        event.tile.style.visibility = 'hidden';
+        failedLayers.add(key);
+        if (map.hasLayer(layer)) onTileErrorChange(true);
+      };
+      layer.on('tileerror', onTileError);
+      errorHandlers.set(layer, onTileError);
+    }
     basemapLayers[key] = layer;
     labeledLayers[config.label] = layer;
   });
 
   const selectedBasemap = getSavedBasemapKey();
+  onTileErrorChange?.(false);
   basemapLayers[selectedBasemap].addTo(map);
 
   const control = Leaflet.control.layers(labeledLayers, undefined, {
@@ -98,6 +120,7 @@ export function attachBasemapSwitcher(
     );
     if (matchedKey) {
       saveBasemapKey(matchedKey);
+      onTileErrorChange?.(failedLayers.has(matchedKey));
     }
   };
 
@@ -106,6 +129,7 @@ export function attachBasemapSwitcher(
   return () => {
     map.off('baselayerchange', onBaseLayerChange);
     control.remove();
+    errorHandlers.forEach((handler, layer) => layer.off('tileerror', handler));
     (Object.keys(basemapLayers) as BasemapKey[]).forEach((key) => {
       const layer = basemapLayers[key];
       if (map.hasLayer(layer)) {
