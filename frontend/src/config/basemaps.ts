@@ -138,3 +138,36 @@ export function attachBasemapSwitcher(
     });
   };
 }
+
+/** Keep the warning inside the map so it remains visible in fullscreen. */
+export function attachViewerBasemapSwitcher(
+  map: L.Map,
+  Leaflet: typeof L
+): () => void {
+  const status = new Leaflet.Control({ position: 'bottomleft' });
+  const message = document.createElement('p');
+  message.setAttribute('role', 'status');
+  message.className = 'bg-amber-50 text-gray-900 p-3 rounded shadow text-sm';
+  message.style.maxWidth = '260px';
+  message.hidden = true;
+  status.onAdd = () => message;
+  status.addTo(map);
+  Leaflet.DomEvent.disableClickPropagation(message);
+  Leaflet.DomEvent.disableScrollPropagation(message);
+
+  const cleanup = attachBasemapSwitcher(
+    map,
+    Leaflet,
+    'topleft',
+    (unavailable) => {
+      message.hidden = !unavailable;
+      message.textContent = unavailable
+        ? 'Some basemap tiles could not be loaded. Choose another basemap using the Layers control. Resource layers remain available.'
+        : '';
+    }
+  );
+  return () => {
+    cleanup();
+    status.remove();
+  };
+}

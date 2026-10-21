@@ -154,3 +154,12 @@ For local verification, open a resource map with browser Network recording enabl
 and **Disable cache unchecked**. Confirm its first tile requests match the resource
 view. Block the tile domain locally to exercise the warning, then select the
 alternative layer. Remove the browser request block when finished.
+
+
+The large Leaflet resource viewer uses the same basemap switcher and error
+handling, including the explicit OSM referrer policy and saved basemap preference.
+Its warning is a Leaflet control inside the map, so it remains visible in
+fullscreen. Basemap failures do not remove resource overlays or their opacity and
+inspection controls. Disconnecting the viewer removes the error listeners, status
+control, and map. IIIF image viewers do not use geographic basemaps and retain
+their existing image behavior; the separate OpenLayers viewers are unchanged.

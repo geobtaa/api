@@ -14,6 +14,7 @@ vi.mock('js-cookie', () => ({
 
 import {
   attachBasemapSwitcher,
+  attachViewerBasemapSwitcher,
   createBasemapLayer,
   getAvailableBasemapKeys,
   getSavedBasemapKey,
@@ -117,6 +118,44 @@ describe('basemap tile failures', () => {
       onError.mockClear();
       osm.fire('tileerror', { tile });
       expect(onError).not.toHaveBeenCalled();
+      expect(map.hasLayer(overlay)).toBe(true);
+    } finally {
+      map.remove();
+      element.remove();
+    }
+  });
+});
+
+describe('large viewer basemap warning', () => {
+  it('keeps its accessible warning inside the fullscreen map and cleans up on disconnect', () => {
+    mocks.getCookie.mockReturnValue(undefined);
+    const element = document.createElement('div');
+    document.body.appendChild(element);
+    const map = L.map(element).setView([45, -93], 5);
+    const overlay = L.layerGroup().addTo(map);
+    const cleanup = attachViewerBasemapSwitcher(map, L);
+    let osm!: L.TileLayer;
+    map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) osm = layer;
+    });
+    const message = element.querySelector<HTMLElement>('[role="status"]')!;
+    try {
+      expect(message.hidden).toBe(true);
+      const tile = document.createElement('img');
+      osm.fire('tileerror', { tile });
+      expect(message.hidden).toBe(false);
+      expect(message.textContent).toContain('Layers control');
+      expect(tile.style.visibility).toBe('hidden');
+      expect(map.hasLayer(overlay)).toBe(true);
+      element
+        .querySelectorAll<HTMLInputElement>(
+          '.leaflet-control-layers-selector'
+        )[1]
+        .click();
+      expect(message.hidden).toBe(true);
+      cleanup();
+      expect(element.querySelector('[role="status"]')).toBeNull();
+      expect(osm.listens('tileerror')).toBe(false);
       expect(map.hasLayer(overlay)).toBe(true);
     } finally {
       map.remove();
