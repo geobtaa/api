@@ -1,5 +1,6 @@
 import Cookies from 'js-cookie';
 import type L from 'leaflet';
+import { attachHttpTileLoader } from './httpTileLoader';
 
 type BasemapDefinition = {
   label: string;
@@ -91,9 +92,9 @@ export function attachBasemapSwitcher(
     const config = BASEMAP_DEFINITIONS[key];
     const layer = createBasemapLayer(Leaflet, key);
     if (onTileErrorChange) {
+      if (key === 'openStreetMap') attachHttpTileLoader(layer);
       const onTileError = (event: L.TileErrorEvent) => {
-        // Hide failed image elements without making another network request.
-        // A valid image returned with HTTP 403 may not trigger tileerror.
+        // HTTP and image decoding failures share the same accessible warning.
         event.tile.style.visibility = 'hidden';
         failedLayers.add(key);
         if (map.hasLayer(layer)) onTileErrorChange(true);

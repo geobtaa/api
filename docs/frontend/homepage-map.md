@@ -150,10 +150,20 @@ selecting a previously failed layer shows it again. Resource navigation resets
 this state and removes old listeners. There are no automatic retries or provider
 switches. This behavior does not diagnose the upstream reason for a failed tile.
 
-The warning relies on Leaflet's image-load error event. Browsers can successfully
-decode an error image returned with HTTP 403; that case does not necessarily
-trigger the warning or hide the image. A cached error image revalidated with 304
-has the same limitation. Users can still select another basemap manually.
+OSM layers in these two resource maps use a status-aware tile loader. It makes
+one CORS fetch per tile with normal browser HTTP caching, omitted credentials,
+and the explicit referrer policy. Non-success HTTP responses (including 403 with
+a valid error image) are rejected before image decoding. Successful response
+bytes are displayed through a temporary blob URL, which is released after decoding
+or cancellation. Tile unloads and layer removal cancel pending work. Network,
+CORS, and decoding errors use the same warning; there is no second image request
+or cache-bypass retry. Browser-managed cache revalidation remains enabled.
+
+This requires CORS access to OSM and, if a Content Security Policy is configured,
+permission to connect to the tile origin and display blob images. A CORS-denied
+response is treated as unavailable even when its status cannot be read. A valid
+error image served with HTTP 200 remains indistinguishable from a successful map
+tile by status alone. The imagery alternative retains ordinary Leaflet loading.
 
 For local verification, open a resource map with browser Network recording enabled
 and **Disable cache unchecked**. Confirm its first tile requests match the resource

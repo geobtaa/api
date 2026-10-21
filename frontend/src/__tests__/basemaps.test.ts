@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import L from 'leaflet';
 
 const mocks = vi.hoisted(() => ({
@@ -21,6 +21,15 @@ import {
 } from '../config/basemaps';
 import geoblacklightBasemaps from '../geoblacklight/basemaps';
 import geoblacklightOpenlayersBasemaps from '../geoblacklight/openlayers_basemaps';
+
+// Tile lifecycle tests explicitly fire Leaflet events; never contact providers.
+beforeEach(() =>
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => new Promise(() => {}))
+  )
+);
+afterEach(() => vi.unstubAllGlobals());
 
 describe('basemap preferences', () => {
   beforeEach(() => {
