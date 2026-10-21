@@ -65,6 +65,7 @@ export function createBasemapLayer(
   const config = BASEMAP_DEFINITIONS[key];
   return Leaflet.tileLayer(config.url, {
     attribution: config.attribution,
+    zIndex: 0,
     ...config.options,
   });
 }
@@ -91,8 +92,8 @@ export function attachBasemapSwitcher(
     const layer = createBasemapLayer(Leaflet, key);
     if (onTileErrorChange) {
       const onTileError = (event: L.TileErrorEvent) => {
-        // A 403 can contain a provider's error image. Keep it from obscuring
-        // the resource geometry, without making another network request.
+        // Hide failed image elements without making another network request.
+        // A valid image returned with HTTP 403 may not trigger tileerror.
         event.tile.style.visibility = 'hidden';
         failedLayers.add(key);
         if (map.hasLayer(layer)) onTileErrorChange(true);
@@ -111,6 +112,8 @@ export function attachBasemapSwitcher(
   const control = Leaflet.control.layers(labeledLayers, undefined, {
     position,
     collapsed: true,
+    // Keep basemaps below resource tiles, including after switching layers.
+    autoZIndex: false,
   });
   control.addTo(map);
 

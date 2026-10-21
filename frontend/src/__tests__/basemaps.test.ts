@@ -75,6 +75,7 @@ describe('basemap preferences', () => {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
+        zIndex: 0,
         referrerPolicy: 'strict-origin-when-cross-origin',
       }
     );
@@ -82,6 +83,35 @@ describe('basemap preferences', () => {
 });
 
 describe('basemap tile failures', () => {
+  it('keeps resource tiles above either basemap after switching', () => {
+    mocks.getCookie.mockReturnValue(undefined);
+    const element = document.createElement('div');
+    document.body.appendChild(element);
+    const map = L.map(element).setView([45, -93], 5);
+    const cleanup = attachBasemapSwitcher(map, L);
+    const overlay = L.tileLayer('/resource/{z}/{x}/{y}.png').addTo(map);
+    try {
+      const choices = element.querySelectorAll<HTMLInputElement>(
+        '.leaflet-control-layers-selector'
+      );
+      for (const choice of [choices[1], choices[0], choices[1]]) {
+        choice.click();
+        map.eachLayer((layer) => {
+          if (layer instanceof L.TileLayer && layer !== overlay) {
+            expect(Number(layer.getContainer()!.style.zIndex)).toBeLessThan(
+              Number(overlay.getContainer()!.style.zIndex)
+            );
+          }
+        });
+        expect(map.hasLayer(overlay)).toBe(true);
+      }
+    } finally {
+      cleanup();
+      map.remove();
+      element.remove();
+    }
+  });
+
   it('preserves overlays, reports failures per layer, and detaches listeners on cleanup', () => {
     mocks.getCookie.mockReturnValue(undefined);
     const element = document.createElement('div');

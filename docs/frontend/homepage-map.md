@@ -150,6 +150,11 @@ selecting a previously failed layer shows it again. Resource navigation resets
 this state and removes old listeners. There are no automatic retries or provider
 switches. This behavior does not diagnose the upstream reason for a failed tile.
 
+The warning relies on Leaflet's image-load error event. Browsers can successfully
+decode an error image returned with HTTP 403; that case does not necessarily
+trigger the warning or hide the image. A cached error image revalidated with 304
+has the same limitation. Users can still select another basemap manually.
+
 For local verification, open a resource map with browser Network recording enabled
 and **Disable cache unchecked**. Confirm its first tile requests match the resource
 view. Block the tile domain locally to exercise the warning, then select the
@@ -163,3 +168,4 @@ fullscreen. Basemap failures do not remove resource overlays or their opacity an
 inspection controls. Disconnecting the viewer removes the error listeners, status
 control, and map. IIIF image viewers do not use geographic basemaps and retain
 their existing image behavior; the separate OpenLayers viewers are unchanged.
+Basemaps keep a lower stacking order than resource tiles when switching providers.
