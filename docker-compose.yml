@@ -14,7 +14,7 @@ services:
       - LOG_PATH=/app/logs
       - APPLICATION_URL=http://localhost:8000
       - ANALYTICS_PASSWORD=${ANALYTICS_PASSWORD:-}
-      - ANALYTICS_BASE_URL=${ANALYTICS_BASE_URL:-http://localhost:3000}
+      - ANALYTICS_BASE_URL=${ANALYTICS_BASE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       - APP_ENV=development
       - FEEDBACK_DELIVERY=${FEEDBACK_DELIVERY:-preview}
       - SMTP_HOST=${SMTP_HOST:-}
@@ -90,6 +90,7 @@ services:
       - VITE_TURNSTILE_ACTION=${VITE_TURNSTILE_ACTION:-geoportal_gate}
       # React Router server-side loaders in dev (runs inside this container)
       - API_BASE_URL=http://api:8000/api/v1
+      - ANALYTICS_BASE_URL=${ANALYTICS_BASE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
       - NODE_ENV=development
     command: sh -lc "rm -rf node_modules/.vite 2>/dev/null; npm run dev -- --host 0.0.0.0 --port 3000"
@@ -98,6 +99,7 @@ services:
       - ./frontend/theme.yaml:/app/theme.yaml
       - ./frontend/app:/app/app
       - ./frontend/src:/app/src
+      - ./frontend/private-analytics-reports:/app/private-analytics-reports:ro
       - ./frontend/public:/app/public
       - ./frontend/scripts:/app/scripts
       - ./frontend/server:/app/server
