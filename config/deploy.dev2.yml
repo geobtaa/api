@@ -42,6 +42,7 @@ env:
     APP_ENV: development
     APP_REVISION: "<%= ENV.fetch('APP_REVISION') { ENV.fetch('KAMAL_VERSION') { `git rev-parse --verify HEAD`.strip } } %>"
     KAMAL_DEST: dev2
+    KITHE_BRIDGE_URL: https://geomgdev.lib.umn.edu/api/kithe_bridge
     APPSIGNAL_ACTIVE: "true"
     APPSIGNAL_APP_ENV: development
     APPSIGNAL_APP_NAME: "BTAA Geospatial API - Development"
