@@ -9,6 +9,11 @@ export function selectedSnapshotPeriod(value: string | null) {
     ? value!
     : latestMonth;
 }
+export function selectedSummaryPeriod(value: string | null) {
+  return value && (value === 'all' || publishedMonths.includes(value))
+    ? value
+    : '3months';
+}
 export function monthLabel(period: string, short = false) {
   return new Date(`${period}-01T00:00:00Z`).toLocaleDateString('en-US', {
     month: short ? 'short' : 'long',

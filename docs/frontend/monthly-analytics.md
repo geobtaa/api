@@ -876,3 +876,32 @@ API fields unchanged. Use everyday wording in visible summaries and keep
 technical definitions, identifiers, and evidence available in the report
 notes. Missing records are unavailable, never zero. Keep monthly and cumulative
 views consistent, and preserve precise limits on what verification establishes.
+
+### Summary tab
+
+`/analytics/summary` uses authenticated saved snapshots. Its period picker offers
+published months, the latest three calendar months, and all time, with the
+selection saved in the URL. Search and resource rankings show five entries by
+default, expand to up to 20, and collapse when the period changes.
+
+- Visits use the period-wide distinct count; daily estimates are not additive.
+- Rankings require an aggregate matching the selected dates. Adding truncated
+  monthly rankings would produce incorrect totals and ordering.
+- Collection growth reuses the Members provider report's inventory and capture
+  date. Net and percentage changes compare the latest strictly earlier capture,
+  not the activity month. They include removals and publication changes.
+- Missing measurements remain unavailable, never zero. Download clicks do not
+  verify completed transfers.
+
+#### Experimental record access patterns
+
+Two five-record samples compare fewer and more access clicks per view, using
+only the saved leading-resource rows with at least 20 views. The current export
+contains 50 resources, not the whole catalog. Monthly snapshots lack the combined
+counts and show an unavailable state instead.
+
+Access clicks combine outlinks and downloads; clicks per 100 views are
+`100 * (sources + downloads) / views`. Rank by that ratio, then higher view count
+and resource ID for stable ties. The higher-ratio list requires a click. Ratios
+can exceed 100 and do not measure visit conversion or record quality. No new
+tracking or backend endpoint is introduced.

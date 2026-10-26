@@ -11,12 +11,14 @@ export function ReportingPeriodPicker({
   onChange,
   label = 'Reporting month',
   comparison = false,
+  includeThreeMonths = false,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
   label?: string;
   comparison?: boolean;
+  includeThreeMonths?: boolean;
 }) {
   return (
     <div className="analytics-month-picker">
@@ -35,6 +37,9 @@ export function ReportingPeriodPicker({
           <option value="comparison">{comparisonLabel}</option>
         ) : (
           <>
+            {includeThreeMonths && (
+              <option value="3months">Past 3 months</option>
+            )}
             {[...publishedMonths].reverse().map((month) => (
               <option key={month} value={month}>
                 {monthLabel(month)}
