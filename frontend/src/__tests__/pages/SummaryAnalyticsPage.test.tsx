@@ -241,6 +241,9 @@ describe('Summary tab', () => {
       .closest('section')!;
     expect(within(access).getByText('2,869')).toBeInTheDocument();
     expect(within(access).getByText('2,621')).toBeInTheDocument();
+    expect(within(access).getByRole('note')).toHaveTextContent(
+      'Outlinks do not yet include clicks on Licensed Access links. This also affects the resource rankings below.'
+    );
     expect(within(access).getAllByRole('img')).toHaveLength(2);
     expect(
       within(access).getByRole('img', { name: /^Outlinks by month:/ })

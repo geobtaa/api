@@ -25,6 +25,7 @@ import '../../styles/analytics.css';
 import {
   latestMonth,
   selectedSummaryPeriod,
+  summaryHasThreeMonths,
 } from '../../config/analyticsPeriods';
 import { ReportingPeriodPicker } from './ReportingPeriodPicker';
 import { SearchCategoryDistribution } from './SearchCategoryChart';
@@ -271,7 +272,7 @@ function DiscoveryChart({
                   dataKey={metric}
                   name={title}
                   {...chartTheme.series}
-                  type="monotone"
+                  type="linear"
                   dot={false}
                   isAnimationActive={false}
                 />
@@ -344,7 +345,7 @@ export function SummaryAnalyticsPage() {
             id="summary-period"
             label="Reporting period"
             value={period}
-            includeThreeMonths
+            includeThreeMonths={summaryHasThreeMonths}
             onChange={(value) => {
               const next = new URLSearchParams(params);
               next.set('month', value);
@@ -386,6 +387,10 @@ export function SummaryAnalyticsPage() {
             <div className="analytics-summary-section-heading">
               <h2 id="summary-access">Successful access</h2>
             </div>
+            <p className="analytics-summary-caption mb-4" role="note">
+              Outlinks do not yet include clicks on Licensed Access links. This
+              also affects the resource rankings below.
+            </p>
             <div className="analytics-summary-grid">
               {(['sources', 'downloads'] as const).map((key) => (
                 <article
