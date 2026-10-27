@@ -882,10 +882,19 @@ views consistent, and preserve precise limits on what verification establishes.
 `/analytics/summary` uses authenticated saved snapshots in a centered content
 column capped at 72rem. Its period picker offers
 published months, the latest three calendar months, and all time, with the
-selection saved in the URL. Search and resource rankings show five entries by
-default, expand to up to 20, and collapse when the period changes. Outlinks and
+selection saved in the URL. Query terms are hidden behind **Show query terms**;
+opening each list reveals all saved queries with their suggested category and
+search count. Each list closes when the period changes. Resource rankings show
+five entries by default and expand to up to 20. Outlinks and
 downloads show a period total with a compact monthly numeric breakdown.
 High-value resources use ranked titles and aligned click counts without bars.
+
+Most common and No-result searches each include a category pie chart and count
+legend above their term rankings, using the same category rules as the Searches
+report. Categories cover all saved leading queries for the selected period,
+including those in the collapsed term lists. Counts and percentages describe
+that saved sample, not all searches. Expanding a term list does not change the
+chart. Periods without matching rankings also have no category chart.
 
 - Visits use the period-wide distinct count; daily estimates are not additive.
 - Rankings require an aggregate matching the selected dates. Adding truncated

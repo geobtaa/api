@@ -25,6 +25,7 @@ import {
   selectedSummaryPeriod,
 } from '../../config/analyticsPeriods';
 import { ReportingPeriodPicker } from './ReportingPeriodPicker';
+import { SearchCategoryDistribution } from './SearchCategoryChart';
 
 const number = new Intl.NumberFormat('en-US');
 const compact = new Intl.NumberFormat('en-US', { notation: 'compact' });
@@ -128,10 +129,29 @@ function ResourceRanking({
 function TermRanking({
   title,
   rows,
+  categoryForTerm,
 }: {
   title: string;
   rows: { term: string; count: number }[] | null;
+  categoryForTerm: (term: string) => string;
 }) {
+  const [showTerms, setShowTerms] = useState(false);
+  const termsId = useId();
+  const categories = new Map<
+    string,
+    { category: string; searches: number; queries: number }
+  >();
+  for (const row of rows ?? []) {
+    const category = categoryForTerm(row.term);
+    const group = categories.get(category) ?? {
+      category,
+      searches: 0,
+      queries: 0,
+    };
+    group.searches += row.count;
+    group.queries += 1;
+    categories.set(category, group);
+  }
   return (
     <article className="analytics-panel analytics-summary-card">
       <h3>{title}</h3>
@@ -142,21 +162,46 @@ function TermRanking({
       ) : rows.length === 0 ? (
         <p className="analytics-summary-empty">No recorded searches</p>
       ) : (
-        <ExpandableRanking label={title} className="analytics-summary-terms">
-          {rows
-            .slice()
-            .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
-            .slice(0, 20)
-            .map((row) => (
-              <li key={row.term}>
-                <span>{row.term}</span>
-                <strong>
-                  {number.format(row.count)}
-                  <span className="sr-only"> searches</span>
-                </strong>
-              </li>
-            ))}
-        </ExpandableRanking>
+        <>
+          <SearchCategoryDistribution
+            categories={[...categories.values()]}
+            label={`${title} search categories`}
+            description={`Search counts by suggested category across ${rows.length} saved leading queries only, not all searches. Percentages refer to searches within these queries.`}
+          />
+          <button
+            type="button"
+            className="analytics-summary-expand"
+            aria-controls={termsId}
+            aria-expanded={showTerms}
+            onClick={() => setShowTerms((value) => !value)}
+          >
+            {showTerms ? 'Hide query terms' : 'Show query terms'}
+          </button>
+          <ol
+            id={termsId}
+            className="analytics-summary-terms"
+            aria-label={`${title} query terms`}
+            hidden={!showTerms}
+          >
+            {rows
+              .slice()
+              .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
+              .map((row) => (
+                <li key={row.term}>
+                  <span>
+                    {row.term}{' '}
+                    <small className="analytics-summary-term-category">
+                      {categoryForTerm(row.term)}
+                    </small>
+                  </span>
+                  <strong>
+                    {number.format(row.count)}
+                    <span className="sr-only"> searches</span>
+                  </strong>
+                </li>
+              ))}
+          </ol>
+        </>
       )}
     </article>
   );
@@ -370,11 +415,13 @@ export function SummaryAnalyticsPage() {
                 key={`${period}-common`}
                 title="Most common"
                 rows={data.queries}
+                categoryForTerm={analytics.queryCategories.queryCategory}
               />
               <TermRanking
                 key={`${period}-no-results`}
                 title="No-result searches"
                 rows={data.zeroQueries}
+                categoryForTerm={analytics.zeroQueryCategory.zeroQueryCategory}
               />
             </div>
           </section>
