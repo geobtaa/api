@@ -19,7 +19,7 @@ hide:
             <li><strong>JSON:API Standard:</strong> Responses are structured with <code>data</code>,
                 <code>attributes</code>, <code>meta</code>, and <code>links</code>.
             </li>
-            <li><strong>Base URL:</strong> <code>https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/</code>
+            <li><strong>Base URL:</strong> <code>https://geo.btaa.org/api/v1/</code>
             </li>
         </ul>
     </div>
