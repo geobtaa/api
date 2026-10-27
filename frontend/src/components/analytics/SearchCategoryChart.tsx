@@ -74,9 +74,9 @@ export function SearchCategoryDistribution({
               <Tooltip
                 contentStyle={chartTheme.tooltip}
                 labelStyle={chartTheme.tooltipLabel}
-                formatter={(value: number) => [
-                  number.format(value),
-                  'Searches',
+                formatter={(value, category) => [
+                  `${number.format(Number(value))} searches`,
+                  String(category),
                 ]}
               />
             </PieChart>
