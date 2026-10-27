@@ -122,6 +122,12 @@ make frontend-reset
 Then hard-refresh the browser or use a private/incognito window to avoid stale
 chunk URLs.
 
+If `504 (Outdated Optimize Dep)` returns after a reset, check
+`docker compose logs --tail=100 frontend` for repeated “new dependencies optimized”
+messages. Dependencies loaded during route discovery belong in
+`optimizeDeps.include` in `frontend/vite.config.ts` so Vite bundles them at startup
+instead of invalidating dependency URLs while the page loads.
+
 ## Maintenance Checklist
 
 - When replacing SVG artwork in `frontend/public/icons/`, add or bump its entry

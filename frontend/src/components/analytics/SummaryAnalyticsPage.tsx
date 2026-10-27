@@ -1,6 +1,8 @@
 import { useId, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -16,7 +18,7 @@ import { Footer } from '../layout/Footer';
 import { Seo } from '../Seo';
 import {
   buildAnalyticsSummary,
-  type ResourceAccessPattern,
+  groupAccessMonths,
   summaryDate,
 } from '../../utils/analyticsSummary';
 import '../../styles/analytics.css';
@@ -33,10 +35,6 @@ const signed = new Intl.NumberFormat('en-US', { signDisplay: 'exceptZero' });
 const percent = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
   signDisplay: 'exceptZero',
-});
-const ratio = new Intl.NumberFormat('en-US', {
-  style: 'percent',
-  maximumFractionDigits: 1,
 });
 const display = (value: number | null) =>
   value === null ? 'Unavailable' : number.format(value);
@@ -207,67 +205,26 @@ function TermRanking({
   );
 }
 
-function RecordAccessList({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: ResourceAccessPattern[];
-}) {
-  return (
-    <article className="analytics-panel analytics-summary-card">
-      <h3>{title}</h3>
-      {rows.length ? (
-        <ol className="analytics-summary-access-patterns">
-          {rows.map((row) => (
-            <li key={row.id}>
-              <a href={`/resources/${encodeURIComponent(row.id)}`}>
-                {row.title || row.id}
-              </a>
-              <dl>
-                <div>
-                  <dt>Views</dt>
-                  <dd>{number.format(row.views)}</dd>
-                </div>
-                <div>
-                  <dt>Outlinks</dt>
-                  <dd>{number.format(row.sources)}</dd>
-                </div>
-                <div>
-                  <dt>Downloads</dt>
-                  <dd>{number.format(row.downloads)}</dd>
-                </div>
-                <div>
-                  <dt>Clicks / views</dt>
-                  <dd>{ratio.format(row.clicksPer100Views / 100)}</dd>
-                </div>
-              </dl>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="analytics-summary-empty">
-          No records meet the sample criteria.
-        </p>
-      )}
-    </article>
-  );
-}
-
 function DiscoveryChart({
   metric,
   data,
 }: {
-  metric: 'visits' | 'searches';
+  metric: 'visits' | 'searches' | 'views';
   data: ReturnType<typeof buildAnalyticsSummary>;
 }) {
-  const title = metric === 'visits' ? 'Visits' : 'Searches';
+  const title = {
+    visits: 'Visits',
+    searches: 'Searches',
+    views: 'Resource views',
+  }[metric];
   const note =
     metric === 'searches'
       ? 'Includes filters and results-page changes'
-      : data.estimatedVisits
-        ? 'Estimated · tracked browser-tab visits'
-        : 'Tracked browser-tab visits';
+      : metric === 'views'
+        ? 'Recorded resource detail views'
+        : data.estimatedVisits
+          ? 'Estimated · tracked browser-tab visits'
+          : 'Tracked browser-tab visits';
   const range = `${summaryDate(data.window.start)} – ${summaryDate(data.window.end)}`;
   return (
     <article className="analytics-panel analytics-summary-card">
@@ -366,6 +323,7 @@ export function SummaryAnalyticsPage() {
     selection === 'month' ? period : latestMonth,
     selection
   );
+  const accessChart = groupAccessMonths(data.monthly);
   return (
     <div className="analytics-page analytics-summary-page min-h-screen bg-gray-50">
       <Seo
@@ -375,7 +333,13 @@ export function SummaryAnalyticsPage() {
       <AnalyticsHeader activeReport="summary" />
       <main id="analytics-main" tabIndex={-1}>
         <div className="analytics-shell analytics-summary-period">
-          <h1 className="sr-only">Summary</h1>
+          <div className="analytics-summary-intro">
+            <h1>Analytics Summary</h1>
+            <p>
+              This page provides high-level summary statistics for Geoportal
+              visits, searches, resource access, and collection growth.
+            </p>
+          </div>
           <ReportingPeriodPicker
             id="summary-period"
             label="Reporting period"
@@ -388,20 +352,13 @@ export function SummaryAnalyticsPage() {
             }}
           />
         </div>
-        <p
-          className="analytics-shell analytics-summary-caption analytics-summary-catalog-note"
-          role="note"
-        >
-          Outlink counts and access percentages currently exclude Licensed
-          Access clicks.
-        </p>
         <div className="analytics-shell analytics-summary-content">
           <section aria-labelledby="summary-discovery">
             <div className="analytics-summary-section-heading">
               <h2 id="summary-discovery">Discovery activity</h2>
             </div>
-            <div className="analytics-summary-grid">
-              {(['visits', 'searches'] as const).map((metric) => (
+            <div className="analytics-summary-grid analytics-summary-discovery-grid">
+              {(['visits', 'searches', 'views'] as const).map((metric) => (
                 <DiscoveryChart key={metric} metric={metric} data={data} />
               ))}
             </div>
@@ -439,21 +396,81 @@ export function SummaryAnalyticsPage() {
                   <strong className="analytics-summary-total">
                     {display(data[key])}
                   </strong>
-                  <ul className="analytics-summary-months">
-                    {data.monthly.map((row) => (
-                      <li key={row.period}>
-                        <span>{row.label}</span>
-                        <strong>{display(row[key])}</strong>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="analytics-summary-caption">
+                    {accessChart.description}
+                  </p>
+                  <div
+                    className="analytics-summary-chart"
+                    role="img"
+                    aria-label={`${key === 'sources' ? 'Outlinks' : 'Downloads'} by ${accessChart.unit}: ${accessChart.rows.map((row) => `${row.label}: ${display(row[key])}`).join('; ')}`}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={accessChart.rows}
+                        margin={{ top: 24, right: 16, left: 0, bottom: 0 }}
+                        accessibilityLayer
+                      >
+                        <CartesianGrid {...chartTheme.grid} />
+                        <XAxis
+                          dataKey="label"
+                          tick={chartTheme.tick}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tickFormatter={(value: number) =>
+                            compact.format(value)
+                          }
+                          tick={chartTheme.tick}
+                          width={45}
+                          allowDecimals={false}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          formatter={(value) => [
+                            number.format(Number(value)),
+                            key === 'sources' ? 'Outlinks' : 'Download clicks',
+                          ]}
+                          contentStyle={chartTheme.tooltip}
+                        />
+                        <Bar
+                          dataKey={key}
+                          fill={chartTheme.fill.color}
+                          maxBarSize={64}
+                          radius={[4, 4, 0, 0]}
+                          isAnimationActive={false}
+                          label={{
+                            position: 'top',
+                            fill: chartTheme.tick.fill,
+                            fontSize: 11,
+                            formatter: (value: unknown) =>
+                              typeof value === 'number'
+                                ? number.format(value)
+                                : '',
+                          }}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <details className="analytics-summary-data">
+                    <summary>Monthly values</summary>
+                    <ul className="analytics-summary-months">
+                      {data.monthly.map((row) => (
+                        <li key={row.period}>
+                          <span>{row.label}</span>
+                          <strong>{display(row[key])}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 </article>
               ))}
             </div>
           </section>
           <section aria-labelledby="summary-resources">
             <div className="analytics-summary-section-heading">
-              <h2 id="summary-resources">High-value resources</h2>
+              <h2 id="summary-resources">Popular resources</h2>
             </div>
             <div className="analytics-summary-grid">
               <ResourceRanking
@@ -467,39 +484,6 @@ export function SummaryAnalyticsPage() {
                 rows={data.topDownloads}
               />
             </div>
-          </section>
-          <section aria-labelledby="summary-record-access">
-            <div className="analytics-summary-section-heading">
-              <h2 id="summary-record-access">Record access patterns</h2>
-              <span className="analytics-summary-caption">Experimental</span>
-            </div>
-            {data.recordAccessPatterns ? (
-              <>
-                <div className="analytics-summary-grid">
-                  <RecordAccessList
-                    title="More access clicks per view"
-                    rows={data.recordAccessPatterns.moreClicks}
-                  />
-                  <RecordAccessList
-                    title="Fewer access clicks per view"
-                    rows={data.recordAccessPatterns.fewerClicks}
-                  />
-                </div>
-                <p className="analytics-summary-caption analytics-summary-catalog-note">
-                  Sample of published leading records with at least 20 views.
-                  Percentages combine outlinks and downloads relative to views.
-                  Repeated clicks count separately, so percentages can exceed
-                  100%. These are not visit success rates.
-                </p>
-              </>
-            ) : (
-              <div className="analytics-panel analytics-summary-card">
-                <p className="analytics-summary-caption">
-                  Combined views and access-click counts are unavailable for
-                  this period. Select All time to see the saved sample.
-                </p>
-              </div>
-            )}
           </section>
           <section aria-labelledby="summary-growth">
             <div className="analytics-summary-section-heading">

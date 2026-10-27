@@ -879,6 +879,10 @@ views consistent, and preserve precise limits on what verification establishes.
 
 ### Summary tab
 
+Discovery activity shows Visits, Searches, and Resource views in three chart
+cards, stacked on smaller screens. Resource views sum the saved daily view
+counts for the selected period; incomplete daily coverage remains unavailable.
+
 `/analytics/summary` uses authenticated saved snapshots in a centered content
 column capped at 72rem. Its period picker offers
 published months, the latest three calendar months, and all time, with the
@@ -886,8 +890,15 @@ selection saved in the URL. Query terms are hidden behind **Show query terms**;
 opening each list reveals all saved queries with their suggested category and
 search count. Each list closes when the period changes. Resource rankings show
 five entries by default and expand to up to 20. Outlinks and
-downloads show a period total with a compact monthly numeric breakdown.
-High-value resources use ranked titles and aligned click counts without bars.
+downloads show a period total and at most 12 vertical bars, with exact counts
+above the bars and a collapsible **Monthly values** list. Up to 12 months use
+monthly bars; 13–36 months use calendar quarters; longer periods use calendar
+years. A window touching more than 12 calendar quarters switches to years.
+Histories spanning more than 12 calendar years use consecutive groups of years
+to retain the whole period within 12 bars. The chart labels its grouping and
+marks incomplete quarters, years, or groups of years as partial. Missing monthly
+counts make the corresponding grouped count unavailable rather than zero.
+Popular resources use ranked titles and aligned click counts without bars.
 
 Most common and No-result searches each include a category pie chart and count
 legend above their term rankings, using the same category rules as the Searches
@@ -905,11 +916,16 @@ chart. Periods without matching rankings also have no category chart.
 - Missing measurements remain unavailable, never zero. Download clicks do not
   verify completed transfers.
 - Current saved Outlink counts and access percentages exclude
-  `licensed_access_click` events. Summary displays a disclaimer until the
+  `licensed_access_click` events. The Content report displays a temporary
+  disclaimer in an amber callout until the
   reporting aggregation includes them as outlinks and the historical snapshots
   are regenerated from preserved data.
 
-#### Experimental record access patterns
+## Experimental views and access clicks
+
+The Content tab includes **Views and access clicks** below its resource rankings.
+This experimental section and its temporary Licensed Access disclaimer were moved
+from Summary so that Summary stays focused on overall activity.
 
 Two five-record samples compare fewer and more access clicks per view, using
 only the saved leading-resource rows with at least 20 views. The current export

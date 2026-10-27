@@ -4,6 +4,88 @@ import { latestMonth, monthLabel } from '../config/analyticsPeriods';
 const DAY = 86_400_000;
 const iso = (date: Date) => date.toISOString().slice(0, 10);
 
+type AccessMonth = {
+  period: string;
+  label: string;
+  sources: number | null;
+  downloads: number | null;
+};
+
+/** Preserve the whole window and unavailable counts while limiting chart density. */
+export function groupAccessMonths(months: AccessMonth[]) {
+  const ordered = [...months].sort((a, b) => a.period.localeCompare(b.period));
+  const quarters = new Set(
+    ordered.map((row) => {
+      const [year, month] = row.period.split('-').map(Number);
+      return `${year}-${Math.floor((month - 1) / 3)}`;
+    })
+  );
+  // A window crossing calendar-quarter boundaries can touch 13 quarters.
+  const unit =
+    ordered.length <= 12
+      ? 'month'
+      : ordered.length <= 36 && quarters.size <= 12
+        ? 'quarter'
+        : 'year';
+  const firstYear = Number(ordered[0]?.period.slice(0, 4) ?? 0);
+  const lastYear = Number(ordered.at(-1)?.period.slice(0, 4) ?? firstYear);
+  const yearsPerBar = Math.max(1, Math.ceil((lastYear - firstYear + 1) / 12));
+  const groups = new Map<
+    string,
+    { label: string; expectedMonths: number; months: AccessMonth[] }
+  >();
+  for (const row of ordered) {
+    const [year, month] = row.period.split('-').map(Number);
+    const startYear =
+      firstYear + Math.floor((year - firstYear) / yearsPerBar) * yearsPerBar;
+    const endYear = startYear + yearsPerBar - 1;
+    const quarter = Math.floor((month - 1) / 3) + 1;
+    const key =
+      unit === 'month'
+        ? row.period
+        : unit === 'quarter'
+          ? `${year}-Q${quarter}`
+          : String(startYear);
+    const label =
+      unit === 'month'
+        ? row.label
+        : unit === 'quarter'
+          ? `Q${quarter} ${year}`
+          : yearsPerBar === 1
+            ? String(year)
+            : `${startYear}–${endYear}`;
+    const group = groups.get(key) ?? {
+      label,
+      expectedMonths:
+        unit === 'month' ? 1 : unit === 'quarter' ? 3 : yearsPerBar * 12,
+      months: [],
+    };
+    group.months.push(row);
+    groups.set(key, group);
+  }
+  const sum = (rows: AccessMonth[], key: 'sources' | 'downloads') =>
+    rows.some((row) => row[key] === null)
+      ? null
+      : rows.reduce((total, row) => total + row[key]!, 0);
+  return {
+    unit,
+    description:
+      unit === 'month'
+        ? 'Monthly counts'
+        : unit === 'quarter'
+          ? 'Quarterly counts'
+          : yearsPerBar === 1
+            ? 'Yearly counts'
+            : `Counts by ${yearsPerBar}-year period`,
+    rows: [...groups].map(([period, group]) => ({
+      period,
+      label: `${group.label}${group.months.length < group.expectedMonths ? ' (partial)' : ''}`,
+      sources: sum(group.months, 'sources'),
+      downloads: sum(group.months, 'downloads'),
+    })),
+  };
+}
+
 type ResourceAccessCounts = {
   id: string;
   title: string;
@@ -192,6 +274,9 @@ export function buildAnalyticsSummary(
     monthly,
     searches: dailyComplete
       ? daily.reduce((sum, row) => sum + row.searches, 0)
+      : null,
+    views: dailyComplete
+      ? daily.reduce((sum, row) => sum + row.views, 0)
       : null,
     // Use a period-wide distinct count; daily visit estimates cannot be added.
     visits: rankedOutcomes?.audience.trackedVisits ?? null,

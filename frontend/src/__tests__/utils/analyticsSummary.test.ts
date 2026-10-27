@@ -4,7 +4,89 @@ import {
   buildAnalyticsSummary,
   summaryWindow,
   resourceAccessPatterns,
+  groupAccessMonths,
 } from '../../utils/analyticsSummary';
+
+describe('access chart grouping', () => {
+  function months(count: number, startMonth = 0) {
+    return Array.from({ length: count }, (_, index) => {
+      const period = new Date(Date.UTC(2026, startMonth + index, 1))
+        .toISOString()
+        .slice(0, 7);
+      return { period, label: period, sources: 1, downloads: 2 };
+    });
+  }
+  it.each([1, 3, 12])('keeps %i months as monthly bars', (count) => {
+    const chart = groupAccessMonths(months(count));
+    expect(chart.unit).toBe('month');
+    expect(chart.rows).toHaveLength(count);
+    expect(chart.rows.every((row) => !row.label.includes('partial'))).toBe(
+      true
+    );
+  });
+  it('uses calendar quarters and labels a partial quarter', () => {
+    const chart = groupAccessMonths(months(13));
+    expect(chart.unit).toBe('quarter');
+    expect(chart.rows).toHaveLength(5);
+    expect(chart.rows[0]).toMatchObject({
+      label: 'Q1 2026',
+      sources: 3,
+      downloads: 6,
+    });
+    expect(chart.rows.at(-1)).toMatchObject({
+      label: 'Q1 2027 (partial)',
+      sources: 1,
+      downloads: 2,
+    });
+  });
+  it('keeps 36 aligned months in 12 quarters and groups longer histories by years', () => {
+    expect(groupAccessMonths(months(36))).toMatchObject({
+      unit: 'quarter',
+      description: 'Quarterly counts',
+    });
+    expect(groupAccessMonths(months(36)).rows).toHaveLength(12);
+    expect(groupAccessMonths(months(180)).description).toBe(
+      'Counts by 2-year period'
+    );
+  });
+  it.each([13, 36, 37, 144, 180, 600])(
+    'preserves all %i months within 12 bars',
+    (count) => {
+      const chart = groupAccessMonths(months(count, 7));
+      expect(chart.rows.length).toBeLessThanOrEqual(12);
+      expect(chart.rows.reduce((sum, row) => sum + row.sources!, 0)).toBe(
+        count
+      );
+      expect(chart.rows.reduce((sum, row) => sum + row.downloads!, 0)).toBe(
+        count * 2
+      );
+    }
+  );
+  it('uses yearly bars after 36 months, including partial years', () => {
+    const chart = groupAccessMonths(months(37, 6));
+    expect(chart.unit).toBe('year');
+    expect(chart.description).toBe('Yearly counts');
+    expect(chart.rows[0]).toMatchObject({
+      label: '2026 (partial)',
+      sources: 6,
+    });
+    expect(chart.rows[1]).toMatchObject({ label: '2027', sources: 12 });
+    expect(chart.rows.at(-1)).toMatchObject({
+      label: '2029 (partial)',
+      sources: 7,
+    });
+  });
+  it('preserves missing counts independently for each metric', () => {
+    const rows: Parameters<typeof groupAccessMonths>[0] = months(13);
+    rows[0].sources = null;
+    const chart = groupAccessMonths(rows);
+    expect(chart.rows[0]).toMatchObject({ sources: null, downloads: 6 });
+    expect(chart.rows[1].sources).toBe(3);
+  });
+  it('handles an empty window', () => {
+    expect(groupAccessMonths([]).rows).toEqual([]);
+  });
+});
 
 describe('summary reporting windows', () => {
   it('ranks access-click ratios without treating them as bounded conversion rates', () => {
@@ -135,6 +217,7 @@ describe('summary reporting windows', () => {
       data.daily.reduce((sum, row) => sum + row.searches, 0)
     );
     expect(data.sources).toBe(1129);
+    expect(data.views).toBe(12200);
   });
   it('uses all published days and the complete rankings for all time', () => {
     const data = buildAnalyticsSummary(analyticsSnapshot, '2026-09', 'all');
@@ -144,7 +227,7 @@ describe('summary reporting windows', () => {
       analyticsSnapshot['allTimeCurrent.json'].default.queries
     );
   });
-  it('uses the complete three-month window for both chart totals', () => {
+  it('uses the complete three-month window for discovery chart totals', () => {
     const data = buildAnalyticsSummary(analyticsSnapshot);
     expect(data.window).toEqual({
       start: '2026-07-01',
@@ -155,6 +238,11 @@ describe('summary reporting windows', () => {
     expect(data.daily).toHaveLength(92);
     expect(data.searches).toBe(19538);
     expect(data.visits).toBe(27892);
+    expect(data.views).toBe(
+      Object.entries(analyticsSnapshot.outcomes.outcomes.periods)
+        .filter(([period]) => /^2026-(07|08|09)$/.test(period))
+        .reduce((total, [, period]) => total + period.totals.views, 0)
+    );
     expect(data.sources).toBe(2869);
     expect(data.downloads).toBe(2621);
     expect(data.estimatedVisits).toBe(true);
@@ -175,6 +263,7 @@ describe('summary reporting windows', () => {
     delete snapshot.outcomes.outcomes.periods['2026-08'];
     const data = buildAnalyticsSummary(snapshot);
     expect(data.searches).toBeNull();
+    expect(data.views).toBeNull();
     expect(data.sources).toBeNull();
     expect(data.downloads).toBeNull();
     expect(data.dailyComplete).toBe(false);

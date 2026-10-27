@@ -214,34 +214,17 @@ describe('Summary tab', () => {
       'Discovery activity',
       'Top search terms',
       'Successful access',
-      'High-value resources',
-      'Record access patterns',
+      'Popular resources',
       'Collection growth',
     ]) {
       expect(
         screen.getByRole('heading', { level: 2, name })
       ).toBeInTheDocument();
     }
-    const patterns = screen
-      .getByRole('heading', { name: 'Record access patterns' })
-      .closest('section')!;
-    const lists = within(patterns).getAllByRole('list');
-    expect(lists).toHaveLength(2);
-    for (const list of lists)
-      expect(within(list).getAllByRole('listitem')).toHaveLength(5);
-    const example = within(patterns)
-      .getByRole('link', { name: 'Rivers, Nepal, 2013' })
-      .closest('li')!;
     expect(
-      within(example)
-        .getAllByRole('term')
-        .map((element) => element.textContent)
-    ).toEqual(['Views', 'Outlinks', 'Downloads', 'Clicks / views']);
-    expect(
-      within(example)
-        .getAllByRole('definition')
-        .map((element) => element.textContent)
-    ).toEqual(['57', '1', '25', '45.6%']);
+      screen.queryByRole('heading', { name: 'Views and access clicks' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Temporary disclaimer')).not.toBeInTheDocument();
     const growth = screen
       .getByRole('heading', { name: 'Collection growth' })
       .closest('section')!;
@@ -258,6 +241,10 @@ describe('Summary tab', () => {
       .closest('section')!;
     expect(within(access).getByText('2,869')).toBeInTheDocument();
     expect(within(access).getByText('2,621')).toBeInTheDocument();
+    expect(within(access).getAllByRole('img')).toHaveLength(2);
+    expect(
+      within(access).getByRole('img', { name: /^Outlinks by month:/ })
+    ).toHaveAccessibleName(expect.stringContaining('Jul 2026: 1,129'));
     expect(
       screen.getByRole('combobox', { name: 'Reporting period' })
     ).toHaveValue('3months');
@@ -267,10 +254,14 @@ describe('Summary tab', () => {
     const picker = screen.getByRole('combobox', { name: 'Reporting period' });
     fireEvent.change(picker, { target: { value: '2026-07' } });
     expect(screen.getByText('6,457')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Combined views and access-click counts are unavailable/)
-    ).toBeInTheDocument();
     expect(screen.getByText('7,729')).toBeInTheDocument();
+    const views = screen
+      .getByRole('heading', { name: 'Resource views' })
+      .closest('article')!;
+    expect(within(views).getByText('12,200')).toBeInTheDocument();
+    expect(within(views).getByRole('img')).toHaveAccessibleName(
+      'Daily resource views, Jul 1, 2026 – Jul 31, 2026'
+    );
     expect(screen.getByText('147,665')).toBeInTheDocument();
     expect(
       screen.getByText('No earlier catalog snapshot available')
@@ -279,6 +270,12 @@ describe('Summary tab', () => {
       .getByRole('heading', { name: 'Successful access' })
       .closest('section')!;
     expect(within(access).getAllByText('1,129')).toHaveLength(2);
+    expect(
+      within(access).getByRole('img', { name: /^Outlinks by month:/ })
+    ).toHaveAccessibleName('Outlinks by month: Jul 2026: 1,129');
+    expect(
+      within(access).getByRole('img', { name: /^Downloads by month:/ })
+    ).toHaveAccessibleName('Downloads by month: Jul 2026: 933');
     expect(
       screen.getByRole('img', { name: /Daily searches/ })
     ).toHaveAccessibleName('Daily searches, Jul 1, 2026 – Jul 31, 2026');
