@@ -98,8 +98,19 @@ describe('Summary tab', () => {
     expect(lists).toHaveLength(2);
     for (const list of lists)
       expect(within(list).getAllByRole('listitem')).toHaveLength(5);
-    expect(within(patterns).getByText('45.6')).toBeInTheDocument();
-    expect(within(patterns).getByText('26')).toBeInTheDocument();
+    const example = within(patterns)
+      .getByRole('link', { name: 'Rivers, Nepal, 2013' })
+      .closest('li')!;
+    expect(
+      within(example)
+        .getAllByRole('term')
+        .map((element) => element.textContent)
+    ).toEqual(['Views', 'Outlinks', 'Downloads', 'Clicks / views']);
+    expect(
+      within(example)
+        .getAllByRole('definition')
+        .map((element) => element.textContent)
+    ).toEqual(['57', '1', '25', '45.6%']);
     const growth = screen
       .getByRole('heading', { name: 'Collection growth' })
       .closest('section')!;

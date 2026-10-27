@@ -33,7 +33,10 @@ const percent = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
   signDisplay: 'exceptZero',
 });
-const ratio = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+const ratio = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  maximumFractionDigits: 1,
+});
 const display = (value: number | null) =>
   value === null ? 'Unavailable' : number.format(value);
 const shortDate = (day: string) =>
@@ -92,7 +95,6 @@ function ResourceRanking({
     ?.slice()
     .sort((a, b) => b.clicks - a.clicks || a.id.localeCompare(b.id))
     .slice(0, 20);
-  const maximum = Math.max(1, ...(top?.map((row) => row.clicks) ?? []));
   return (
     <article className="analytics-panel analytics-summary-card">
       <h3>{title}</h3>
@@ -114,9 +116,6 @@ function ResourceRanking({
                   {number.format(row.clicks)}
                   <span className="sr-only"> clicks</span>
                 </strong>
-              </div>
-              <div className="analytics-summary-bar" aria-hidden="true">
-                <span style={{ width: `${(row.clicks / maximum) * 100}%` }} />
               </div>
             </li>
           ))}
@@ -186,18 +185,18 @@ function RecordAccessList({
                   <dd>{number.format(row.views)}</dd>
                 </div>
                 <div>
-                  <dt>Access clicks</dt>
-                  <dd>{number.format(row.clicks)}</dd>
+                  <dt>Outlinks</dt>
+                  <dd>{number.format(row.sources)}</dd>
                 </div>
                 <div>
-                  <dt>Clicks / 100 views</dt>
-                  <dd>{ratio.format(row.clicksPer100Views)}</dd>
+                  <dt>Downloads</dt>
+                  <dd>{number.format(row.downloads)}</dd>
+                </div>
+                <div>
+                  <dt>Clicks / views</dt>
+                  <dd>{ratio.format(row.clicksPer100Views / 100)}</dd>
                 </div>
               </dl>
-              <p>
-                {number.format(row.sources)} outlink clicks ·{' '}
-                {number.format(row.downloads)} download clicks
-              </p>
             </li>
           ))}
         </ol>
@@ -344,6 +343,13 @@ export function SummaryAnalyticsPage() {
             }}
           />
         </div>
+        <p
+          className="analytics-shell analytics-summary-caption analytics-summary-catalog-note"
+          role="note"
+        >
+          Outlink counts and access percentages currently exclude Licensed
+          Access clicks.
+        </p>
         <div className="analytics-shell analytics-summary-content">
           <section aria-labelledby="summary-discovery">
             <div className="analytics-summary-section-heading">
@@ -377,51 +383,25 @@ export function SummaryAnalyticsPage() {
               <h2 id="summary-access">Successful access</h2>
             </div>
             <div className="analytics-summary-grid">
-              {(['sources', 'downloads'] as const).map((key) => {
-                const maximum = Math.max(
-                  1,
-                  ...data.monthly.map((row) => row[key] ?? 0)
-                );
-                return (
-                  <article
-                    className="analytics-panel analytics-summary-card"
-                    key={key}
-                  >
-                    <h3>{key === 'sources' ? 'Outlinks' : 'Downloads'}</h3>
-                    <strong className="analytics-summary-total">
-                      {display(data[key])}
-                    </strong>
-                    <ul
-                      className={
-                        key === 'downloads'
-                          ? 'analytics-summary-months analytics-summary-months--downloads'
-                          : 'analytics-summary-months'
-                      }
-                    >
-                      {data.monthly.map((row) => (
-                        <li key={row.period}>
-                          <div>
-                            <span>{row.label}</span>
-                            <strong>{display(row[key])}</strong>
-                          </div>
-                          {row[key] !== null && (
-                            <div
-                              className="analytics-summary-bar"
-                              aria-hidden="true"
-                            >
-                              <span
-                                style={{
-                                  width: `${(row[key] / maximum) * 100}%`,
-                                }}
-                              />
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </article>
-                );
-              })}
+              {(['sources', 'downloads'] as const).map((key) => (
+                <article
+                  className="analytics-panel analytics-summary-card"
+                  key={key}
+                >
+                  <h3>{key === 'sources' ? 'Outlinks' : 'Downloads'}</h3>
+                  <strong className="analytics-summary-total">
+                    {display(data[key])}
+                  </strong>
+                  <ul className="analytics-summary-months">
+                    {data.monthly.map((row) => (
+                      <li key={row.period}>
+                        <span>{row.label}</span>
+                        <strong>{display(row[key])}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
             </div>
           </section>
           <section aria-labelledby="summary-resources">
@@ -450,18 +430,19 @@ export function SummaryAnalyticsPage() {
               <>
                 <div className="analytics-summary-grid">
                   <RecordAccessList
-                    title="Fewer access clicks per view"
-                    rows={data.recordAccessPatterns.fewerClicks}
-                  />
-                  <RecordAccessList
                     title="More access clicks per view"
                     rows={data.recordAccessPatterns.moreClicks}
+                  />
+                  <RecordAccessList
+                    title="Fewer access clicks per view"
+                    rows={data.recordAccessPatterns.fewerClicks}
                   />
                 </div>
                 <p className="analytics-summary-caption analytics-summary-catalog-note">
                   Sample of published leading records with at least 20 views.
-                  Access clicks combine outlinks and downloads; repeated clicks
-                  count separately. Ratios are not visit success rates.
+                  Percentages combine outlinks and downloads relative to views.
+                  Repeated clicks count separately, so percentages can exceed
+                  100%. These are not visit success rates.
                 </p>
               </>
             ) : (
