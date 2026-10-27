@@ -884,9 +884,15 @@ cards, stacked on smaller screens. Resource views sum the saved daily view
 counts for the selected period; incomplete daily coverage remains unavailable.
 
 `/analytics/summary` uses authenticated saved snapshots in a centered content
-column capped at 72rem. Its period picker offers
-published months, the latest three calendar months, and all time, with the
-selection saved in the URL. Query terms are hidden behind **Show query terms**;
+column capped at 72rem. Its period picker offers published months and all time,
+with the latest three calendar months offered only while the published all-time aggregate
+matches that exact window. Summary defaults to that three-month window when
+available, otherwise to the latest published month. Older `month=3months` links
+also select the latest month when the shortcut is unavailable. This keeps visits
+and rankings populated after a fourth month is published without adding distinct
+visits or truncated rankings across months. The same period selection is used
+for the picker, report metadata, and displayed figures. Explicit period choices
+are saved in the URL. Query terms are hidden behind **Show query terms**;
 opening each list reveals all saved queries with their suggested category and
 search count. Each list closes when the period changes. Resource rankings show
 five entries by default and expand to up to 20. Outlinks and
@@ -916,8 +922,10 @@ chart. Periods without matching rankings also have no category chart.
 - Missing measurements remain unavailable, never zero. Download clicks do not
   verify completed transfers.
 - Current saved Outlink counts and access percentages exclude
-  `licensed_access_click` events. The Content report displays a temporary
-  disclaimer in an amber callout until the
+  `licensed_access_click` events. Summary keeps a short note beside its access
+  totals explaining that the exclusion also affects resource rankings, using
+  plain language alongside the director-facing headings. The Content report
+  displays a temporary disclaimer in an amber callout until the
   reporting aggregation includes them as outlinks and the historical snapshots
   are regenerated from preserved data.
 
