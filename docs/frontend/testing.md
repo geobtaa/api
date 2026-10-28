@@ -581,3 +581,10 @@ CPU availability. Run the full suite with `npm test -- --run` and coverage with
 Generated analytics JSON snapshots remain in their generator's compact format.
 Prettier checks hand-maintained sources; snapshot generators and evidence checks
 validate those generated files without reformatting their bytes.
+
+Accessibility audits evaluate all WCAG-tagged rules and keep full violation and
+incomplete results. The shared axe helper limits detailed passing-node output,
+following axe's `resultTypes` performance guidance, to avoid generating unused
+selectors for thousands of passing report cells. Report behavior and exhaustive
+report/period audits use separate test files; real navigation layout accessibility
+is covered by its component suite. No report/period case is excluded.
