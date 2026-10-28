@@ -57,13 +57,7 @@ export function ResourceViewer({ data }: ResourceViewerProps) {
 
       try {
         await import('ogm-viewer');
-        const [{ OgmRecord }, { s: setOgmViewerAssetBase }] = await Promise.all(
-          [
-            import('ogm-viewer/lib'),
-            import('ogm-viewer/components/p-BbMGvQFJ.js'),
-          ]
-        );
-        setOgmViewerAssetBase('/ogm-viewer/');
+        const { OgmRecord } = await import('ogm-viewer/lib');
         await customElements.whenDefined('ogm-viewer');
 
         if (cancelled || !viewerElement) return;
@@ -75,6 +69,14 @@ export function ResourceViewer({ data }: ResourceViewerProps) {
           handlePreviewsLoading
         );
         viewerElement.addEventListener('previewsLoaded', handlePreviewsLoaded);
+        viewerElement.setAttribute(
+          'light-basemap',
+          'https://tiles.openfreemap.org/styles/liberty'
+        );
+        viewerElement.setAttribute(
+          'dark-basemap',
+          'https://tiles.openfreemap.org/styles/dark'
+        );
         await viewerElement.loadRecord(new OgmRecord(toAardvarkRecord(data)));
 
         return () => {

@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  setAssetBase: vi.fn(),
   recordConstructor: vi.fn(function MockOgmRecord(
     this: { json?: Record<string, unknown> },
     data: Record<string, unknown>
@@ -14,9 +13,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('ogm-viewer', () => ({}));
 vi.mock('ogm-viewer/lib', () => ({
   OgmRecord: mocks.recordConstructor,
-}));
-vi.mock('ogm-viewer/components/p-BbMGvQFJ.js', () => ({
-  s: mocks.setAssetBase,
 }));
 
 import { ResourceViewer } from '../../../components/resource/ResourceViewer';
@@ -81,7 +77,10 @@ describe('ResourceViewer', () => {
 
     await waitFor(() => expect(mocks.recordConstructor).toHaveBeenCalled());
 
-    expect(mocks.setAssetBase).toHaveBeenCalledWith('/ogm-viewer/');
+    expect(container.querySelector('ogm-viewer')).toHaveAttribute(
+      'light-basemap',
+      'https://tiles.openfreemap.org/styles/liberty'
+    );
     expect(mocks.recordConstructor).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'resource-1',
