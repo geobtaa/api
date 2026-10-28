@@ -49,7 +49,7 @@ vi.mock('recharts', async () => ({
 }));
 
 // Full snapshot tables and multi-report navigation can exceed Vitest's five-second
-// default on shared CI runners. Keep this budget local; WCAG audits retain 60 seconds.
+// default on shared CI runners. Keep this budget local; full-report WCAG audits use their own measured budget.
 describe('AnalyticsPage', { timeout: 30_000 }, () => {
   function renderPage(report = 'members&month=2026-07') {
     const [id, ...queryParts] = report.split('&');
@@ -371,9 +371,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     renderPage('content');
     expect(screen.getByLabelText('Reporting month')).toHaveValue('2026-08');
     expect(
-      screen.getByRole('heading', {
-        name: 'Top resources',
-      })
+      screen.getByText('Top resources', { selector: 'h3' })
     ).toBeInTheDocument();
     expect(
       screen.getAllByText('Rivers, Nepal, 2013', { selector: 'a' })[0]
@@ -393,18 +391,14 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(window.location.pathname).toBe('/analytics/content');
     expect(window.location.search).toBe('?month=2026-07');
     expect(
-      screen.getByRole('heading', {
-        name: 'Top resources',
-      })
+      screen.getByText('Top resources', { selector: 'h3' })
     ).toBeInTheDocument();
     expect(screen.getByText('933 across all resources')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Reporting month'), {
       target: { value: '2026-08' },
     });
     expect(
-      screen.getByRole('heading', {
-        name: 'Top resources',
-      })
+      screen.getByText('Top resources', { selector: 'h3' })
     ).toBeInTheDocument();
   });
 
