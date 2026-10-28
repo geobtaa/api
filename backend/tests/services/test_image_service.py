@@ -15,6 +15,22 @@ from app.services.thumbnail_policy import source_signature
 
 
 @pytest.fixture(autouse=True)
+def isolate_redis_pools(monkeypatch):
+    # Initialization tests mock Redis credentials. Do not retain those pools in
+    # later tests that exercise the real server.
+    import app.services.image_service as image_service
+
+    names = ("_redis_connection_pool", "_redis_image_connection_pool")
+    for name in names:
+        monkeypatch.setattr(image_service, name, None)
+    yield
+    for name in names:
+        pool = getattr(image_service, name)
+        if pool is not None:
+            pool.disconnect()
+
+
+@pytest.fixture(autouse=True)
 def isolate_task_broker():
     with patch("app.tasks.worker.fetch_and_cache_image.delay"):
         yield
