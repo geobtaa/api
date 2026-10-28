@@ -4,10 +4,33 @@ export const publishedMonths = manifest.periods
   .filter((id) => /^\d{4}-\d{2}$/.test(id))
   .sort();
 export const latestMonth = manifest.latest;
+const [summaryYear, summaryMonth] = latestMonth.split('-').map(Number);
+const summaryStart = new Date(Date.UTC(summaryYear, summaryMonth - 3, 1))
+  .toISOString()
+  .slice(0, 10);
+const summaryEnd = new Date(Date.UTC(summaryYear, summaryMonth, 1))
+  .toISOString()
+  .slice(0, 10);
+// Saved rankings and distinct visits cannot be added across months. The current
+// exporter supplies monthly and all-time aggregates, so offer this shortcut only
+// while all time matches the latest three calendar months exactly.
+export const summaryHasThreeMonths = manifest.periods.some(
+  (period) =>
+    period.id === 'all' &&
+    period.start === summaryStart &&
+    period.endExclusive === summaryEnd
+);
 export function selectedSnapshotPeriod(value: string | null) {
   return value === 'all' || publishedMonths.includes(value ?? '')
     ? value!
     : latestMonth;
+}
+export function selectedSummaryPeriod(value: string | null) {
+  return value && (value === 'all' || publishedMonths.includes(value))
+    ? value
+    : summaryHasThreeMonths
+      ? '3months'
+      : latestMonth;
 }
 export function monthLabel(period: string, short = false) {
   return new Date(`${period}-01T00:00:00Z`).toLocaleDateString('en-US', {

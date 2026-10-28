@@ -22,6 +22,6 @@ By exploring this guide, you will be able to:
 
 ### API Production Server
 
-- [Official Swagger Documentation](https://lib-geoportal-prd-web-01.oit.umn.edu/api/docs#/){ target=_blank }
-- [BTAA Geoportal Frontend](https://lib-geoportal-prd-web-01.oit.umn.edu/){ target=_blank }
+- [Official Swagger Documentation](https://geo.btaa.org/api/docs#/){ target=_blank }
+- [BTAA Geoportal Frontend](https://geo.btaa.org/){ target=_blank }
 

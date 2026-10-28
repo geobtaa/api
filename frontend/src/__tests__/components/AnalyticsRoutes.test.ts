@@ -23,6 +23,27 @@ function load(path: string, report?: string) {
 }
 
 describe('analytics report routes', () => {
+  it('keeps the three-month range on Summary links only', async () => {
+    expect(analyticsReportHref('summary', '3months')).toBe(
+      '/analytics/summary?month=3months'
+    );
+    for (const report of analyticsReports.filter(
+      (entry) => entry.id !== 'summary'
+    )) {
+      expect(analyticsReportHref(report.id, '3months')).toBe(
+        analyticsReportHref(report.id)
+      );
+    }
+    expect(
+      await load('/analytics/summary?month=3months', 'summary')
+    ).toHaveProperty('data.report.period', 'Past 3 months');
+    const legacy = (await load(
+      '/analytics?report=summary&month=3months'
+    )) as Response;
+    expect(legacy.headers.get('Location')).toBe(
+      '/analytics/summary?month=3months'
+    );
+  });
   for (const report of analyticsReports) {
     const path =
       report.id === 'overview'

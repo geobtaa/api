@@ -3,6 +3,7 @@ import {
   monthLabel,
   comparisonLabel,
   selectedSnapshotPeriod,
+  selectedSummaryPeriod,
 } from './analyticsPeriods';
 export const analyticsReports = [
   {
@@ -11,6 +12,13 @@ export const analyticsReports = [
     period: monthLabel(latestMonth),
     description:
       'See how people discover and use Geoportal resources, and how activity changes over time.',
+  },
+  {
+    id: 'summary',
+    label: 'Summary',
+    period: 'Latest published data',
+    description:
+      'Discovery, successful access, and collection growth at a glance.',
   },
   {
     id: 'comparison',
@@ -71,7 +79,11 @@ export function analyticsReportHref(
     report === 'overview'
       ? '/analytics'
       : `/analytics/${report === 'discovery' ? 'searches' : report}`;
-  if (month && /^(?:\d{4}-(?:0[1-9]|1[0-2])|ay-\d{4}|all)$/.test(month))
+  if (
+    month &&
+    (/^(?:\d{4}-(?:0[1-9]|1[0-2])|ay-\d{4}|all)$/.test(month) ||
+      (report === 'summary' && month === '3months'))
+  )
     params.set('month', month);
   return `${path}${params.size ? `?${params}` : ''}`;
 }
@@ -99,6 +111,18 @@ export function selectedAnalyticsReport(
   const report =
     analyticsReports.find((entry) => entry.id === reportId) ??
     analyticsReports[0];
+  if (report.id === 'summary') {
+    const period = selectedSummaryPeriod(params.get('month'));
+    return {
+      ...report,
+      period:
+        period === '3months'
+          ? 'Past 3 months'
+          : period === 'all'
+            ? 'All time'
+            : monthLabel(period),
+    };
+  }
   return report.id === 'comparison'
     ? report
     : {

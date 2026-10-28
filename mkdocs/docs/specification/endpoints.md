@@ -76,7 +76,7 @@ function openTab(evt, tabId) {
 ## API Swagger Documentation
 
 ### Production Server
-https://lib-geoportal-prd-web-01.oit.umn.edu/api/docs
+https://geo.btaa.org/api/docs
 
 ## Endpoint Index
 
@@ -472,7 +472,7 @@ Generated downloads use a two-step flow:
 **Prepare example**
 
 ```bash
-curl "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson"
+curl "https://geo.btaa.org/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson"
 ```
 
 Example response:
@@ -490,7 +490,7 @@ Example response:
 **File download example**
 
 ```bash
-curl -L -OJ "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson/file"
+curl -L -OJ "https://geo.btaa.org/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson/file"
 ```
 
 <details id="example-resource-links" class="example-collapsible">

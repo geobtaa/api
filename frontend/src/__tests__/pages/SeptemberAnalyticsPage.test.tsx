@@ -1,5 +1,5 @@
 import { renderAnalytics as render } from '../utils/renderAnalytics';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { AnalyticsTestRouter as BrowserRouter } from '../utils/AnalyticsTestRouter';
 import { HelmetProvider } from 'react-helmet-async';
 import type { ReactNode } from 'react';
@@ -118,6 +118,49 @@ describe(
           expect(container.querySelector('img')).not.toBeNull();
       }
     );
+    it('shows views and access clicks after the content rankings and follows the period', () => {
+      const { container } = page('content', 'all');
+      const section = screen
+        .getByRole('heading', { name: 'Views and access clicks' })
+        .closest('section')!;
+      expect(within(section).getByText('Experimental')).toBeInTheDocument();
+      expect(
+        within(section).getByText('Temporary disclaimer')
+      ).toBeInTheDocument();
+      const lists = within(section).getAllByRole('list');
+      expect(lists).toHaveLength(2);
+      for (const list of lists)
+        expect(within(list).getAllByRole('listitem')).toHaveLength(5);
+      const example = within(section)
+        .getByRole('link', { name: 'Rivers, Nepal, 2013' })
+        .closest('li')!;
+      expect(
+        within(example)
+          .getAllByRole('definition')
+          .map((row) => row.textContent)
+      ).toEqual(['57', '1', '25', '45.6%']);
+      const outlinks = container.querySelector('#outlinked-resources');
+      expect(outlinks).not.toBeNull();
+      expect(
+        outlinks!.compareDocumentPosition(section) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+      fireEvent.change(
+        screen.getByRole('combobox', { name: 'Reporting period' }),
+        { target: { value: '2026-09' } }
+      );
+      expect(
+        screen.getByRole('heading', { name: 'Views and access clicks' })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Combined views and access-click counts are unavailable/
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: 'More access clicks per view' })
+      ).not.toBeInTheDocument();
+    });
     it('switches to cumulative coverage without replacing the overview', () => {
       const { container } = page();
       fireEvent.change(screen.getByLabelText('Reporting month'), {

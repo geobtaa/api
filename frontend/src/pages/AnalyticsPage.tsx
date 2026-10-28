@@ -1,3 +1,4 @@
+import { RecordAccessPatterns } from '../components/analytics/RecordAccessPatterns';
 import manifest from '../../private-analytics-reports/manifest.json';
 import { CampusBrief } from '../components/analytics/CampusBrief';
 import { previousCalendarMonth } from '../utils/analyticsFindings';
@@ -995,7 +996,10 @@ export function AnalyticsPage() {
             )}
 
             {activeReport === 'content' && (
-              <OutlinkedResources period={snapshotMonth} />
+              <>
+                <OutlinkedResources period={snapshotMonth} />
+                <RecordAccessPatterns period={snapshotMonth} />
+              </>
             )}
 
             {activeReport === 'members' && memberGrouping === 'provider' && (

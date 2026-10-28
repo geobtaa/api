@@ -1,3 +1,4 @@
+import { RecordAccessPatterns } from './RecordAccessPatterns';
 import { ReportProvenance } from './ReportProvenance';
 import { useAnalyticsData } from './AnalyticsData';
 import { allTimeRange } from '../../config/analyticsPeriods';
@@ -94,6 +95,7 @@ export function AllTimeAnalyticsPage({
                   downloadNote="Ranked across all published months."
                 />
                 <OutlinkedResources period="all" />
+                <RecordAccessPatterns period="all" />
               </>
             )}
             <section

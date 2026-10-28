@@ -1,5 +1,5 @@
 {
-  "version": "0.11.2",
-  "release_date": "2026-10-19",
-  "summary": "Restore scheduled GEOMG record syncing by correcting cron's working directory and preserving monitoring configuration."
+  "version": "0.12.0",
+  "release_date": "2026-10-28",
+  "summary": "Add an analytics Summary tab with director-friendly metrics, search categories, daily trends, and clearer reporting periods and access context."
 }

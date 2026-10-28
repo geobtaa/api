@@ -14,24 +14,39 @@ const colors = [
   '#64748b',
 ];
 const number = new Intl.NumberFormat('en-US');
+type SearchCategory = { category: string; searches: number; queries: number };
 
 export function SearchCategoryChart({
   categories,
 }: {
-  categories: { category: string; searches: number; queries: number }[];
+  categories: SearchCategory[];
+}) {
+  return (
+    <section className="analytics-panel analytics-comparison-panel analytics-search-categories">
+      <ReportPanelHeader title="Search categories" icon={ChartPie} />
+      <SearchCategoryDistribution categories={categories} />
+    </section>
+  );
+}
+
+export function SearchCategoryDistribution({
+  categories,
+  description = 'Search counts by suggested category, covering the top 50 queries only.',
+  label = 'Search category distribution',
+}: {
+  categories: SearchCategory[];
+  description?: string;
+  label?: string;
 }) {
   const rows = [...categories].sort((a, b) => b.searches - a.searches);
   const total = rows.reduce((sum, row) => sum + row.searches, 0);
   return (
-    <section className="analytics-panel analytics-comparison-panel analytics-search-categories">
-      <ReportPanelHeader title="Search categories" icon={ChartPie} />
-      <p className="analytics-comparison-note">
-        Search counts by suggested category, covering the top 50 queries only.
-      </p>
+    <>
+      <p className="analytics-comparison-note">{description}</p>
       {total > 0 ? (
         <div
           role="img"
-          aria-label={`Search category distribution: ${rows.map((row) => `${row.category}: ${number.format(row.searches)}`).join('; ')}`}
+          aria-label={`${label}: ${rows.map((row) => `${row.category}: ${number.format(row.searches)}`).join('; ')}`}
         >
           <ResponsiveContainer
             width="100%"
@@ -59,9 +74,9 @@ export function SearchCategoryChart({
               <Tooltip
                 contentStyle={chartTheme.tooltip}
                 labelStyle={chartTheme.tooltipLabel}
-                formatter={(value: number) => [
-                  number.format(value),
-                  'Searches',
+                formatter={(value, category) => [
+                  `${number.format(Number(value))} searches`,
+                  String(category),
                 ]}
               />
             </PieChart>
@@ -94,6 +109,6 @@ export function SearchCategoryChart({
           </li>
         ))}
       </ul>
-    </section>
+    </>
   );
 }

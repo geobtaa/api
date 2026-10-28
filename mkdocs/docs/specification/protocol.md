@@ -3,7 +3,7 @@
 {% include-markdown "includes/wip.md" %}
 
 * API Base URI:
-    * Current production base: [`https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/`](https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/
+    * Current production base: [`https://geo.btaa.org/api/v1/`](https://geo.btaa.org/api/v1/
 )
     * Projected custom domain: https://api.geo.btaa.org
 * Content types:  
