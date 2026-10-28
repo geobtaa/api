@@ -105,7 +105,12 @@ export function ZoomControl({
         const b = document.createElement('button');
         b.textContent = text;
         b.setAttribute('aria-label', delta > 0 ? 'Zoom in' : 'Zoom out');
-        b.onclick = () => map.native.zoomTo(map.native.getZoom() + delta);
+        b.onclick = (event) =>
+          map.native.zoomTo(
+            map.native.getZoom() + delta,
+            {},
+            { originalEvent: event }
+          );
         div.append(b);
       }
       return div;
