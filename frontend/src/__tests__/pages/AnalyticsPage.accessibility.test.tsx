@@ -97,6 +97,8 @@ describe('AnalyticsPage accessibility', () => {
 
       expect(results.violations).toHaveLength(0);
     },
-    60_000
+    // Full all-time tables exceed 60 seconds under coverage/shared CPU load.
+    // Keep every node/rule in the audit, with a bounded per-report budget.
+    120_000
   );
 });
