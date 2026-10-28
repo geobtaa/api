@@ -9,6 +9,7 @@ import {
 } from '../../mapping/react';
 import Cookies from 'js-cookie';
 import L from '../../mapping/maplibre';
+import { onUserMapMovement } from '../../mapping/userMovement';
 
 import { MapUpdaterHex, type HexBoundingBox } from '../map/MapUpdaterHex';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
@@ -21,7 +22,10 @@ import { getApiBasePath } from '../../services/api';
 import type { GeoDocumentDetails } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
 import { ResultCardPill } from '../search/ResultCardPill';
-import { parseBboxToLeafletBounds } from '../../utils/bbox';
+import {
+  normalizeBboxSearchEnvelope,
+  parseBboxToLeafletBounds,
+} from '../../utils/bbox';
 import {
   getSavedHexLayerEnabled,
   saveHexLayerEnabled,
@@ -89,15 +93,9 @@ function MapUserEngagementTracker({
 }) {
   const map = useMap();
   useEffect(() => {
-    const handler = () => {
+    return onUserMapMovement(map, () => {
       if (!programmaticFlyRef.current) onUserEngaged();
-    };
-    map.on('moveend', handler);
-    map.on('zoomend', handler);
-    return () => {
-      map.off('moveend', handler);
-      map.off('zoomend', handler);
-    };
+    });
   }, [map, programmaticFlyRef, onUserEngaged]);
   return null;
 }
@@ -174,19 +172,38 @@ function FeaturedItemBoundsLayer({
 }
 
 function buildBboxSearchUrl(bbox: HexBoundingBox, relation = 'intersects') {
+  const envelope = normalizeBboxSearchEnvelope(
+    bbox.west,
+    bbox.south,
+    bbox.east,
+    bbox.north
+  );
+  if (!envelope) return '/search';
   const params = new URLSearchParams();
   params.set('include_filters[geo][type]', 'bbox');
   params.set('include_filters[geo][field]', 'dcat_bbox');
   params.set('include_filters[geo][relation]', relation);
-  params.set('include_filters[geo][top_left][lat]', bbox.north.toString());
-  params.set('include_filters[geo][top_left][lon]', bbox.west.toString());
-  params.set('include_filters[geo][bottom_right][lat]', bbox.south.toString());
-  params.set('include_filters[geo][bottom_right][lon]', bbox.east.toString());
+  params.set(
+    'include_filters[geo][top_left][lat]',
+    envelope.topLeft.lat.toString()
+  );
+  params.set(
+    'include_filters[geo][top_left][lon]',
+    envelope.topLeft.lon.toString()
+  );
+  params.set(
+    'include_filters[geo][bottom_right][lat]',
+    envelope.bottomRight.lat.toString()
+  );
+  params.set(
+    'include_filters[geo][bottom_right][lon]',
+    envelope.bottomRight.lon.toString()
+  );
   return `/search?${params.toString()}`;
 }
 
-/** One-time pan so Chicago (dense hex cluster) appears in the desired position on the homepage. Marks as programmatic so it is not counted as user engagement. */
-function MapPanner({
+/** Capture the declared home camera after load without moving it. */
+function HomeMapInitialView({
   programmaticFlyRef,
   onInitialViewReady,
 }: {
@@ -194,22 +211,20 @@ function MapPanner({
   onInitialViewReady: (center: [number, number], zoom: number) => void;
 }) {
   const map = useMap();
-  const panned = useRef(false);
+  const ready = useRef(onInitialViewReady);
+  ready.current = onInitialViewReady;
   useEffect(() => {
-    if (panned.current) return;
+    let cancelled = false;
     map.whenReady(() => {
-      programmaticFlyRef.current = true;
-      map.panBy([400, 0], { animate: false });
-      panned.current = true;
-      const onMoveEnd = () => {
-        const center = map.getCenter();
-        onInitialViewReady([center.lat, center.lng], map.getZoom());
-        programmaticFlyRef.current = false;
-        map.off('moveend', onMoveEnd);
-      };
-      map.on('moveend', onMoveEnd);
+      if (cancelled) return;
+      const center = map.getCenter();
+      ready.current([center.lat, center.lng], map.getZoom());
+      programmaticFlyRef.current = false;
     });
-  }, [map, onInitialViewReady, programmaticFlyRef]);
+    return () => {
+      cancelled = true;
+    };
+  }, [map, programmaticFlyRef]);
   return null;
 }
 
@@ -218,21 +233,13 @@ function SearchHereControl() {
   const map = useMap();
   const navigate = useNavigate();
   const [showSearchButton, setShowSearchButton] = useState(false);
-  const initialMoveDone = useRef(false);
-
   useEffect(() => {
-    const handleMoveEnd = () => {
-      if (!initialMoveDone.current) {
-        initialMoveDone.current = true;
-        return;
-      }
-      setShowSearchButton(true);
-    };
-    map.on('moveend', handleMoveEnd);
-    map.on('zoomend', handleMoveEnd);
+    const unsubscribe = onUserMapMovement(map, () => setShowSearchButton(true));
+    const reset = () => setShowSearchButton(false);
+    window.addEventListener('btaa-home-map-reset', reset);
     return () => {
-      map.off('moveend', handleMoveEnd);
-      map.off('zoomend', handleMoveEnd);
+      unsubscribe();
+      window.removeEventListener('btaa-home-map-reset', reset);
     };
   }, [map]);
 
@@ -312,8 +319,7 @@ function HomeMapResetListener({
 }
 
 /**
- * Non-interactive Leaflet hex map used as the background of the homepage.
- * Center is south of the US so North America appears just under the search form.
+ * Interactive MapLibre hex map with a stable US-centered initial camera.
  * Hovering a hex shows a glowing blue border; clicking a hex searches its bbox.
  * Featured resources carousel at bottom; when an item is active, map flies to its bbox and shows a preview card.
  */
@@ -539,7 +545,7 @@ export function HomePageHexMapBackground() {
               setHexLayerEnabled(enabled);
             }}
           />
-          <MapPanner
+          <HomeMapInitialView
             programmaticFlyRef={programmaticFlyRef}
             onInitialViewReady={(center, zoom) => {
               if (!initialHomeViewRef.current) {

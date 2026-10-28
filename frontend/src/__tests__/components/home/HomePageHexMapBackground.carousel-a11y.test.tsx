@@ -40,6 +40,7 @@ vi.mock('../../../mapping/react', () => ({
       getSouthWest: () => ({ lat: 30, lng: -100 }),
     }),
     getZoom: () => 5,
+    getCenter: () => ({ lat: 39.8283, lng: -98.5795 }),
     whenReady: (cb: () => void) => cb(),
     on: () => {},
     off: () => {},

@@ -8,7 +8,7 @@ The homepage features an interactive Leaflet map that combines three main elemen
 2. **Featured Resources Carousel** — Curated examples that showcase different resource types and previews
 3. **Search Here** — Button to search within the current map extent (appears after user pan/zoom)
 
-The map defaults to OpenFreeMap Liberty and is centered south of the continental US so North America appears beneath the search form. Chicago (a dense hex cluster) is positioned for visual prominence via an initial programmatic pan. Interactive basemap pickers also offer OpenFreeMap Bright and Dark.
+The map defaults to OpenFreeMap Liberty and starts at the contiguous US center (39.8283, -98.5795). There is no viewport-dependent pixel pan. Interactive basemap pickers also offer OpenFreeMap Bright and Dark. Loading, resizing, and basemap changes do not reveal the Search Here button or orange outline; the first user pan, zoom, or keyboard camera movement does. Returning Home clears the prompt.
 
 ---
 
@@ -85,7 +85,7 @@ Featured items are defined in `frontend/src/config/featured.ts`. Each ID corresp
 
 ### User Engagement
 
-The map tracks whether the user has panned or zoomed. If they do before the 10-second timer, the featured carousel does **not** auto-start (user engagement takes precedence). Programmatic moves (initial pan, flyToBounds for featured items) are ignored. The carousel remains visible; the user can still click a thumbnail to trigger the featured experience.
+The map tracks whether the user has panned or zoomed. If they do before the 10-second timer, the featured carousel does **not** auto-start (user engagement takes precedence). Programmatic flights for featured items and passive layout/style events are ignored. The carousel remains visible; the user can still click a thumbnail to trigger the featured experience.
 
 ---
 
@@ -116,7 +116,7 @@ The frontend creates a `WarpedMapLayer` from `@allmaps/maplibre` using the annot
 | `FeaturedMapController` | Flies map to active featured item's bbox |
 | `FeaturedItemPreviewLayer` | Renders GeoBlacklight or Allmaps preview layer |
 | `FeaturedItemBoundsLayer` | Draws bounds rectangle for active item |
-| `MapPanner` | One-time initial pan (Chicago positioning) |
+| `HomeMapInitialView` | Captures the initial US camera without moving it |
 | `MapUserEngagementTracker` | Detects user pan/zoom for engagement logic |
 | `SearchHereControl` | "Search here" button after user interaction |
 
