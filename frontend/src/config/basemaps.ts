@@ -1,5 +1,6 @@
 import Cookies from 'js-cookie';
 import type L from 'leaflet';
+import { attachHttpTileLoader } from './httpTileLoader';
 
 type BasemapDefinition = {
   label: string;
@@ -20,6 +21,7 @@ const BASEMAP_DEFINITIONS = {
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     options: {
       maxZoom: 19,
+      referrerPolicy: 'strict-origin-when-cross-origin',
     },
   },
   esriWorldImagery: {
@@ -64,6 +66,7 @@ export function createBasemapLayer(
   const config = BASEMAP_DEFINITIONS[key];
   return Leaflet.tileLayer(config.url, {
     attribution: config.attribution,
+    zIndex: 0,
     ...config.options,
   });
 }
@@ -71,24 +74,47 @@ export function createBasemapLayer(
 export function attachBasemapSwitcher(
   map: L.Map,
   Leaflet: typeof L,
-  position: L.ControlPosition = 'topleft'
+  position: L.ControlPosition = 'topleft',
+  onTileErrorChange?: (unavailable: boolean) => void
 ): () => void {
   const basemapLayers = {} as Record<BasemapKey, L.TileLayer>;
   const labeledLayers: Record<string, L.TileLayer> = {};
 
+  // Remember failures per layer for this map's lifetime. A later successful
+  // tile must not hide a warning about other missing tiles in the same view.
+  const failedLayers = new Set<BasemapKey>();
+  const errorHandlers = new Map<
+    L.TileLayer,
+    (event: L.TileErrorEvent) => void
+  >();
+
   (Object.keys(BASEMAP_DEFINITIONS) as BasemapKey[]).forEach((key) => {
     const config = BASEMAP_DEFINITIONS[key];
     const layer = createBasemapLayer(Leaflet, key);
+    if (onTileErrorChange) {
+      if (key === 'openStreetMap') attachHttpTileLoader(layer);
+      const onTileError = (event: L.TileErrorEvent) => {
+        // HTTP and image decoding failures share the same accessible warning.
+        event.tile.style.visibility = 'hidden';
+        failedLayers.add(key);
+        if (map.hasLayer(layer)) onTileErrorChange(true);
+      };
+      layer.on('tileerror', onTileError);
+      errorHandlers.set(layer, onTileError);
+    }
     basemapLayers[key] = layer;
     labeledLayers[config.label] = layer;
   });
 
   const selectedBasemap = getSavedBasemapKey();
+  onTileErrorChange?.(false);
   basemapLayers[selectedBasemap].addTo(map);
 
   const control = Leaflet.control.layers(labeledLayers, undefined, {
     position,
     collapsed: true,
+    // Keep basemaps below resource tiles, including after switching layers.
+    autoZIndex: false,
   });
   control.addTo(map);
 
@@ -98,6 +124,7 @@ export function attachBasemapSwitcher(
     );
     if (matchedKey) {
       saveBasemapKey(matchedKey);
+      onTileErrorChange?.(failedLayers.has(matchedKey));
     }
   };
 
@@ -106,11 +133,45 @@ export function attachBasemapSwitcher(
   return () => {
     map.off('baselayerchange', onBaseLayerChange);
     control.remove();
+    errorHandlers.forEach((handler, layer) => layer.off('tileerror', handler));
     (Object.keys(basemapLayers) as BasemapKey[]).forEach((key) => {
       const layer = basemapLayers[key];
       if (map.hasLayer(layer)) {
         map.removeLayer(layer);
       }
     });
+  };
+}
+
+/** Keep the warning inside the map so it remains visible in fullscreen. */
+export function attachViewerBasemapSwitcher(
+  map: L.Map,
+  Leaflet: typeof L
+): () => void {
+  const status = new Leaflet.Control({ position: 'bottomleft' });
+  const message = document.createElement('p');
+  message.setAttribute('role', 'status');
+  message.className = 'bg-amber-50 text-gray-900 p-3 rounded shadow text-sm';
+  message.style.maxWidth = '260px';
+  message.hidden = true;
+  status.onAdd = () => message;
+  status.addTo(map);
+  Leaflet.DomEvent.disableClickPropagation(message);
+  Leaflet.DomEvent.disableScrollPropagation(message);
+
+  const cleanup = attachBasemapSwitcher(
+    map,
+    Leaflet,
+    'topleft',
+    (unavailable) => {
+      message.hidden = !unavailable;
+      message.textContent = unavailable
+        ? 'Some basemap tiles could not be loaded. Choose another basemap using the Layers control. Resource layers remain available.'
+        : '';
+    }
+  );
+  return () => {
+    cleanup();
+    status.remove();
   };
 }

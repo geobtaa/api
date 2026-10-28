@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -18,7 +18,10 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const basemapCleanupRef = useRef<(() => void) | null>(null);
 
+  const [basemapUnavailable, setBasemapUnavailable] = useState(false);
+
   useEffect(() => {
+    setBasemapUnavailable(false);
     if (!mapContainer.current || !geometry) return;
     let cancelled = false;
 
@@ -34,11 +37,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
       if (!mapRef.current) {
         registerLeafletGestureHandling(L);
         if (cancelled || !mapContainer.current) return;
-        mapRef.current = L.map(
-          mapContainer.current,
-          leafletGestureMapOptions
-        ).setView([0, 0], 2);
-        basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
+        mapRef.current = L.map(mapContainer.current, leafletGestureMapOptions);
       }
 
       // Clear existing layers
@@ -136,8 +135,17 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
           // Fit bounds to show the feature
           mapRef.current.fitBounds(geoJsonLayer.getBounds(), {
             padding: [20, 20],
+            maxZoom: 18,
+            animate: false,
           });
         }
+        // Add tiles only after the first resource view is established.
+        basemapCleanupRef.current = attachBasemapSwitcher(
+          mapRef.current,
+          L,
+          'topleft',
+          setBasemapUnavailable
+        );
       } catch (error) {
         console.error('Error rendering geometry:', error);
       }
@@ -161,6 +169,15 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
       <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
         <h2 className="text-lg font-semibold text-gray-950">Location</h2>
       </div>
+      {basemapUnavailable && (
+        <p
+          role="status"
+          className="px-6 py-3 text-sm text-gray-900 bg-amber-50"
+        >
+          Some basemap tiles could not be loaded. The resource outline is still
+          shown. Choose another basemap using the Layers control on the map.
+        </p>
+      )}
       <div ref={mapContainer} className="h-[300px] w-full" />
     </div>
   );

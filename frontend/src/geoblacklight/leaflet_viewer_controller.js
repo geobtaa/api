@@ -1,6 +1,7 @@
 import Leaflet, { map } from 'leaflet';
 import 'leaflet-fullscreen';
 import BaseLeafletViewerController from '@geoblacklight/frontend/app/javascript/geoblacklight/controllers/leaflet_viewer_controller';
+import { attachViewerBasemapSwitcher } from '../config/basemaps';
 import Sleep from 'geoblacklight/leaflet/controls/sleep';
 import { registerLeafletGestureHandling } from '../config/leafletGestureHandling';
 import {
@@ -67,7 +68,8 @@ export default class LeafletViewerController extends BaseLeafletViewerController
   }
 
   disconnect() {
-    if (!this.isIiifImage) return;
+    this.basemapCleanup?.();
+    this.basemapCleanup = null;
 
     if (this.iiifCleanup) {
       this.iiifCleanup();
@@ -95,17 +97,20 @@ export default class LeafletViewerController extends BaseLeafletViewerController
     this.map = map(this.element, {
       ...sleepSettings,
       ...mapSettings,
+      maxZoom: mapSettings.maxZoom ?? 18,
     });
     if (sleepSettings.SLEEP) this.map.addHandler('SLEEP', Sleep);
 
-    this.map.addLayer(this.basemap);
     this.map.addLayer(this.overlay);
     this.fitBounds(this.bounds);
+    this.basemapCleanup = attachViewerBasemapSwitcher(this.map, Leaflet);
+    const currentMap = this.map;
     this.map.options.selected_color =
       this.optionsValue.SELECTED_COLOR || 'blue';
 
     if (this.availableValue && this.protocolValue) {
       await this.addPreviewOverlay();
+      if (this.map !== currentMap) return;
       this.addInspection();
     } else if (this.drawInitialBoundsValue && this.bounds) {
       this.addBoundsOverlay(this.bounds);
@@ -205,9 +210,7 @@ export default class LeafletViewerController extends BaseLeafletViewerController
     }
 
     const resizeObserver =
-      typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(refit)
-        : null;
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(refit) : null;
     resizeObserver?.observe(this.element);
     refit();
 
