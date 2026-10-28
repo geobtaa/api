@@ -111,9 +111,37 @@ describe('MapLibre mapping boundary', () => {
     native.loaded = false;
     const layer = geoJSON({ type: 'Point', coordinates: [1, 2] }).addTo(map);
     layer.remove();
-    native.handlers.get('load')();
+    native.handlers.get('idle')();
     expect(native.addSource).not.toHaveBeenCalled();
     map.remove();
+  });
+  it('restores a hidden overlay while an already loaded map is processing sources', () => {
+    const map = new AppMap(document.createElement('div'));
+    const native = mocks.instances[0];
+    const data = { type: 'Point', coordinates: [1, 2] };
+    const original = geoJSON(data).addTo(map);
+    expect(native.sources.size).toBe(1);
+    original.remove();
+    native.loaded = false;
+    const restored = geoJSON(data).addTo(map);
+    expect(native.sources.size).toBe(0);
+    native.loaded = true;
+    native.handlers.get('idle')();
+    expect(native.sources.size).toBe(1);
+    expect(native.layers.size).toBe(4);
+    restored.remove();
+    expect(native.sources.size).toBe(0);
+    map.remove();
+  });
+  it('does not run deferred readiness callbacks after the map is removed', () => {
+    const map = new AppMap(document.createElement('div'));
+    const native = mocks.instances[0];
+    native.loaded = false;
+    const callback = vi.fn();
+    map.whenReady(callback);
+    map.remove();
+    native.handlers.get('idle')();
+    expect(callback).not.toHaveBeenCalled();
   });
   it('updates hover styling without rebuilding source data', () => {
     const map = new AppMap(document.createElement('div'));

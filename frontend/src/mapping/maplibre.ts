@@ -277,7 +277,12 @@ export class Map {
   }
   whenReady(fn: () => void) {
     if (this.native.isStyleLoaded()) fn();
-    else this.native.once('load', fn);
+    // `load` fires only once. Source changes can make isStyleLoaded() false
+    // again, so remounted overlays must wait for the next idle event instead.
+    else
+      this.native.once('idle', () => {
+        if (!this.removed) fn();
+      });
     return this;
   }
   on(name: string, fn: (e: any) => void) {
