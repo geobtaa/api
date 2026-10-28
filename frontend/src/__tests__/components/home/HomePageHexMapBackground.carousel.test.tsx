@@ -94,7 +94,7 @@ vi.mock('../../../mapping/react', () => ({
       getSouthWest: () => ({ lat: 30, lng: -100 }),
     }),
     getZoom: () => 5,
-    getCenter: () => ({ lat: 39.8283, lng: -98.5795 }),
+    getCenter: () => ({ lat: 44, lng: -9.6875 }),
     whenReady: (cb: () => void) => cb(),
     on: (name: string, handler: (event: object) => void) => {
       if (!mapEvents.has(name)) mapEvents.set(name, new Set());
@@ -255,11 +255,11 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
   const getProgressBar = () =>
     screen.getByRole('progressbar', { name: /Time remaining/i });
 
-  it('starts over the US and only offers Search here after user movement', () => {
+  it('matches the production offset and only offers Search here after user movement', () => {
     renderCarousel();
     expect(screen.getByTestId('map-container')).toHaveAttribute(
       'data-center',
-      '[39.8283,-98.5795]'
+      '[44,-9.6875]'
     );
     for (let i = 0; i < 3; i++) {
       emitMapEvent('moveend');

@@ -8,7 +8,7 @@ The homepage features an interactive Leaflet map that combines three main elemen
 2. **Featured Resources Carousel** — Curated examples that showcase different resource types and previews
 3. **Search Here** — Button to search within the current map extent (appears after user pan/zoom)
 
-The map defaults to OpenFreeMap Liberty and starts at the contiguous US center (39.8283, -98.5795). There is no viewport-dependent pixel pan. Interactive basemap pickers also offer OpenFreeMap Bright and Dark. Loading, resizing, and basemap changes do not reveal the Search Here button or orange outline; the first user pan, zoom, or keyboard camera movement does. Returning Home clears the prompt.
+The map defaults to OpenFreeMap Liberty and matches the production camera: latitude 44, longitude -80, offset 400 pixels east at legacy zoom 3. This resolves to an initial center of (44, -9.6875), keeping the US cluster left of center. The offset is applied to the initial camera rather than generating a startup pan. Interactive basemap pickers also offer OpenFreeMap Bright and Dark. Loading, resizing, and basemap changes do not reveal the Search Here button or orange outline; the first user pan, zoom, or keyboard camera movement does. Returning Home clears the prompt.
 
 ---
 
@@ -116,7 +116,7 @@ The frontend creates a `WarpedMapLayer` from `@allmaps/maplibre` using the annot
 | `FeaturedMapController` | Flies map to active featured item's bbox |
 | `FeaturedItemPreviewLayer` | Renders GeoBlacklight or Allmaps preview layer |
 | `FeaturedItemBoundsLayer` | Draws bounds rectangle for active item |
-| `HomeMapInitialView` | Captures the initial US camera without moving it |
+| `HomeMapInitialView` | Captures the production-offset initial camera without moving it |
 | `MapUserEngagementTracker` | Detects user pan/zoom for engagement logic |
 | `SearchHereControl` | "Search here" button after user interaction |
 
