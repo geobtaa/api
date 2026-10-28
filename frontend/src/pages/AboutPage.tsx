@@ -63,8 +63,9 @@ export function AboutPage() {
                 <p className="mt-6 text-base leading-7 text-gray-700">
                   The BTAA Geoportal is maintained by the Big Ten Academic
                   Alliance Geospatial Information Network (BTAA-GIN), a
-                  collaborative program focused on supporting the geospatial research 
-                  community and fostering connections among geospatial library professionals.
+                  collaborative program focused on supporting the geospatial
+                  research community and fostering connections among geospatial
+                  library professionals.
                 </p>
                 <a
                   href="https://gin.btaa.org"

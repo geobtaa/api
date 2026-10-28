@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Native map test double. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ instances: [] as any[], webgl: true }));
+const mocks = vi.hoisted(() => ({ instances: [] as never[], webgl: true }));
 vi.mock('maplibre-gl', () => ({
   setWorkerUrl: vi.fn(),
   NavigationControl: class {},

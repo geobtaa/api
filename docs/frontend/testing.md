@@ -572,3 +572,12 @@ Allmaps page-load checks are covered by `useAllmapsAvailability.test.tsx`
 (mocked HTTP responses, real annotation parser), including discovery after a
 reload, empty/invalid results, timeout, and stale-response cancellation. The
 resource-page suite verifies that live discovery reveals the overlay tab.
+
+The suite uses the shared happy-dom environment, including analytics dashboards,
+and bounds workers to two so exhaustive DOM/accessibility audits have consistent
+CPU availability. Run the full suite with `npm test -- --run` and coverage with
+`npm run test:coverage -- --run`; no analytics test exclusion is required.
+
+Generated analytics JSON snapshots remain in their generator's compact format.
+Prettier checks hand-maintained sources; snapshot generators and evidence checks
+validate those generated files without reformatting their bytes.

@@ -138,7 +138,7 @@ describe('fetchBookmarkedResources', () => {
     const onApiCall = vi.fn();
 
     // Mock success response
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ data: [] }),
     });
@@ -510,7 +510,7 @@ describe('fetchFeaturedResourcePreview', () => {
   it('requests the lightweight homepage profile for featured previews', async () => {
     const onApiCall = vi.fn();
 
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({
         data: {
@@ -545,7 +545,7 @@ describe('fetchHomeBlogPosts', () => {
       writable: true,
     });
 
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       headers: { get: () => 'application/json' },
       text: async () => JSON.stringify({ data: [], meta: {} }),
@@ -554,7 +554,7 @@ describe('fetchHomeBlogPosts', () => {
     await fetchHomeBlogPosts({ limit: 3, theme: 'btaa' });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    const url = new URL((global.fetch as any).mock.calls[0][0]);
+    const url = new URL(vi.mocked(global.fetch).mock.calls[0][0]);
     expect(url.pathname).toBe('/api/v1/home/blog-posts');
     expect(url.searchParams.get('limit')).toBe('3');
     expect(url.searchParams.get('theme')).toBe('btaa');
@@ -569,7 +569,7 @@ describe('fetchHomeBlogPosts', () => {
       writable: true,
     });
 
-    (global.fetch as any)
+    vi.mocked(global.fetch)
       .mockResolvedValueOnce({
         ok: true,
         headers: { get: () => 'text/html' },
@@ -584,9 +584,9 @@ describe('fetchHomeBlogPosts', () => {
 
     const response = await fetchHomeBlogPosts({ limit: 3, theme: 'btaa' });
 
-    expect((global.fetch as any).mock.calls).toHaveLength(2);
-    const firstUrl = new URL((global.fetch as any).mock.calls[0][0]);
-    const secondUrl = new URL((global.fetch as any).mock.calls[1][0]);
+    expect(vi.mocked(global.fetch).mock.calls).toHaveLength(2);
+    const firstUrl = new URL(vi.mocked(global.fetch).mock.calls[0][0]);
+    const secondUrl = new URL(vi.mocked(global.fetch).mock.calls[1][0]);
     expect(firstUrl.pathname).toBe('/api/v1/home/blog-posts');
     expect(secondUrl.pathname).toBe('/home/blog-posts');
     expect(response.data).toEqual([{ slug: 'latest-post' }]);
@@ -612,14 +612,14 @@ describe('fetchSearchResults', () => {
     });
 
     const onApiCall = vi.fn();
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ data: [], meta: {}, included: [] }),
     });
 
     await fetchSearchResults('maps', 1, 10, [], onApiCall);
 
-    const fetchUrl = new URL((global.fetch as any).mock.calls[0][0]);
+    const fetchUrl = new URL(vi.mocked(global.fetch).mock.calls[0][0]);
     expect(fetchUrl.pathname).toBe('/search/results');
     expect(fetchUrl.searchParams.get('q')).toBe('maps');
     expect(fetchUrl.searchParams.get('include_filter_operator')).toBe('and');
@@ -708,7 +708,7 @@ describe('fetchSearchResults', () => {
     sourceSearchParams.set('include_filters[geo][bottom_right][lon]', '-104');
     sourceSearchParams.set('include_filters[geo][relation]', 'within');
 
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ data: [], meta: {}, included: [] }),
     });
@@ -761,7 +761,7 @@ describe('fetchSearchResults', () => {
     });
 
     const onApiCall = vi.fn();
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ data: [], meta: {}, included: [] }),
     });
@@ -785,7 +785,7 @@ describe('fetchSearchResults', () => {
     });
 
     const onApiCall = vi.fn();
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ data: [], meta: {}, included: [] }),
     });

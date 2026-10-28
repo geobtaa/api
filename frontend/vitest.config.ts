@@ -7,6 +7,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
+    // Bound expensive DOM/accessibility audits on shared development and CI CPUs.
+    maxWorkers: 2,
     environment: 'happy-dom',
     setupFiles: ['./src/setupTests.ts'],
     css: true,

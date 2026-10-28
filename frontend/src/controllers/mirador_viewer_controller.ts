@@ -29,7 +29,6 @@ export default class MiradorViewerController extends Controller {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const Mirador = (globalThis as any).Mirador;
     if (!Mirador || typeof Mirador.viewer !== 'function') {
-      // eslint-disable-next-line no-console
       console.error(
         'Mirador is not available on window. Ensure the Mirador CDN script loaded.'
       );

@@ -195,6 +195,11 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Check frontend lint and formatting
+        run: |
+          npm run lint
+          npm run format:check
+
       - name: Run frontend tests
         run: npm test -- --run
 

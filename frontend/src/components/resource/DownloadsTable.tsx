@@ -181,7 +181,9 @@ export function DownloadsTable({
               download_type: download.download_type,
               format: download.format,
               error:
-                error instanceof Error ? error.message : 'unknown_prepare_error',
+                error instanceof Error
+                  ? error.message
+                  : 'unknown_prepare_error',
             },
           },
         ],

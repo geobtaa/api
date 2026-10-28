@@ -19,7 +19,7 @@ vi.mock('../../../mapping/maplibre', () => ({
         class {
           private container: HTMLDivElement | null = null;
 
-          constructor(_options?: unknown) {}
+          constructor() {}
 
           addTo() {
             this.container = props.onAdd();
@@ -104,7 +104,7 @@ describe('MapGeosearchControl', () => {
       ],
     });
 
-    render(<MapGeosearchControl mapInstance={mapInstance as any} />);
+    render(<MapGeosearchControl mapInstance={mapInstance as never} />);
 
     const toggleButton = screen.getByRole('button', {
       name: 'Search places on map',

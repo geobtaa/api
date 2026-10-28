@@ -82,7 +82,7 @@ describe('ResourceDescription Component', () => {
 
     it('returns null when description is null', () => {
       const { container } = render(
-        <ResourceDescription description={null as any} />
+        <ResourceDescription description={null as never} />
       );
 
       expect(container.firstChild).toBeNull();
@@ -90,7 +90,7 @@ describe('ResourceDescription Component', () => {
 
     it('returns null when description is undefined', () => {
       const { container } = render(
-        <ResourceDescription description={undefined as any} />
+        <ResourceDescription description={undefined as never} />
       );
 
       expect(container.firstChild).toBeNull();

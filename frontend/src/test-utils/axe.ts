@@ -7,14 +7,7 @@ import { axe } from 'vitest-axe';
 
 const WCAG_22_RUN_ONLY = {
   type: 'tag' as const,
-  values: [
-    'wcag2a',
-    'wcag2aa',
-    'wcag21a',
-    'wcag21aa',
-    'wcag22a',
-    'wcag22aa',
-  ],
+  values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'],
 };
 
 /**

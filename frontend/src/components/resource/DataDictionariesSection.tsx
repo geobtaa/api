@@ -77,7 +77,9 @@ export function DataDictionariesSection({
               <tr className="hover:bg-gray-50 align-top">
                 <td className="px-4 py-3 text-sm text-gray-900">
                   <div style={{ paddingLeft: `${depth * 1.25}rem` }}>
-                    {depth > 0 ? <span className="mr-1 text-gray-400">↳</span> : null}
+                    {depth > 0 ? (
+                      <span className="mr-1 text-gray-400">↳</span>
+                    ) : null}
                     {entry.field_name}
                   </div>
                 </td>
@@ -106,7 +108,9 @@ export function DataDictionariesSection({
                 {dictionary.name || 'Untitled Dictionary'}
               </h3>
               {dictionary.description ? (
-                <p className="text-sm text-gray-600">{dictionary.description}</p>
+                <p className="text-sm text-gray-600">
+                  {dictionary.description}
+                </p>
               ) : null}
             </div>
 

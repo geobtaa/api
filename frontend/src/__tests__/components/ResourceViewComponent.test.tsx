@@ -235,8 +235,8 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('ResourceView Component', () => {
-  let fetchResourceDetails: any;
-  let fetchSearchResults: any;
+  let fetchResourceDetails: typeof import('../../services/api').fetchResourceDetails;
+  let fetchSearchResults: typeof import('../../services/api').fetchSearchResults;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -247,8 +247,8 @@ describe('ResourceView Component', () => {
     fetchSearchResults = apiModule.fetchSearchResults;
 
     // Mock successful API response
-    (fetchResourceDetails as any).mockResolvedValue(realFixtureData[0]);
-    (fetchSearchResults as any).mockResolvedValue({
+    vi.mocked(fetchResourceDetails).mockResolvedValue(realFixtureData[0]);
+    vi.mocked(fetchSearchResults).mockResolvedValue({
       data: realFixtureData,
     });
   });
@@ -288,7 +288,7 @@ describe('ResourceView Component', () => {
 
   describe('Error Handling', () => {
     it('displays error message when API call fails', async () => {
-      (fetchResourceDetails as any).mockRejectedValue(new Error('API Error'));
+      vi.mocked(fetchResourceDetails).mockRejectedValue(new Error('API Error'));
 
       render(
         <TestWrapper>
@@ -307,7 +307,7 @@ describe('ResourceView Component', () => {
 
     it('displays ApiError message when API returns specific error', async () => {
       const { ApiError } = await import('../../services/api');
-      (fetchResourceDetails as any).mockRejectedValue(
+      vi.mocked(fetchResourceDetails).mockRejectedValue(
         new ApiError('Resource not found')
       );
 
@@ -623,7 +623,7 @@ describe('ResourceView Component', () => {
 
     it('renders IndexMap when protocol is open_index_map', async () => {
       // Mock the component with open_index_map protocol
-      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[2]); // Tufts fixture with open_index_map
+      vi.mocked(fetchResourceDetails).mockResolvedValue(realFixtureData[2]); // Tufts fixture with open_index_map
 
       render(
         <TestWrapper>
@@ -727,7 +727,7 @@ describe('ResourceView Component', () => {
 
     it('handles different fixture data types', async () => {
       // Test with NYU fixture
-      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[1]);
+      vi.mocked(fetchResourceDetails).mockResolvedValue(realFixtureData[1]);
 
       render(
         <TestWrapper>
@@ -744,7 +744,7 @@ describe('ResourceView Component', () => {
 
     it('handles polygon data fixture', async () => {
       // Test with Tufts fixture
-      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[2]);
+      vi.mocked(fetchResourceDetails).mockResolvedValue(realFixtureData[2]);
 
       render(
         <TestWrapper>
@@ -774,7 +774,7 @@ describe('ResourceView Component', () => {
         },
       };
 
-      (fetchResourceDetails as any).mockResolvedValue(restrictedFixture);
+      vi.mocked(fetchResourceDetails).mockResolvedValue(restrictedFixture);
 
       render(
         <TestWrapper>

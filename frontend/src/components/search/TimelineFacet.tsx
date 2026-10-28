@@ -153,7 +153,7 @@ export function TimelineFacet({
     onChange({ start: point.xKey, end: point.xEnd });
   };
 
-  const onMouseDown = (e: any) => {
+  const onMouseDown = (e: { activeLabel?: string | number } | null) => {
     if (e && e.activeLabel) {
       setState((prev) => ({
         ...prev,
@@ -163,7 +163,7 @@ export function TimelineFacet({
     }
   };
 
-  const onMouseMove = (e: any) => {
+  const onMouseMove = (e: { activeLabel?: string | number } | null) => {
     if (state.isDragging && e && e.activeLabel) {
       setState((prev) => ({ ...prev, refAreaRight: e.activeLabel }));
     }
@@ -205,7 +205,7 @@ export function TimelineFacet({
     }
   };
 
-  const onChartClick = (e: any) => {
+  const onChartClick = (e: { activeLabel?: string | number } | null) => {
     if (!e?.activeLabel || state.isDragging) return;
     const point = data.find((p) => p.xKey === Number(e.activeLabel));
     if (point) selectPoint(point);
