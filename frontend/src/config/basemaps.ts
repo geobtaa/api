@@ -100,8 +100,12 @@ export function attachBasemapSwitcher(
     panel.setAttribute('role', 'radiogroup');
     panel.setAttribute('aria-label', 'Basemap style');
     panel.style.cssText =
-      'position:absolute;left:calc(100% + 8px);top:0;min-width:180px;padding:8px;background:white;color:#111827;border:1px solid #b9b9b9;border-radius:4px;box-shadow:0 1px 5px #0004;';
+      'min-width:180px;padding:8px;background:white;color:#111827;border:1px solid #b9b9b9;border-radius:4px;box-shadow:0 1px 5px #0004;';
     const setOpen = (open: boolean, focus = false) => {
+      // Expand in place, as the production layers control does. The button and
+      // options share one continuous hit area; there is no hover gap to cross.
+      button.hidden = open;
+      button.style.display = open ? 'none' : '';
       panel.hidden = !open;
       button.setAttribute('aria-expanded', String(open));
       if (open && focus)
@@ -134,8 +138,13 @@ export function attachBasemapSwitcher(
     }
     button.onclick = () => setOpen(true, true);
     div.onmouseenter = () => setOpen(true);
-    div.onmouseleave = () => {
-      if (!div.contains(document.activeElement)) setOpen(false);
+    div.onmouseleave = (event) => {
+      if (
+        event.relatedTarget instanceof Node &&
+        div.contains(event.relatedTarget)
+      )
+        return;
+      if (!panel.contains(document.activeElement)) setOpen(false);
     };
     div.onkeydown = (event) => {
       if (event.key === 'Escape') {
