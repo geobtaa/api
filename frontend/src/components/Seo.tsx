@@ -26,7 +26,15 @@ export function Seo({
 
   useEffect(() => {
     document.title = buildPageTitle(title);
-  }, [description, image, location.pathname, location.search, title, type, url]);
+  }, [
+    description,
+    image,
+    location.pathname,
+    location.search,
+    title,
+    type,
+    url,
+  ]);
 
   // React Router route `meta` exports own SSR/head rendering. This component is
   // kept as a lightweight client fallback for the legacy SPA entry and tests.

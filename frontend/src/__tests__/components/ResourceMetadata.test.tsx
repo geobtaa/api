@@ -322,12 +322,12 @@ describe('ResourceMetadata Component', () => {
     it('handles null/undefined fields gracefully', () => {
       const itemWithNullFields: GeoDocumentDetails = {
         ...realFixtureWithMinimalFields,
-        schema_provider_s: null as any,
-        dc_publisher_sm: null as any,
-        creator_sm: null as any,
-        dct_spatial_sm: null as any,
-        dc_subject_sm: null as any,
-        dct_issued_s: null as any,
+        schema_provider_s: null as never,
+        dc_publisher_sm: null as never,
+        creator_sm: null as never,
+        dct_spatial_sm: null as never,
+        dc_subject_sm: null as never,
+        dct_issued_s: null as never,
       };
 
       render(<ResourceMetadata item={itemWithNullFields} />);

@@ -32,18 +32,14 @@ export function MapContainer({
   style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const initialOptions = useRef({ ...options, center, zoom, zoomControl });
   const [map, setMap] = useState<M.Map | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
     let instance: M.Map;
     try {
-      instance = new M.Map(ref.current, {
-        ...options,
-        center,
-        zoom,
-        zoomControl,
-      });
+      instance = new M.Map(ref.current, initialOptions.current);
       setMap(instance);
     } catch {
       ref.current.replaceChildren();

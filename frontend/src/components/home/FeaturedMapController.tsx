@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useMap } from '../../mapping/react';
 import L from '../../mapping/maplibre';
 import type { GeoDocumentDetails } from '../../types/api';
@@ -34,10 +34,10 @@ export function FeaturedMapController({
 }: FeaturedMapControllerProps) {
   const map = useMap();
   const wasInitiatedRef = useRef(false);
-  const getHomeView = () => {
+  const getHomeView = useCallback(() => {
     if (initialHomeViewRef?.current) return initialHomeViewRef.current;
     return { center: HOME_PAGE_MAP_CENTER, zoom: DEFAULT_US_ZOOM };
-  };
+  }, [initialHomeViewRef]);
 
   // When user clicks HOME (featuredInitiated becomes false), fly back to default map view
   useEffect(() => {
@@ -59,7 +59,7 @@ export function FeaturedMapController({
     return () => {
       map.off('moveend', onMoveEnd);
     };
-  }, [map, featuredInitiated, programmaticFlyRef]);
+  }, [map, featuredInitiated, programmaticFlyRef, getHomeView]);
 
   useEffect(() => {
     if (!featuredInitiated) return;
@@ -171,6 +171,7 @@ export function FeaturedMapController({
     featuredCamera,
     featuredInitiated,
     programmaticFlyRef,
+    getHomeView,
   ]);
 
   return null;

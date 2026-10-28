@@ -48,7 +48,7 @@ function makeDetail({
           }
         : {},
     },
-  } as any;
+  } as never;
 }
 
 describe('FeaturedMapController camera precedence', () => {

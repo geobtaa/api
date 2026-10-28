@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { renderAnalytics as render } from '../utils/renderAnalytics';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { AnalyticsTestRouter } from '../utils/AnalyticsTestRouter';

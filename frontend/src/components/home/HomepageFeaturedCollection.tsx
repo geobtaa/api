@@ -114,7 +114,9 @@ function TiltedPreviewCard({
           <div className="pointer-events-none absolute -right-[6%] top-[-10%] h-[150%] w-[1px] rotate-[14deg] bg-white/20" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/75 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 bg-[#003C5B]/90 px-4 py-3 shadow-md backdrop-blur-[1px]">
-            <p className="text-sm font-semibold text-white">{featuredItemTitle}</p>
+            <p className="text-sm font-semibold text-white">
+              {featuredItemTitle}
+            </p>
           </div>
         </div>
       </a>
@@ -170,21 +172,11 @@ function CollectionPreview({
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-slate-700/80 bg-[#040b15] p-6 min-h-[220px]">
-      <div
-        className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_20%_20%,#1a5a73_0%,transparent_36%),radial-gradient(circle_at_80%_75%,#264f7b_0%,transparent_30%)]"
-      />
-      <div
-        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(58,79,110,0.22)_1px,transparent_1px),linear-gradient(rgba(58,79,110,0.2)_1px,transparent_1px)] bg-[size:36px_36px]"
-      />
-      <div
-        className="absolute left-[14%] top-[20%] h-[34%] w-[26%] rounded-lg border border-slate-600/80 bg-slate-900/70"
-      />
-      <div
-        className="absolute left-[44%] top-[35%] h-[38%] w-[32%] rounded-lg border border-slate-700/80 bg-slate-900/65"
-      />
-      <div
-        className="absolute right-[10%] top-[16%] h-[28%] w-[14%] rounded-lg border border-slate-700/80 bg-slate-900/70"
-      />
+      <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_20%_20%,#1a5a73_0%,transparent_36%),radial-gradient(circle_at_80%_75%,#264f7b_0%,transparent_30%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(58,79,110,0.22)_1px,transparent_1px),linear-gradient(rgba(58,79,110,0.2)_1px,transparent_1px)] bg-[size:36px_36px]" />
+      <div className="absolute left-[14%] top-[20%] h-[34%] w-[26%] rounded-lg border border-slate-600/80 bg-slate-900/70" />
+      <div className="absolute left-[44%] top-[35%] h-[38%] w-[32%] rounded-lg border border-slate-700/80 bg-slate-900/65" />
+      <div className="absolute right-[10%] top-[16%] h-[28%] w-[14%] rounded-lg border border-slate-700/80 bg-slate-900/70" />
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-4 py-3">
         <p className="text-sm font-medium text-white">{featuredItemTitle}</p>
       </div>
@@ -200,10 +192,7 @@ export function HomepageFeaturedCollection() {
           <h2 className="text-2xl font-semibold text-gray-900 sm:text-3xl">
             Featured Collections
           </h2>
-          <a
-            href={VIEW_ALL_COLLECTIONS_URL}
-            className={primaryCtaClass}
-          >
+          <a href={VIEW_ALL_COLLECTIONS_URL} className={primaryCtaClass}>
             View all collections
             <ArrowRight className="h-4 w-4" />
           </a>
@@ -245,10 +234,7 @@ export function HomepageFeaturedCollection() {
                   View collection record
                   <ExternalLink className="h-4 w-4" />
                 </a>
-                <a
-                  href={collection.browseUrl}
-                  className={primaryCtaClass}
-                >
+                <a href={collection.browseUrl} className={primaryCtaClass}>
                   {collection.browseLabel}
                   <ArrowRight className="h-4 w-4" />
                 </a>

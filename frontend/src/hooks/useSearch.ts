@@ -28,24 +28,15 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchField = searchParams.get('search_field') || 'all_fields';
   const searchParamsKey = searchParams.toString();
-  // Parse search parameters and memoize facets to prevent infinite loops
-  const {
-    query,
-    page,
-    facets: rawFacets,
-    excludeFacets: rawExclude,
-    advancedQuery: rawAdvanced,
-  } = parseSearchParams(searchParams);
-  const facetsString = JSON.stringify(rawFacets);
-  const facets = useMemo(() => rawFacets, [facetsString]);
-  const excludeString = JSON.stringify(rawExclude || []);
-  const excludeFacets = useMemo(() => rawExclude || [], [excludeString]);
-  const advancedString = JSON.stringify(rawAdvanced || []);
-  const advancedQuery = useMemo(
-    () => rawAdvanced || [],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawAdvanced?.length, advancedString]
-  );
+  // Parse once per URL, keeping all filter arrays stable between renders.
+  const { query, page, facets, excludeFacets, advancedQuery } = useMemo(() => {
+    const parsed = parseSearchParams(new URLSearchParams(searchParamsKey));
+    return {
+      ...parsed,
+      excludeFacets: parsed.excludeFacets ?? [],
+      advancedQuery: parsed.advancedQuery ?? [],
+    };
+  }, [searchParamsKey]);
 
   useEffect(() => {
     let isCurrentRequest = true;
