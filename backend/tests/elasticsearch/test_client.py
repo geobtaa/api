@@ -15,7 +15,11 @@ pytestmark = pytest.mark.xdist_group(name="elasticsearch_client")
 load_dotenv(".env.test")
 
 # Get the test index name from environment variables
-TEST_INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX", "data_api_test")
+TEST_INDEX_NAME = (
+    os.getenv("ELASTICSEARCH_INDEX", "data_api_test")
+    + "_client_"
+    + os.getenv("PYTEST_XDIST_WORKER", "serial")
+)
 
 # Use the ELASTICSEARCH_URL from .env file or default to localhost
 ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
@@ -114,6 +118,7 @@ async def test_init_elasticsearch_success(es_client, monkeypatch):
     """Test successful initialization of Elasticsearch."""
     # Monkeypatch the global ES client to use our test client
     monkeypatch.setattr(es_client_mod, "es", es_client)
+    monkeypatch.setenv("ELASTICSEARCH_INDEX", TEST_INDEX_NAME)
 
     try:
         # Call the function
@@ -136,6 +141,7 @@ async def test_init_elasticsearch_index_exists(es_client, monkeypatch):
     """Test initialization when index already exists."""
     # Monkeypatch the global ES client to use our test client
     monkeypatch.setattr(es_client_mod, "es", es_client)
+    monkeypatch.setenv("ELASTICSEARCH_INDEX", TEST_INDEX_NAME)
 
     try:
         # Delete the index if it exists

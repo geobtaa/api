@@ -102,7 +102,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
           cache-dependency-path: |
             backend/pyproject.toml
@@ -110,8 +110,9 @@ jobs:
 
       - name: Install backend dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e "backend[dev]"
+          python -m pip install uv
+          uv sync --project backend --locked --extra dev --python 3.12
+          echo "$GITHUB_WORKSPACE/backend/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Prepare backend test database
         working-directory: backend
@@ -152,7 +153,7 @@ jobs:
         run: |
           python scripts/run_with_timeout.py \
             python -X faulthandler -m pytest \
-            -n 2 \
+            -n 2 --dist=loadgroup \
             -m "not network" \
             --cov=app \
             --cov-report=term-missing \
