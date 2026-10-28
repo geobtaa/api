@@ -588,3 +588,8 @@ following axe's `resultTypes` performance guidance, to avoid generating unused
 selectors for thousands of passing report cells. Report behavior and exhaustive
 report/period audits use separate test files; real navigation layout accessibility
 is covered by its component suite. No report/period case is excluded.
+
+Exhaustive full-report WCAG audits have a bounded 120-second per-report budget
+because all-time tables can exceed 60 seconds under coverage on shared CPUs.
+Interaction tests retain their 30-second budget. These time limits do not exclude
+records, periods, nodes, or WCAG rules from evaluation.
