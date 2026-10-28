@@ -319,7 +319,7 @@ function HomeMapResetListener({
 }
 
 /**
- * Interactive MapLibre hex map with a stable US-centered initial camera.
+ * Interactive MapLibre hex map with the production hero camera offset.
  * Hovering a hex shows a glowing blue border; clicking a hex searches its bbox.
  * Featured resources carousel at bottom; when an item is active, map flies to its bbox and shows a preview card.
  */
