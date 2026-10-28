@@ -1,95 +1,7 @@
 import { reactRouter } from '@react-router/dev/vite';
 import { existsSync } from 'node:fs';
-import { readdir, readFile } from 'node:fs/promises';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig } from 'vite';
 import path from 'node:path';
-
-const ogmViewerAssetsDirectory = path.resolve(
-  __dirname,
-  'node_modules/ogm-viewer/dist/components/assets'
-);
-const ogmViewerAssetDirectory = 'ogm-viewer';
-const ogmViewerAssetBase = `/${ogmViewerAssetDirectory}/`;
-
-async function assetFiles(directory: string, prefix = ''): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = await Promise.all(
-    entries.map(async (entry) => {
-      const relativePath = path.join(prefix, entry.name);
-      return entry.isDirectory()
-        ? assetFiles(path.join(directory, entry.name), relativePath)
-        : [relativePath];
-    })
-  );
-
-  return files.flat();
-}
-
-function ogmViewerAssets(): Plugin {
-  let isBuild = false;
-  let isSsrBuild = false;
-
-  return {
-    name: 'ogm-viewer-assets',
-    configResolved(config) {
-      isBuild = config.command === 'build';
-      isSsrBuild = Boolean(config.build.ssr);
-    },
-    configureServer(server) {
-      server.middlewares.use(async (request, response, next) => {
-        const assetPrefix = `${ogmViewerAssetBase}assets/`;
-        const requestPath = request.url?.split('?', 1)[0];
-
-        if (!requestPath?.startsWith(assetPrefix)) return next();
-
-        const relativePath = decodeURIComponent(
-          requestPath.slice(assetPrefix.length)
-        );
-        if (relativePath.split('/').includes('..')) return next();
-
-        try {
-          const source = await readFile(
-            path.join(ogmViewerAssetsDirectory, relativePath)
-          );
-          const contentTypes: Record<string, string> = {
-            '.css': 'text/css; charset=utf-8',
-            '.ico': 'image/x-icon',
-            '.json': 'application/json; charset=utf-8',
-            '.svg': 'image/svg+xml',
-          };
-
-          response.statusCode = 200;
-          response.setHeader(
-            'Content-Type',
-            contentTypes[path.extname(relativePath)] ??
-              'application/octet-stream'
-          );
-          response.setHeader('Cache-Control', 'no-cache');
-          response.end(source);
-        } catch {
-          next();
-        }
-      });
-    },
-    async buildStart() {
-      if (!isBuild || isSsrBuild) return;
-
-      for (const relativePath of await assetFiles(ogmViewerAssetsDirectory)) {
-        this.emitFile({
-          type: 'asset',
-          fileName: path.posix.join(
-            ogmViewerAssetDirectory,
-            'assets',
-            relativePath.split(path.sep).join('/')
-          ),
-          source: await readFile(
-            path.join(ogmViewerAssetsDirectory, relativePath)
-          ),
-        });
-      }
-    },
-  };
-}
 
 // https://vitejs.dev/config/
 // Force restart: 1
@@ -114,7 +26,6 @@ export default defineConfig({
         }
       },
     },
-    ogmViewerAssets(),
     reactRouter({
       // React Router v7 configuration
       // Server-side rendering enabled by default
@@ -175,7 +86,6 @@ export default defineConfig({
       // Keep it out of Vite's dev prebundle so those URLs retain the package path.
       'ogm-viewer',
       'ogm-viewer/lib',
-      'ogm-viewer/components/p-BbMGvQFJ.js',
     ],
     include: ['react-helmet-async', 'h3-js'],
   },

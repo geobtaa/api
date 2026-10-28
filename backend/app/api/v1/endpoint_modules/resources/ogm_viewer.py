@@ -56,14 +56,14 @@ async def get_resource_viewer(
 </head>
 <body>
     <div class="viewer-container">
-        <ogm-viewer 
+        <ogm-viewer light-basemap="https://tiles.openfreemap.org/styles/liberty" dark-basemap="https://tiles.openfreemap.org/styles/dark"
             record-url="{escaped_record_url}"
             >
         </ogm-viewer>
     </div>
-    
+
     <!-- Load the OGM Viewer web component -->
-    <script type="module" src="https://unpkg.com/ogm-viewer"></script>
+    <script type="module" src="https://unpkg.com/ogm-viewer@1.6.0"></script>
 </body>
 </html>
 """

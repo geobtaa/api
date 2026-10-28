@@ -155,3 +155,12 @@ dragging, and touch interactions remain available.
 Resource source links are native anchors, supporting URL previews, copy-link,
 and modifier clicks. Multiple source URLs are displayed individually. Web
 Services, Metadata, and Open in ArcGIS retain their selection dialogs.
+
+### OGM Viewer basemaps
+
+The resource viewer uses pinned `ogm-viewer` 1.6.0 with explicit OpenFreeMap Liberty
+and Dark styles. Version 1.x bundles its theme and icons; the application no longer
+copies viewer assets or imports private hashed asset-loader modules. Vite retains
+ES module worker output for COG decoding. The standalone backend viewer pins the
+same package version and basemap styles. Other geographic surfaces still use their
+existing mapping implementation pending migration.
