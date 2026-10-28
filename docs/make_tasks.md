@@ -320,3 +320,6 @@ operations documentation.
 Without `ARCHIVES`, generation is limited to report integrity and arithmetic and
 cannot replace archive-backed evidence. See the
 [report evidence contract](frontend/analytics-runtime-reporting.md#report-evidence-packets).
+
+Local Native map rendering: `make native-map-start` starts its compatible Linux
+renderer; `make native-map-test` runs camera tests inside that container.

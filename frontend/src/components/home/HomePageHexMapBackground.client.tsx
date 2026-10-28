@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Home, Pause, Play, X } from 'lucide-react';
-import { MapContainer, Rectangle, useMap, ZoomControl } from 'react-leaflet';
+import {
+  MapContainer,
+  Rectangle,
+  useMap,
+  ZoomControl,
+} from '../../mapping/react';
 import Cookies from 'js-cookie';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+import L from '../../mapping/maplibre';
+
 import { MapUpdaterHex, type HexBoundingBox } from '../map/MapUpdaterHex';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { BboxRectangleSelector } from '../map/BboxRectangleSelector';
-import { leafletGestureMapOptions } from '../../config/leafletConfig';
+import { mapInteractionOptions } from '../../config/mapConfig';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
 import { FEATURED_ITEMS } from '../../config/featured';
 import { fetchFeaturedResourcePreview } from '../../services/api';
@@ -26,8 +30,6 @@ import { FeaturedMapController } from './FeaturedMapController';
 import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
 import { MapGeosearchControl } from '../map/MapGeosearchControl';
-
-registerLeafletGestureHandling(L);
 
 /** Route API thumbnail URLs through app paths for SSR/relative requests. */
 const IMMUTABLE_THUMBNAIL_PATH_RE = /^\/api\/v1\/thumbnails\/[0-9a-f]{64}$/i;
@@ -498,7 +500,7 @@ export function HomePageHexMapBackground() {
   return (
     <div className="absolute inset-0 z-0">
       <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }
-.homepage-map .leaflet-top.leaflet-left { top: 1rem; }`}</style>
+.homepage-map .maplibregl-ctrl-top-left { top: 1rem; }`}</style>
       <p className="sr-only">
         For a list of hex data, use the hex table button in the bottom-left
         corner of the map.
@@ -518,8 +520,7 @@ export function HomePageHexMapBackground() {
           touchZoom={true}
           keyboard={true}
           attributionControl={true}
-          zoomAnimationThreshold={1}
-          {...leafletGestureMapOptions}
+          {...mapInteractionOptions}
         >
           <ZoomControl position="topleft" />
           <MapGeosearchControl />

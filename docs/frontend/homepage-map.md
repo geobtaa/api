@@ -8,7 +8,7 @@ The homepage features an interactive Leaflet map that combines three main elemen
 2. **Featured Resources Carousel** — Curated examples that showcase different resource types and previews
 3. **Search Here** — Button to search within the current map extent (appears after user pan/zoom)
 
-The map defaults to an OpenStreetMap basemap and is centered south of the continental US so North America appears beneath the search form. Chicago (a dense hex cluster) is positioned for visual prominence via an initial programmatic pan. Interactive basemap pickers also offer Esri World Imagery.
+The map defaults to OpenFreeMap Liberty and is centered south of the continental US so North America appears beneath the search form. Chicago (a dense hex cluster) is positioned for visual prominence via an initial programmatic pan. Interactive basemap pickers also offer OpenFreeMap Bright and Dark.
 
 ---
 
@@ -79,8 +79,8 @@ Featured items are defined in `frontend/src/config/featured.ts`. Each ID corresp
 - **Map fly**: The map flies to the active item's `dcat_bbox`. Allmaps items use tighter zoom (maxZoom 12, padding 20); others use maxZoom 10, padding 60.
 - **Bounds rectangle**: A blue outline and semi-transparent fill show the resource extent.
 - **Preview layer**:
-  - **GeoBlacklight** (WMS, WMTS, ArcGIS, XYZ, etc.): Renders the layer via GeoBlacklight Leaflet layers.
-  - **Allmaps**: Uses `@allmaps/leaflet` `WarpedMapLayer` to display georeferenced IIIF maps from the Allmaps annotation URL.
+  - **OGM Viewer** (WMS, WMTS, ArcGIS, XYZ, etc.): Attaches OGM Viewer MapLibre previewers to the shared map.
+  - **Allmaps**: Uses `@allmaps/maplibre` `WarpedMapLayer` to display georeferenced IIIF maps from the Allmaps annotation URL.
 - **Popup card**: Title, description, year, resource class, thumbnail, and "View resource" link.
 
 ### User Engagement
@@ -91,9 +91,9 @@ The map tracks whether the user has panned or zoomed. If they do before the 10-s
 
 ## Preview Layer Types
 
-### GeoBlacklight (Leaflet) Resources
+### OGM Viewer Resources
 
-Supported protocols: WMS, WMTS, ArcGIS (dynamic, feature, tiled, image), Tile JSON, Open Index Map, TMS, XYZ. The `FeaturedItemPreviewLayer` uses `meta.ui.viewer` (protocol, endpoint, geometry) and dynamically loads the appropriate GeoBlacklight layer.
+Supported protocols: WMS, WMTS, ArcGIS (dynamic, feature, tiled, image), Tile JSON, Open Index Map, TMS, XYZ. The `FeaturedItemPreviewLayer` normalizes the Aardvark record, derives resources and previewers through `ogm-viewer/lib`, and attaches the first geographic preview to the shared MapLibre map.
 
 ### Allmaps Georeferenced Maps
 
@@ -103,7 +103,7 @@ Resources with entries in the `resource_allmaps` table (where `annotated = true`
 - `allmaps_annotated` — Whether georeferencing exists
 - `allmaps_manifest_uri` — IIIF manifest URL
 
-The frontend creates a `WarpedMapLayer` from `@allmaps/leaflet` using the annotation URL. Allmaps uses WebGL to warp IIIF images onto their geographic position. See [Allmaps Leaflet docs](https://allmaps.org/docs/packages/leaflet/).
+The frontend creates a `WarpedMapLayer` from `@allmaps/maplibre` using the annotation URL. Allmaps uses WebGL to warp IIIF images onto their geographic position. See [Allmaps MapLibre docs](https://allmaps.org/docs/packages/maplibre/).
 
 ---
 

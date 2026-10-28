@@ -43,7 +43,7 @@ The frontend stack currently uses:
 - TypeScript, Vite 7, and React Router dev tooling.
 - Vitest 3, Testing Library, `happy-dom`, axe, and pa11y for tests and
   accessibility checks.
-- Material UI 7, Tailwind, Leaflet, `ogm-viewer`, GeoBlacklight Leaflet layers
+- Material UI 7, Tailwind, MapLibre, `ogm-viewer`, Allmaps MapLibre layers
   for homepage previews, Allmaps, H3, Recharts, and Lucide icons.
 
 ## Unfiltered Search
@@ -149,7 +149,7 @@ instead of invalidating dependency URLs while the page loads.
 
 PMTiles previews require Ctrl or Command plus scroll to zoom, leaving ordinary
 scrolling available for the page. Unmodified scrolling briefly displays a centered
-Leaflet-style instruction over a dimmed map (Command on Mac, Ctrl elsewhere); zoom buttons,
+MapLibre cooperative-gesture instruction (Command on Mac, Ctrl elsewhere); zoom buttons,
 dragging, and touch interactions remain available.
 
 Resource source links are native anchors, supporting URL previews, copy-link,
@@ -162,5 +162,13 @@ The resource viewer uses pinned `ogm-viewer` 1.6.0 with explicit OpenFreeMap Lib
 and Dark styles. Version 1.x bundles its theme and icons; the application no longer
 copies viewer assets or imports private hashed asset-loader modules. Vite retains
 ES module worker output for COG decoding. The standalone backend viewer pins the
-same package version and basemap styles. Other geographic surfaces still use their
-existing mapping implementation pending migration.
+same package version and basemap styles. Application geographic maps use the
+shared MapLibre primitives in `frontend/src/mapping`. The resource-page Allmaps
+viewer remains the official embedded viewer; specialist IIIF viewers are retained.
+They preserve the existing latitude/longitude and legacy 256-pixel zoom contracts
+at the application boundary, converting once to MapLibre longitude/latitude and
+512-pixel zoom. GeoJSON collections share a source and use feature state for hover.
+Homepage protocol previews use OGM Viewer previewers and Allmaps MapLibre layers.
+
+The frontend Docker image uses Node 22 and installs the committed lockfile with
+`npm ci --legacy-peer-deps`, matching the MapLibre dependency runtime requirements.

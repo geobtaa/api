@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
-import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
+import { GeoJSON, useMap, useMapEvents } from '../../mapping/react';
 import { cellToBoundary } from 'h3-js';
 import {
   h3CellGeometry,
@@ -112,8 +113,8 @@ export function MapUpdaterHex({
   const map = useMap();
   const [bbox, setBbox] = useState<string | null>(null);
   const hoveredRef = useRef<{
-    layer: L.Path;
-    defaultStyle: L.PathOptions;
+    layer: MapTypes.Path;
+    defaultStyle: MapTypes.PathOptions;
   } | null>(null);
   const prevHoveredHexRef = useRef<HexHoverData | null | undefined>(undefined);
 
@@ -216,7 +217,7 @@ export function MapUpdaterHex({
 
   const fc = { type: 'FeatureCollection' as const, features };
 
-  // react-leaflet GeoJSON does not update when data changes; key forces remount so hexes redraw
+  // The GeoJSON component mounts its source once; key forces remount so hexes redraw
   const geoKey = `${bbox ?? ''}-${resolution}-${features.length}`;
 
   return (
@@ -284,7 +285,7 @@ export function MapUpdaterHex({
           if (prev && prev.layer !== layer) {
             prev.layer.setStyle(prev.defaultStyle);
           }
-          const pathLayer = layer as L.Path;
+          const pathLayer = layer as MapTypes.Path;
           pathLayer.setStyle(hoverStyle);
           pathLayer.bringToFront();
           hoveredRef.current = { layer: pathLayer, defaultStyle };
@@ -298,7 +299,7 @@ export function MapUpdaterHex({
             onHexHover?.(null);
           }
         });
-        layer.on('click', (event: L.LeafletMouseEvent) => {
+        layer.on('click', (event: MapTypes.LeafletMouseEvent) => {
           if (event.originalEvent.ctrlKey || event.originalEvent.metaKey) {
             return;
           }

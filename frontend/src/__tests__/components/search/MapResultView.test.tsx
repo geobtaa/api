@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import L from 'leaflet';
-import OverlappingMarkerSpiderfier from '@krozamdev/overlapping-marker-spiderfier';
+import L from '../../../mapping/maplibre';
+import type * as MapTypes from '../../../mapping/maplibre';
+import OverlappingMarkerSpiderfier from '../../../mapping/spiderfier';
 import {
   MapProvider,
   useMap as useMapContext,
@@ -11,7 +12,7 @@ import { MapResultView } from '../../../components/search/MapResultView.client';
 import type { GeoDocument } from '../../../types/api';
 
 interface MockOmsInstance {
-  markers: L.Marker[];
+  markers: MapTypes.Marker[];
   addMarker: ReturnType<typeof vi.fn>;
   addListener: ReturnType<typeof vi.fn>;
   removeListener: ReturnType<typeof vi.fn>;
@@ -33,13 +34,13 @@ const mockMap = {
   eachLayer: vi.fn(),
   on: vi.fn(),
   off: vi.fn(),
-  latLngToLayerPoint: vi.fn((latLng: L.LatLng) =>
+  latLngToLayerPoint: vi.fn((latLng: MapTypes.LatLng) =>
     L.point(latLng.lng * 100, latLng.lat * 100)
   ),
 };
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
-vi.mock('react-leaflet', () => ({
+vi.mock('../../../mapping/react', () => ({
   MapContainer: ({
     children,
     gestureHandling,
@@ -61,17 +62,18 @@ vi.mock('react-leaflet', () => ({
   useMap: () => mockMap,
 }));
 
-vi.mock('@krozamdev/overlapping-marker-spiderfier', () => ({
+vi.mock('../../../mapping/spiderfier', () => ({
   default: vi.fn().mockImplementation(function OverlappingMarkerSpiderfier() {
     const instance = {
-      markers: [] as L.Marker[],
+      markers: [] as MapTypes.Marker[],
       addMarker: vi.fn(),
       addListener: vi.fn(),
       removeListener: vi.fn(),
       clearMarkers: vi.fn(),
+      destroy: vi.fn(),
       unspiderfy: vi.fn(),
     };
-    instance.addMarker.mockImplementation((marker: L.Marker) => {
+    instance.addMarker.mockImplementation((marker: MapTypes.Marker) => {
       instance.markers.push(marker);
       return instance;
     });
@@ -199,14 +201,14 @@ function MapStateProbe() {
 function getOmsListener(
   oms: MockOmsInstance,
   eventName: string
-): (marker: L.Marker) => void {
+): (marker: MapTypes.Marker) => void {
   const listener = oms.addListener.mock.calls.find(
     ([event]) => event === eventName
   )?.[1];
   if (typeof listener !== 'function') {
     throw new Error(`Missing ${eventName} listener`);
   }
-  return listener as (marker: L.Marker) => void;
+  return listener as (marker: MapTypes.Marker) => void;
 }
 
 describe('MapResultView', () => {
@@ -280,8 +282,7 @@ describe('MapResultView', () => {
         expect(mockOmsInstances[0]?.markers).toHaveLength(2);
       });
 
-      const icon = mockOmsInstances[0].markers[0].options.icon as L.DivIcon;
-      const iconHtml = String(icon.options.html);
+      const iconHtml = mockOmsInstances[0].markers[0].getElement()!.innerHTML;
       expect(iconHtml).toContain('>11.</span>');
       expect(iconHtml).toContain('rotate(-45deg)');
       expect(iconHtml).not.toContain('translateX(-50%) rotate(45deg)');
@@ -500,4 +501,34 @@ describe('MapResultView', () => {
       expect(screen.queryByText('No mappable results')).not.toBeInTheDocument();
     });
   });
+});
+
+vi.mock('../../../mapping/maplibre', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../../mapping/maplibre')>();
+  const marker = (...args: Parameters<typeof actual.marker>) => {
+    const m = actual.marker(...args);
+    m.addTo = vi.fn(() => m);
+    return m;
+  };
+  const geoJSON = (...args: Parameters<typeof actual.geoJSON>) => {
+    const g = actual.geoJSON(...args);
+    g.addTo = vi.fn((map) => {
+      map.addLayer(g);
+      return g;
+    });
+    return g;
+  };
+  const rectangle = (...args: Parameters<typeof actual.rectangle>) => {
+    const r = actual.rectangle(...args);
+    r.addTo = vi.fn((map) => {
+      map.addLayer(r);
+      return r;
+    });
+    return r;
+  };
+  return {
+    ...actual,
+    default: { ...actual.default, marker, geoJSON, rectangle },
+  };
 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { MapContainer, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { MapContainer, useMap } from '../../mapping/react';
+
 import type { GeoDocument } from '../../types/api';
 import {
   geometryToLeafletFeatures,
@@ -9,14 +9,12 @@ import {
   getHoverGeometryForResult,
   type Bounds,
 } from '../../utils/geometryUtils';
-import L from 'leaflet';
-import OverlappingMarkerSpiderfier from '@krozamdev/overlapping-marker-spiderfier';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
+import OverlappingMarkerSpiderfier from '../../mapping/spiderfier';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
-import { leafletGestureMapOptions } from '../../config/leafletConfig';
-import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+import { mapInteractionOptions } from '../../config/mapConfig';
 import { useMap as useMapContext } from '../../context/MapContext';
-
-registerLeafletGestureHandling(L);
 
 interface MapResultViewProps {
   results: GeoDocument[];
@@ -81,8 +79,8 @@ const HighlightOverlayController: React.FC<{
   highlightedResourceId: string | null;
 }> = ({ highlightedGeometry, highlightedResourceId }) => {
   const map = useMap();
-  const geoJsonRef = useRef<L.GeoJSON | null>(null);
-  const rectRef = useRef<L.Rectangle | null>(null);
+  const geoJsonRef = useRef<MapTypes.GeoJSON | null>(null);
+  const rectRef = useRef<MapTypes.Rectangle | null>(null);
 
   useEffect(() => {
     const removeLayers = () => {
@@ -210,7 +208,7 @@ const MapInitialFitController: React.FC<{
 };
 
 /** Create a numbered map pin icon with an upright result number. */
-function createNumberedPinIcon(resultNumber: number): L.DivIcon {
+function createNumberedPinIcon(resultNumber: number): MapTypes.DivIcon {
   const size = 26;
   const label = `${resultNumber}.`;
   const textSize = label.length >= 4 ? 9 : label.length === 3 ? 10 : 11;
@@ -262,7 +260,7 @@ function createNumberedPinIcon(resultNumber: number): L.DivIcon {
 
 /** Entry for each marker so we can update icon/z-index on highlight */
 interface MarkerEntry {
-  marker: L.Marker;
+  marker: MapTypes.Marker;
   resourceId: string;
 }
 
@@ -312,7 +310,7 @@ const SpiderfiedMarkers: React.FC<{
     typeof OverlappingMarkerSpiderfier
   > | null>(null);
   const entriesRef = useRef<MarkerEntry[]>([]);
-  const markerDataRef = useRef<Map<L.Marker, PinData>>(new Map());
+  const markerDataRef = useRef<Map<MapTypes.Marker, PinData>>(new Map());
   const highlightedResourceIdRef = useRef(highlightedResourceId);
   highlightedResourceIdRef.current = highlightedResourceId;
   const selectedResourceIdRef = useRef(selectedResourceId);
@@ -326,7 +324,7 @@ const SpiderfiedMarkers: React.FC<{
 
     const popup = L.popup();
     const handleMarkerClick = (
-      marker: L.Marker & { _popupContent?: HTMLElement }
+      marker: MapTypes.Marker & { _popupContent?: HTMLElement }
     ) => {
       const pin = markerDataRef.current.get(marker);
       if (!pin) return;
@@ -359,7 +357,7 @@ const SpiderfiedMarkers: React.FC<{
     return () => {
       oms.removeListener('click', handleMarkerClick);
       oms.removeListener('unspiderfy', refreshMarkerPresentations);
-      oms.clearMarkers();
+      oms.destroy();
       markerDataRef.current.clear();
       if (omsRef.current === oms) {
         omsRef.current = null;
@@ -381,7 +379,7 @@ const SpiderfiedMarkers: React.FC<{
       return;
     }
 
-    const markerData = new Map<L.Marker, PinData>();
+    const markerData = new Map<MapTypes.Marker, PinData>();
     markerDataRef.current = markerData;
     const entries: MarkerEntry[] = [];
     pins.forEach((p) => {
@@ -411,8 +409,9 @@ const SpiderfiedMarkers: React.FC<{
       detailsLink.textContent = 'View Details';
 
       container.append(resultLabel, title, idLabel, detailsLink);
-      (marker as L.Marker & { _popupContent?: HTMLElement })._popupContent =
-        container;
+      (
+        marker as MapTypes.Marker & { _popupContent?: HTMLElement }
+      )._popupContent = container;
 
       marker.on('mouseover', () => {
         setHoveredResourceSource('map');
@@ -557,7 +556,7 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
         center={[0, 0]}
         zoom={2}
         className="h-full w-full"
-        {...leafletGestureMapOptions}
+        {...mapInteractionOptions}
       >
         <BasemapSwitcherControl />
 
