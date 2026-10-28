@@ -22,6 +22,10 @@ export async function axeWithWCAG22(
 ) {
   return axe(element, {
     runOnly: WCAG_22_RUN_ONLY,
+    // Evaluate every rule/node, but avoid generating selectors for thousands of
+    // passing table cells. Keep full violation and manual-review diagnostics.
+    // https://github.com/dequelabs/axe-core/blob/develop/doc/API.md#use-resulttypes
+    resultTypes: ['violations', 'incomplete'],
     ...options,
   });
 }
