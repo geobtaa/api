@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Home, Pause, Play, X } from 'lucide-react';
 import {
@@ -100,6 +100,8 @@ function MapUserEngagementTracker({
   return null;
 }
 
+const ignoreFeatureClick = () => {};
+
 const FEATURED_BOUNDS_PANE = 'featuredBoundsPane';
 const FEATURED_ITEM_DURATION_MS = 10_000;
 const FEATURED_PROGRESS_TICK_MS = 100;
@@ -141,7 +143,7 @@ function useFeaturedBoundsPane() {
 }
 
 /** Renders the active featured item's bounding box on the map when featured is initiated and the active item has a bbox. */
-function FeaturedItemBoundsLayer({
+const FeaturedItemBoundsLayer = memo(function FeaturedItemBoundsLayer({
   activeIndex,
   featuredDetails,
   featuredInitiated,
@@ -169,7 +171,7 @@ function FeaturedItemBoundsLayer({
       }}
     />
   );
-}
+});
 
 function buildBboxSearchUrl(bbox: HexBoundingBox, relation = 'intersects') {
   const envelope = normalizeBboxSearchEnvelope(
@@ -562,7 +564,7 @@ export function HomePageHexMapBackground() {
             <>
               <MapUpdaterHex
                 searchQuery=""
-                onFeatureClick={() => {}}
+                onFeatureClick={ignoreFeatureClick}
                 onHexClick={handleHexClick}
                 onHexHover={handleHexHover}
                 onHexData={handleHexData}
