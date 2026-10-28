@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import L from '../../mapping/maplibre';
 import type * as MapTypes from '../../mapping/maplibre';
 import { GeoJSON, useMap, useMapEvents } from '../../mapping/react';
@@ -81,7 +81,7 @@ function getColor(intensity: number): string {
 }
 
 export type HexHoverData = { h3: string; count: number; resolution: number };
-export function MapUpdaterHex({
+export const MapUpdaterHex = memo(function MapUpdaterHex({
   searchQuery,
   onFeatureClick,
   onHexClick,
@@ -111,7 +111,10 @@ export function MapUpdaterHex({
   queryString?: string;
 }) {
   const map = useMap();
-  const [bbox, setBbox] = useState<string | null>(null);
+  const [{ bbox, zoom }, setViewport] = useState(() => ({
+    bbox: null as string | null,
+    zoom: map.getZoom(),
+  }));
   const hoveredRef = useRef<{
     layer: MapTypes.Path;
     defaultStyle: MapTypes.PathOptions;
@@ -120,7 +123,18 @@ export function MapUpdaterHex({
 
   const updateBbox = useCallback(() => {
     const b = map.getBounds();
-    setBbox(clampBbox(b.getWest(), b.getSouth(), b.getEast(), b.getNorth()));
+    const bbox = clampBbox(
+      b.getWest(),
+      b.getSouth(),
+      b.getEast(),
+      b.getNorth()
+    );
+    const zoom = map.getZoom();
+    setViewport((previous) =>
+      previous.bbox === bbox && previous.zoom === zoom
+        ? previous
+        : { bbox, zoom }
+    );
   }, [map]);
 
   useMapEvents({
@@ -132,7 +146,6 @@ export function MapUpdaterHex({
     map.whenReady(() => updateBbox());
   }, [map, updateBbox]);
 
-  const zoom = map.getZoom();
   const resolution = zoomToResolution(zoom);
   // Skip global (null bbox) request at low zoom: it can be cached empty. Wait for moveend to set bbox.
   const useGlobalRequest = zoom <= ZOOM_GLOBAL_THRESHOLD && bbox === null;
@@ -320,4 +333,4 @@ export function MapUpdaterHex({
       }}
     />
   );
-}
+});
