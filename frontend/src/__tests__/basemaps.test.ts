@@ -8,7 +8,13 @@ import {
 afterEach(() => Cookies.remove('preferred_basemap'));
 describe('OpenFreeMap basemap selection', () => {
   it('offers only OpenFreeMap styles', () => {
-    expect(getAvailableBasemapKeys()).toEqual(['liberty', 'bright', 'dark']);
+    expect(getAvailableBasemapKeys()).toEqual([
+      'liberty',
+      'bright',
+      'positron',
+      'dark',
+      'fiord',
+    ]);
     for (const url of Object.values(BASEMAP_STYLES))
       expect(new URL(url).hostname).toBe('tiles.openfreemap.org');
   });
@@ -49,8 +55,17 @@ it('keeps the compact layers button and opens basemap choices on demand', async 
     expect(screen.queryByRole('combobox')).toBeNull();
     const button = screen.getByRole('button', { name: 'Change basemap' });
     expect(button).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.mouseEnter(button.parentElement!);
-    fireEvent.click(button);
+    const control = button.parentElement!;
+    fireEvent.mouseEnter(control);
+    const panel = screen.getByRole('radiogroup', { name: 'Basemap style' });
+    expect(button).not.toBeVisible();
+    expect(panel.style.position).not.toBe('absolute');
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect(screen.getByLabelText('OpenFreeMap Positron')).toBeVisible();
+    expect(screen.getByLabelText('OpenFreeMap Fiord')).toBeVisible();
+    fireEvent.mouseLeave(control, { relatedTarget: panel });
+    expect(panel).toBeVisible();
+    fireEvent.mouseEnter(panel);
     expect(
       screen.getByRole('radiogroup', { name: 'Basemap style' })
     ).toBeVisible();
@@ -61,6 +76,14 @@ it('keeps the compact layers button and opens basemap choices on demand', async 
       expect.objectContaining({ center: [-90, 40], zoom: 4 })
     );
     expect(getSavedBasemapKey()).toBe('dark');
+    expect(button).toBeVisible();
+    fireEvent.mouseEnter(control);
+    fireEvent.mouseLeave(control, { relatedTarget: document.body });
+    expect(panel).not.toBeVisible();
+    fireEvent.click(button);
+    expect(panel).toBeVisible();
+    fireEvent.keyDown(control, { key: 'Escape' });
+    expect(panel).not.toBeVisible();
   } finally {
     cleanup();
     vi.unstubAllGlobals();

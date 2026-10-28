@@ -8,7 +8,7 @@ The homepage features an interactive Leaflet map that combines three main elemen
 2. **Featured Resources Carousel** — Curated examples that showcase different resource types and previews
 3. **Search Here** — Button to search within the current map extent (appears after user pan/zoom)
 
-The map defaults to OpenFreeMap Liberty and matches the production camera: latitude 44, longitude -80, offset 400 pixels east at legacy zoom 3. This resolves to an initial center of (44, -9.6875), keeping the US cluster left of center. The offset is applied to the initial camera rather than generating a startup pan. Interactive basemap pickers also offer OpenFreeMap Bright and Dark. Loading, resizing, and basemap changes do not reveal the Search Here button or orange outline; the first user pan, zoom, or keyboard camera movement does. Returning Home clears the prompt.
+The map defaults to OpenFreeMap Liberty and matches the production camera: latitude 44, longitude -80, offset 400 pixels east at legacy zoom 3. This resolves to an initial center of (44, -9.6875), keeping the US cluster left of center. The offset is applied to the initial camera rather than generating a startup pan. Interactive basemap pickers offer OpenFreeMap Liberty, Bright, Positron, Dark, and Fiord (excluding 3D). The layers button expands in place into a continuous hover area, matching production. Loading, resizing, and basemap changes do not reveal the Search Here button or orange outline; the first user pan, zoom, or keyboard camera movement does. Returning Home clears the prompt.
 
 ---
 
