@@ -5,11 +5,20 @@ import {
   publishedMonths,
   latestMonth,
   selectedSnapshotPeriod,
+  selectedSummaryPeriod,
+  summaryHasThreeMonths,
 } from '../../config/analyticsPeriods';
 import { monthlySnapshots } from '../../data/analytics/september2026';
 import allTime from '../../data/analytics/allTimeCurrent.json';
 
 describe('monthly publication contract', () => {
+  it('offers three months when the cumulative aggregate covers exactly that window', () => {
+    expect(summaryHasThreeMonths).toBe(true);
+    expect(selectedSummaryPeriod(null)).toBe('3months');
+    expect(selectedSummaryPeriod('3months')).toBe('3months');
+    expect(selectedSummaryPeriod('2026-08')).toBe('2026-08');
+    expect(selectedSummaryPeriod('all')).toBe('all');
+  });
   it.each([null, '', 'invalid', '2026-13', '2029-01', 'ay-2026'])(
     'uses the latest snapshot for unsupported input %s',
     (input) => {

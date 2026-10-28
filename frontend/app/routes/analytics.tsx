@@ -14,6 +14,7 @@ import {
   type MetaFunction,
 } from 'react-router';
 import { RuntimeAnalyticsPage } from '../../src/components/analytics/RuntimeAnalyticsPage';
+import { SummaryAnalyticsPage } from '../../src/components/analytics/SummaryAnalyticsPage';
 import {
   analyticsReports,
   analyticsReportHref,
@@ -66,15 +67,17 @@ export const meta: MetaFunction<typeof loader> = ({ data }) =>
 
 export default function Analytics() {
   const [params] = useSearchParams();
-  const { snapshot } = useLoaderData<typeof loader>();
+  const { snapshot, report } = useLoaderData<typeof loader>();
+  const Page =
+    report.id === 'summary'
+      ? SummaryAnalyticsPage
+      : params.get('runtime') === '1' ||
+          import.meta.env.VITE_ANALYTICS_RUNTIME === 'true'
+        ? RuntimeAnalyticsPage
+        : AnalyticsPage;
   return (
     <AnalyticsDataContext.Provider value={snapshot}>
-      {params.get('runtime') === '1' ||
-      import.meta.env.VITE_ANALYTICS_RUNTIME === 'true' ? (
-        <RuntimeAnalyticsPage />
-      ) : (
-        <AnalyticsPage />
-      )}
+      <Page />
     </AnalyticsDataContext.Provider>
   );
 }

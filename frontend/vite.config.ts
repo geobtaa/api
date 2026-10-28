@@ -95,7 +95,18 @@ export default defineConfig({
       'geoblacklight/controllers/downloads_controller',
       'geoblacklight/controllers/clipboard_controller',
     ],
-    include: ['react-helmet-async', 'h3-js'],
+    // Route discovery can encounter these only after the browser starts loading.
+    // Pre-bundle them up front to avoid invalidating in-flight dependency URLs.
+    include: [
+      'react-helmet-async',
+      'h3-js',
+      'js-yaml',
+      'js-cookie',
+      '@marsidev/react-turnstile',
+      'recharts',
+      'leaflet',
+      '@hotwired/stimulus',
+    ],
   },
   ssr: {
     noExternal: ['react-helmet-async'],

@@ -876,3 +876,72 @@ API fields unchanged. Use everyday wording in visible summaries and keep
 technical definitions, identifiers, and evidence available in the report
 notes. Missing records are unavailable, never zero. Keep monthly and cumulative
 views consistent, and preserve precise limits on what verification establishes.
+
+### Summary tab
+
+Discovery activity shows Visits, Searches, and Resource views in three chart
+cards, stacked on smaller screens. Resource views sum the saved daily view
+counts for the selected period; incomplete daily coverage remains unavailable.
+
+`/analytics/summary` uses authenticated saved snapshots in a centered content
+column capped at 72rem. Its period picker offers published months and all time,
+with the latest three calendar months offered only while the published all-time aggregate
+matches that exact window. Summary defaults to that three-month window when
+available, otherwise to the latest published month. Older `month=3months` links
+also select the latest month when the shortcut is unavailable. This keeps visits
+and rankings populated after a fourth month is published without adding distinct
+visits or truncated rankings across months. The same period selection is used
+for the picker, report metadata, and displayed figures. Explicit period choices
+are saved in the URL. Query terms are hidden behind **Show query terms**;
+opening each list reveals all saved queries with their suggested category and
+search count. Each list closes when the period changes. Resource rankings show
+five entries by default and expand to up to 20. Outlinks and
+downloads show a period total and at most 12 vertical bars, with exact counts
+above the bars and a collapsible **Monthly values** list. Up to 12 months use
+monthly bars; 13–36 months use calendar quarters; longer periods use calendar
+years. A window touching more than 12 calendar quarters switches to years.
+Histories spanning more than 12 calendar years use consecutive groups of years
+to retain the whole period within 12 bars. The chart labels its grouping and
+marks incomplete quarters, years, or groups of years as partial. Missing monthly
+counts make the corresponding grouped count unavailable rather than zero.
+Popular resources use ranked titles and aligned click counts without bars.
+
+Most common and No-result searches each include a category pie chart and count
+legend above their term rankings, using the same category rules as the Searches
+report. Categories cover all saved leading queries for the selected period,
+including those in the collapsed term lists. Counts and percentages describe
+that saved sample, not all searches. Expanding a term list does not change the
+chart. Periods without matching rankings also have no category chart.
+
+- Visits use the period-wide distinct count; daily estimates are not additive.
+- Rankings require an aggregate matching the selected dates. Adding truncated
+  monthly rankings would produce incorrect totals and ordering.
+- Collection growth reuses the Members provider report's inventory and capture
+  date. Net and percentage changes compare the latest strictly earlier capture,
+  not the activity month. They include removals and publication changes.
+- Missing measurements remain unavailable, never zero. Download clicks do not
+  verify completed transfers.
+- Current saved Outlink counts and access percentages exclude
+  `licensed_access_click` events. Summary keeps a short note beside its access
+  totals explaining that the exclusion also affects resource rankings, using
+  plain language alongside the director-facing headings. The Content report
+  displays a temporary disclaimer in an amber callout until the
+  reporting aggregation includes them as outlinks and the historical snapshots
+  are regenerated from preserved data.
+
+## Experimental views and access clicks
+
+The Content tab includes **Views and access clicks** below its resource rankings.
+This experimental section and its temporary Licensed Access disclaimer were moved
+from Summary so that Summary stays focused on overall activity.
+
+Two five-record samples compare fewer and more access clicks per view, using
+only the saved leading-resource rows with at least 20 views. The current export
+contains 50 resources, not the whole catalog. Monthly snapshots lack the combined
+counts and show an unavailable state instead.
+
+Rows show views, outlinks, downloads, and combined clicks divided by views,
+formatted as a percentage. Rank by that ratio, then higher view count
+and resource ID for stable ties. The higher-ratio list requires a click. Ratios
+can exceed 100% and do not measure visit conversion or record quality. No new
+tracking or backend endpoint is introduced.
