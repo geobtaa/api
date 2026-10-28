@@ -12,7 +12,7 @@ vi.mock('../../../services/api', () => ({
     fetchNominatimSearchMock(...args),
 }));
 
-vi.mock('leaflet', () => ({
+vi.mock('../../../mapping/maplibre', () => ({
   default: {
     Control: {
       extend: (props: { onAdd: () => HTMLDivElement }) =>
@@ -50,7 +50,7 @@ describe('MapGeosearchControl', () => {
     vi.clearAllMocks();
     controlCorner.innerHTML = '';
     controlCorner.className = 'leaflet-top leaflet-left';
-    zoomControl.className = 'leaflet-control-zoom';
+    zoomControl.className = 'maplibregl-ctrl-group';
     controlCorner.appendChild(zoomControl);
     document.body.appendChild(controlCorner);
 
@@ -109,7 +109,7 @@ describe('MapGeosearchControl', () => {
     const toggleButton = screen.getByRole('button', {
       name: 'Search places on map',
     });
-    const controlContainer = toggleButton.closest('.leaflet-control');
+    const controlContainer = toggleButton.closest('.maplibregl-ctrl');
 
     expect(controlCorner.children[0]).toBe(zoomControl);
     expect(controlCorner.children[1]).toBe(controlContainer);

@@ -2,7 +2,6 @@ import React from "react";
 import { startTransition, StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { HydratedRouter } from "react-router/dom";
-import "../src/config/fixLeafletDefaultIcon";
 
 function removeInvalidDocumentElementChildren() {
   for (const child of Array.from(document.documentElement.children)) {

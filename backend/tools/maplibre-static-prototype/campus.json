@@ -1,0 +1,12 @@
+{
+  "style": "https://tiles.openfreemap.org/styles/liberty",
+  "id": "institution:indiana-university",
+  "title": "Indiana University campus",
+  "width": 640,
+  "height": 320,
+  "center": [
+    -86.5235,
+    39.1702
+  ],
+  "leafletZoom": 15
+}

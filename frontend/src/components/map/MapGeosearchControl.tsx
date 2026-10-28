@@ -6,8 +6,9 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import L from 'leaflet';
-import { LeafletContext } from '@react-leaflet/core';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
+import { MapContext as LeafletContext } from '../../mapping/context';
 import { Search, X } from 'lucide-react';
 import { fetchNominatimSearch } from '../../services/api';
 import type { GazetteerPlace } from '../../types/api';
@@ -19,14 +20,14 @@ const MAP_CONTROL_ICON_PROPS = {
 };
 
 interface MapGeosearchControlProps {
-  mapInstance?: L.Map | null;
-  position?: L.ControlPosition;
+  mapInstance?: MapTypes.Map | null;
+  position?: MapTypes.ControlPosition;
   placeholder?: string;
   maxResults?: number;
-  onPlaceSelect?: (place: GazetteerPlace, map: L.Map) => void;
+  onPlaceSelect?: (place: GazetteerPlace, map: MapTypes.Map) => void;
 }
 
-function fitMapToPlace(map: L.Map, place: GazetteerPlace) {
+function fitMapToPlace(map: MapTypes.Map, place: GazetteerPlace) {
   const attrs = place.attributes;
   const bounds = L.latLngBounds(
     [attrs.min_latitude, attrs.min_longitude],
@@ -66,7 +67,8 @@ export function MapGeosearchControl({
     const CustomControl = L.Control.extend({
       onAdd: () => {
         const div = document.createElement('div');
-        div.className = 'leaflet-control leaflet-bar map-geosearch-control';
+        div.className =
+          'maplibregl-ctrl maplibregl-ctrl-group map-geosearch-control';
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.disableScrollPropagation(div);
         return div;
@@ -80,7 +82,7 @@ export function MapGeosearchControl({
     if (position === 'topleft' && controlContainer?.parentElement) {
       const cornerContainer = controlContainer.parentElement;
       const zoomControl = cornerContainer.querySelector(
-        '.leaflet-control-zoom'
+        '.maplibregl-ctrl-group'
       );
 
       if (zoomControl?.nextSibling) {
@@ -215,7 +217,7 @@ export function MapGeosearchControl({
         onClick={() => setIsExpanded((open) => !open)}
         aria-label={isExpanded ? 'Hide place search' : 'Search places on map'}
         title={isExpanded ? 'Hide place search' : 'Search places on map'}
-        className="leaflet-control-custom-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors"
+        className="geo-map-control-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors"
       >
         <Search
           {...MAP_CONTROL_ICON_PROPS}

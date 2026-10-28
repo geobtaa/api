@@ -1566,3 +1566,16 @@ describe('ResourceView Component', () => {
     });
   });
 });
+
+vi.mock('../../components/resource/LocationMap.client', () => ({
+  LocationMap: () => (
+    <div>
+      <h2>Location</h2>
+    </div>
+  ),
+  default: () => (
+    <div>
+      <h2>Location</h2>
+    </div>
+  ),
+}));

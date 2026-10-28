@@ -2,7 +2,7 @@ import io
 import logging
 import os
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 from PIL import Image
 from sqlalchemy.sql import select
@@ -207,9 +207,9 @@ async def _get_or_generate_map_data(
 async def get_institution_static_map(
     map_id: str,
     request: Request,
-    lat: float,
-    lon: float,
-    zoom: int = 15,
+    lat: float = Query(..., ge=-85.05112878, le=85.05112878, allow_inf_nan=False),
+    lon: float = Query(..., ge=-180, le=180, allow_inf_nan=False),
+    zoom: int = Query(15, ge=1, le=20),
 ):
     """Serve or generate a cached campus-centered static basemap image."""
     cache_id = f"institution:{map_id}"

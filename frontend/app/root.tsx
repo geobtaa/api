@@ -16,7 +16,7 @@ import { getDefaultThemeId, type ThemeId } from '../src/config/institution';
 import { GoogleTagManager } from '../src/components/analytics/GoogleTagManager';
 import { GeoportalRouteErrorBoundary } from '../src/pages/ErrorPage';
 import '../src/index.css';
-import '../src/styles/leaflet.css';
+import '../src/styles/maps.css';
 
 const GOOGLE_TAG_MANAGER_ID = (import.meta.env.VITE_GTM_ID || '').trim();
 const KAMAL_DESTINATION = (import.meta.env.VITE_KAMAL_DEST || '').trim();

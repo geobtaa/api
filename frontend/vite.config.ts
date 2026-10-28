@@ -1,12 +1,39 @@
 import { reactRouter } from '@react-router/dev/vite';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { defineConfig } from 'vite';
 import path from 'node:path';
+import { BASEMAP_STYLES } from './src/config/mapStyles';
 
 // https://vitejs.dev/config/
 // Force restart: 1
 export default defineConfig({
   plugins: [
+    {
+      name: 'ogm-viewer-assets-and-basemaps',
+      enforce: 'pre',
+      transform(source, id) {
+        if (!id.includes('/ogm-viewer/dist/components/')) return;
+        source = source
+          .replaceAll(
+            'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+            BASEMAP_STYLES.liberty
+          )
+          .replaceAll(
+            'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+            BASEMAP_STYLES.dark
+          );
+        if (!source.includes('"lerc-wasm.wasm"')) return source;
+        const require = createRequire(import.meta.url);
+        const viewerDirectory = path.dirname(
+          require.resolve('ogm-viewer/package.json')
+        );
+        const wasm = require.resolve('lerc/lerc-wasm.wasm', {
+          paths: [viewerDirectory],
+        });
+        return source.replaceAll('"lerc-wasm.wasm"', JSON.stringify(wasm));
+      },
+    },
     {
       name: 'private-analytics-data',
       enforce: 'pre',
@@ -41,16 +68,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // The homepage's featured-resource map still uses GeoBlacklight's
-      // Leaflet layer factories, including the local OpenIndexMap normalizer.
-      'geoblacklight/leaflet/layer_index_map': path.resolve(
-        __dirname,
-        'src/geoblacklight/layer_index_map.ts'
-      ),
-      geoblacklight: path.resolve(
-        __dirname,
-        'node_modules/@geoblacklight/frontend/app/javascript/geoblacklight'
-      ),
       // ogm-viewer's COG bundle inlines @developmentseed/geotiff's worker URL,
       // leaving it relative to the ogm-viewer chunk instead of the dependency
       // that ships the worker. Point Vite at the packaged worker explicitly.
@@ -81,13 +98,20 @@ export default defineConfig({
     // Let Vite handle them without esbuild pre-bundling to avoid "Invalid hook call".
     exclude: [
       'lucide-react',
-      '@geoblacklight/frontend',
+      'maplibre-gl',
       // OGM Viewer resolves its theme and icon assets relative to its module.
       // Keep it out of Vite's dev prebundle so those URLs retain the package path.
       'ogm-viewer',
       'ogm-viewer/lib',
     ],
-    include: ['react-helmet-async', 'h3-js'],
+    include: [
+      'react-helmet-async',
+      'h3-js',
+      'js-yaml',
+      'js-cookie',
+      '@marsidev/react-turnstile',
+      'recharts',
+    ],
   },
   ssr: {
     noExternal: ['react-helmet-async'],

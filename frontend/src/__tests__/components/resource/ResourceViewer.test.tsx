@@ -74,6 +74,7 @@ describe('ResourceViewer', () => {
     );
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading viewer…');
+    expect(container.querySelector('ogm-viewer')).not.toHaveClass('hidden');
 
     await waitFor(() => expect(mocks.recordConstructor).toHaveBeenCalled());
 

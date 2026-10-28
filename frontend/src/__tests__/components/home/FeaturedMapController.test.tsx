@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import L from 'leaflet';
+import L from '../../../mapping/maplibre';
 import { FeaturedMapController } from '../../../components/home/FeaturedMapController';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../../config/mapView';
 
@@ -15,7 +15,7 @@ const mockMap = {
   getMaxZoom: vi.fn(() => 18),
 };
 
-vi.mock('react-leaflet', () => ({
+vi.mock('../../../mapping/react', () => ({
   useMap: () => mockMap,
 }));
 

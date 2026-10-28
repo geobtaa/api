@@ -60,7 +60,7 @@ vi.mock('../../../components/map/MapGeosearchControl', () => ({
 }));
 
 const mockPane = document.createElement('div');
-vi.mock('react-leaflet', () => ({
+vi.mock('../../../mapping/react', () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="map-container">{children}</div>
   ),
