@@ -463,6 +463,19 @@ describe('fetchMapH3', () => {
     });
   });
 
+  it('preserves retry guidance for throttled hex requests', async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response('throttled', {
+        status: 429,
+        headers: { 'Retry-After': '10' },
+      })
+    );
+    await expect(fetchMapH3('', undefined, 2)).rejects.toMatchObject({
+      status: 429,
+      retryAfterMs: 10000,
+    });
+  });
+
   it('adds a cache-busting version while preserving advanced search params', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,

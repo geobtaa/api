@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { fetchMapH3, type MapH3Response } from '../services/api';
+import { ApiError, fetchMapH3, type MapH3Response } from '../services/api';
 
-/** Stable empty array so useMapH3 doesn't return a new [] reference every render when data is null. */
 const EMPTY_HEXES: MapH3Response['hexes'] = [];
 
 export function useMapH3(
@@ -11,46 +10,71 @@ export function useMapH3(
   queryString?: string,
   options?: { enabled?: boolean }
 ) {
-  const [data, setData] = useState<MapH3Response | null>(null);
+  const scope = JSON.stringify([query, queryString]);
+  const [entry, setEntry] = useState<{
+    scope: string;
+    data: MapH3Response;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const enabled = options?.enabled !== false;
+  // Retain the last viewport while refreshing, but never carry data across filters.
+  const data = entry?.scope === scope ? entry.data : null;
 
   useEffect(() => {
     if (!enabled) return;
-    // bbox === null is valid: request global hexes (no bbox param)
-    let mounted = true;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
     setLoading(true);
     setError(null);
-    fetchMapH3(query, bbox ?? undefined, resolution, queryString)
-      .then((res) => {
-        if (mounted) {
-          setData(res);
-          setError(null);
-        }
-      })
-      .catch((e) => {
-        if (mounted) {
-          setData(null);
-          setError(e instanceof Error ? e.message : 'Failed to fetch hex data');
-        }
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+    async function load(attempt = 0) {
+      try {
+        const response = await fetchMapH3(
+          query,
+          bbox ?? undefined,
+          resolution,
+          queryString,
+          controller.signal
+        );
+        if (controller.signal.aborted) return;
+        setEntry({ scope, data: response });
+        setError(null);
+        setLoading(false);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setError(
+          error instanceof Error ? error.message : 'Failed to fetch hex data'
+        );
+        const retryable =
+          !(error instanceof ApiError) ||
+          error.status === 429 ||
+          (error.status ?? 0) >= 500;
+        if (retryable && attempt < 2) {
+          const delay =
+            error instanceof ApiError ? error.retryAfterMs : undefined;
+          timer = setTimeout(
+            () => void load(attempt + 1),
+            delay ?? 1000 * 2 ** attempt
+          );
+        } else setLoading(false);
+      }
+    }
+    // Coalesce consecutive zoom-button clicks and cancel superseded requests.
+    timer = setTimeout(() => void load(), 150);
     return () => {
-      mounted = false;
+      controller.abort();
+      clearTimeout(timer);
     };
-  }, [enabled, query, bbox, resolution, queryString]);
+  }, [enabled, query, bbox, resolution, queryString, scope]);
 
-  const hexCount = data?.hexes.length ?? 0;
-  const totalInView = data?.hexes.reduce((s, h) => s + h.count, 0) ?? 0;
+  const hexes = data?.hexes ?? EMPTY_HEXES;
   return {
-    hexes: data?.hexes ?? EMPTY_HEXES,
+    hexes,
+    resolution: data?.resolution ?? resolution,
     globalCount: data?.globalCount ?? 0,
-    hexCount,
-    totalInView,
-    loading: !enabled ? true : loading,
+    hexCount: hexes.length,
+    totalInView: hexes.reduce((sum, hex) => sum + hex.count, 0),
+    loading: !enabled || loading,
     error,
   };
 }

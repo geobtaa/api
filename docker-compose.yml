@@ -32,6 +32,7 @@ services:
       - ELASTICSEARCH_INDEX=btaa_geospatial_api
       - LOG_PATH=/app/logs
       - APPLICATION_URL=http://localhost:8000
+      - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
       - ANALYTICS_PASSWORD=${ANALYTICS_PASSWORD:-}
       - ANALYTICS_BASE_URL=${ANALYTICS_BASE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       - APP_ENV=development

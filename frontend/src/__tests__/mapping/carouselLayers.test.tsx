@@ -6,6 +6,8 @@ import { MapUpdaterHex } from '../../components/map/MapUpdaterHex';
 
 const state = vi.hoisted(() => ({
   zoom: 3,
+  loading: false,
+  error: null as string | null,
   events: new Map<string, Set<() => void>>(),
   removeLayer: vi.fn(),
   createLayer: vi.fn(),
@@ -44,7 +46,13 @@ const hexes = [{ h3: '822a17fffffffff', count: 12 }];
 vi.mock('../../hooks/useMapH3', () => ({
   useMapH3: (...args: unknown[]) => {
     state.fetchHexes(...args);
-    return { hexes, hexCount: 1, totalInView: 12, loading: false, error: null };
+    return {
+      hexes,
+      hexCount: 1,
+      totalInView: 12,
+      loading: state.loading,
+      error: state.error,
+    };
   },
 }));
 const onFeatureClick = () => {};
@@ -53,12 +61,24 @@ const Consumer = memo(function Consumer() {
   state.consumerRender();
   return null;
 });
-function Scene({ progress, query = '' }: { progress: number; query?: string }) {
+function Scene({
+  progress,
+  query = '',
+  report,
+}: {
+  progress: number;
+  query?: string;
+  report?: () => void;
+}) {
   return (
     <MapContainer center={[44, -80]} zoom={3}>
       <span>{progress}</span>
       <Consumer />
-      <MapUpdaterHex searchQuery={query} onFeatureClick={onFeatureClick} />
+      <MapUpdaterHex
+        searchQuery={query}
+        onFeatureClick={onFeatureClick}
+        onHexData={report}
+      />
     </MapContainer>
   );
 }
@@ -66,6 +86,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.events.clear();
   state.zoom = 3;
+  state.loading = false;
+  state.error = null;
 });
 it('keeps hex sources and map context stable across carousel progress ticks', () => {
   const view = render(<Scene progress={100} />);
@@ -98,4 +120,16 @@ it('waits for viewport bounds before fetching after a high-zoom hex toggle', () 
   expect(state.fetchHexes.mock.calls[0][4]).toEqual({ enabled: false });
   expect(state.fetchHexes.mock.lastCall?.[1]).toBe('-100,30,-70,50');
   expect(state.fetchHexes.mock.lastCall?.[4]).toEqual({ enabled: true });
+});
+
+it('keeps the source installed during loading and refresh failures', () => {
+  const view = render(<Scene progress={100} />);
+  const sources = state.createLayer.mock.calls.length;
+  const removed = state.removeLayer.mock.calls.length;
+  state.loading = true;
+  view.rerender(<Scene progress={100} report={() => {}} />);
+  state.error = 'throttled';
+  view.rerender(<Scene progress={100} report={() => {}} />);
+  expect(state.createLayer).toHaveBeenCalledTimes(sources);
+  expect(state.removeLayer).toHaveBeenCalledTimes(removed);
 });

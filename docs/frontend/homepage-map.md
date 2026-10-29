@@ -25,6 +25,8 @@ The hex map aggregates geospatial resource counts into H3 cells and renders them
 - **Cache versioning**: `fetchMapH3` sends a `_v` request parameter. Bump `MAP_H3_REQUEST_VERSION` when H3 query/filter semantics change so browser, SSR, and backend endpoint caches do not reuse older hex aggregates.
 - **Data flow**: On map move/zoom, the component sends the visible bounds to the API. Hexes are fetched, then rendered as GeoJSON polygons using `cellToBoundary` from `h3-js`.
 - **Dateline geometry**: Both hex map views use `h3CellGeometry` to split cells crossing ±180° into a single GeoJSON MultiPolygon, retaining one H3 identifier and count for hover and clicks. Homepage click bounds use a short wrapped interval (`west > east`); the API splits it into two envelopes instead of searching a nearly global band.
+- **Refresh failures**: Zoom changes are coalesced and obsolete requests aborted. Keep the last successful viewport and its H3 resolution during loading or temporary errors; never reuse it across query/filter changes. Retry transient failures at most twice, honoring upstream retry guidance. Loading/error updates do not rebuild the existing map source.
+- **Local authentication**: Compose passes the configured server-only API credential to both the API and SSR services. This keeps ordinary map navigation on the intended authenticated tier. A separately started SSR preview must receive the same configured credential.
 - **Color ramp**: 10-step blue ramp; each hex color is chosen by its count relative to the max count in the current view.
 
 ### Zoom-to-Resolution
