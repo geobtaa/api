@@ -16,6 +16,15 @@
   color: #111827;
   cursor: pointer;
 }
+/* Match the production zoom control's bold, centered 22px symbols. */
+.maplibregl-ctrl-group button.geo-map-zoom-button {
+  font:
+    bold 22px 'Lucida Console',
+    Monaco,
+    monospace;
+  line-height: 30px;
+  text-indent: 1px;
+}
 .geo-map-control-button:last-child {
   border-bottom: 0;
 }

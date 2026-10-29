@@ -107,6 +107,8 @@ export function ZoomControl({
         ['−', -1],
       ] as const) {
         const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'geo-map-control-button geo-map-zoom-button';
         b.textContent = text;
         b.setAttribute('aria-label', delta > 0 ? 'Zoom in' : 'Zoom out');
         b.onclick = (event) =>
