@@ -2,7 +2,7 @@
 
 ## Overview
 
-The homepage features an interactive Leaflet map that combines three main elements:
+The homepage features an interactive MapLibre map that combines three main elements:
 
 1. **H3 Hex Map** — Resource density visualization using Uber's H3 hexagonal grid
 2. **Featured Resources Carousel** — Curated examples that showcase different resource types and previews
@@ -20,7 +20,7 @@ The hex map aggregates geospatial resource counts into H3 cells and renders them
 
 ### How It Works
 
-- **Resolution mapping**: Leaflet zoom level maps to H3 resolution (2–8). Lower zoom = coarser hexes; higher zoom = finer hexes.
+- **Resolution mapping**: Application zoom level (legacy 256-pixel camera units) maps to H3 resolution (2–8). Lower zoom = coarser hexes; higher zoom = finer hexes.
 - **API**: `MapUpdaterHex` uses `useMapH3`, which calls `fetchMapH3` with the viewport bbox and resolution. The backend `/api/v1/map/h3` endpoint returns hex indexes and counts.
 - **Cache versioning**: `fetchMapH3` sends a `_v` request parameter. Bump `MAP_H3_REQUEST_VERSION` when H3 query/filter semantics change so browser, SSR, and backend endpoint caches do not reuse older hex aggregates.
 - **Data flow**: On map move/zoom, the component sends the visible bounds to the API. Hexes are fetched, then rendered as GeoJSON polygons using `cellToBoundary` from `h3-js`.
@@ -29,7 +29,7 @@ The hex map aggregates geospatial resource counts into H3 cells and renders them
 
 ### Zoom-to-Resolution
 
-| Leaflet Zoom | H3 Resolution | Typical Use |
+| Application Zoom | H3 Resolution | Typical Use |
 |--------------|---------------|-------------|
 | ≤3 | 2 | Large country / multi-country |
 | 4 | 3 | Country / state |
@@ -81,6 +81,8 @@ Featured items are defined in `frontend/src/config/featured.ts`. Each ID corresp
 - **Preview layer**:
   - **OGM Viewer** (WMS, WMTS, ArcGIS, XYZ, etc.): Attaches OGM Viewer MapLibre previewers to the shared map.
   - **Allmaps**: Uses `@allmaps/maplibre` `WarpedMapLayer` to display georeferenced IIIF maps from the Allmaps annotation URL.
+- **Layer order**: MapLibre pane anchors keep density hexes (400), bounds (410), selection (415), and featured previews (420) in order regardless of fetch completion or hex visibility toggles. Featured ArcGIS point layers use overlapping blue pins; routes use the production blue stroke. Pin layers are removed with the preview on slide changes and Home.
+- **Readiness**: Overlay installation waits for the style document, not tile completion or idle; animated Allmaps previews must not block hex restoration. Carousel progress ticks leave map layers unchanged, and H3 requests use settled bounds/zoom. The Home camera is captured from configuration before previews can move the map.
 - **Popup card**: Title, description, year, resource class, thumbnail, and "View resource" link.
 
 ### User Engagement

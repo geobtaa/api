@@ -364,7 +364,7 @@ export function HomePageHexMapBackground() {
   const initialHomeViewRef = useRef<{
     center: [number, number];
     zoom: number;
-  } | null>(null);
+  } | null>({ center: HOME_PAGE_MAP_CENTER, zoom: DEFAULT_US_ZOOM });
   const queryString =
     typeof window !== 'undefined' ? window.location.search : undefined;
 

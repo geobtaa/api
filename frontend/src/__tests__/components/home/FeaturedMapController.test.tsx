@@ -56,6 +56,28 @@ describe('FeaturedMapController camera precedence', () => {
     vi.clearAllMocks();
   });
 
+  it('does not restart the active flight when another thumbnail finishes loading', () => {
+    const active = makeDetail({});
+    const programmaticFlyRef = { current: false };
+    const view = render(
+      <FeaturedMapController
+        activeIndex={0}
+        featuredDetails={[active, null]}
+        featuredInitiated
+        programmaticFlyRef={programmaticFlyRef}
+      />
+    );
+    view.rerender(
+      <FeaturedMapController
+        activeIndex={0}
+        featuredDetails={[active, makeDetail({})]}
+        featuredInitiated
+        programmaticFlyRef={programmaticFlyRef}
+      />
+    );
+    expect(mockMap.flyToBounds).toHaveBeenCalledTimes(1);
+  });
+
   it('uses explicit center+zoom override before bbox fit', () => {
     render(
       <FeaturedMapController

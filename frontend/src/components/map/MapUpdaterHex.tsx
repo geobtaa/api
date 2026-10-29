@@ -147,10 +147,11 @@ export const MapUpdaterHex = memo(function MapUpdaterHex({
   }, [map, updateBbox]);
 
   const resolution = zoomToResolution(zoom);
-  // Skip global (null bbox) request at low zoom: it can be cached empty. Wait for moveend to set bbox.
+  // Wait for the initial viewport at every zoom; remounting a local map must
+  // not issue a global high-resolution request before whenReady supplies bounds.
   const useGlobalRequest = zoom <= ZOOM_GLOBAL_THRESHOLD && bbox === null;
   const bboxForApi = useGlobalRequest ? null : bbox;
-  const fetchEnabled = !useGlobalRequest;
+  const fetchEnabled = bbox !== null;
   const { hexes, hexCount, totalInView, loading, error } = useMapH3(
     searchQuery,
     bboxForApi,

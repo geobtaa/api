@@ -91,3 +91,11 @@ it('updates H3 resolution after the flight settles, even with prop changes mid-f
   act(() => state.events.get('zoomend')?.forEach((callback) => callback()));
   expect(state.createLayer).toHaveBeenCalledTimes(sources);
 });
+
+it('waits for viewport bounds before fetching after a high-zoom hex toggle', () => {
+  state.zoom = 9;
+  render(<Scene progress={100} />);
+  expect(state.fetchHexes.mock.calls[0][4]).toEqual({ enabled: false });
+  expect(state.fetchHexes.mock.lastCall?.[1]).toBe('-100,30,-70,50');
+  expect(state.fetchHexes.mock.lastCall?.[4]).toEqual({ enabled: true });
+});
