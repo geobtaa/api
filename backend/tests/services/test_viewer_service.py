@@ -4,8 +4,64 @@ Tests for the ViewerService.
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from app.services.viewer_service import ViewerService, create_viewer_attributes, parse_references
 from tests.utils.distribution_helpers import make_distribution_context, make_distribution_record
+
+
+@pytest.fixture(params=["function", "service"])
+def viewer_attributes(request):
+    if request.param == "function":
+        return create_viewer_attributes
+    return lambda document: ViewerService(document).get_viewer_attributes()
+
+
+def test_tacoma_pmtiles_uses_full_geometry(tacoma_streets_record, viewer_attributes):
+    result = viewer_attributes(tacoma_streets_record)
+
+    assert result["ui_viewer_protocol"] == "pmtiles"
+    assert result["ui_viewer_endpoint"].endswith(".pmtiles")
+    assert result["ui_viewer_geometry"]["type"] == "MultiPolygon"
+    assert len(result["ui_viewer_geometry"]["coordinates"]) == 2
+
+
+@pytest.mark.parametrize("bbox_format", ["envelope", "csv"])
+@pytest.mark.parametrize(
+    "geometry",
+    [None, "INVALID", "POLYGON((bad coordinates))", "POLYGON((0 0, 1 0, 2 0, 0 0))"],
+)
+def test_tacoma_pmtiles_falls_back_to_bbox(
+    tacoma_streets_record, viewer_attributes, geometry, bbox_format
+):
+    document = {**tacoma_streets_record, "locn_geometry": geometry}
+    if bbox_format == "csv":
+        document["dcat_bbox"] = "-122.5673,47.1600,-122.3063,47.3222"
+
+    result = viewer_attributes(document)
+
+    assert result["ui_viewer_protocol"] == "pmtiles"
+    assert result["ui_viewer_endpoint"].endswith(".pmtiles")
+    assert result["ui_viewer_geometry"] == {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [-122.5673, 47.3222],
+                [-122.5673, 47.16],
+                [-122.3063, 47.16],
+                [-122.3063, 47.3222],
+                [-122.5673, 47.3222],
+            ]
+        ],
+    }
+    assert document["locn_geometry"] == geometry
+
+
+@pytest.mark.parametrize("bbox", [None, "INVALID", "POLYGON((bad coordinates))"])
+def test_unusable_geometry_and_bbox_remain_unavailable(viewer_attributes, bbox):
+    result = viewer_attributes({"locn_geometry": "INVALID", "dcat_bbox": bbox})
+
+    assert result["ui_viewer_geometry"] is None
 
 
 class TestParseReferences:
