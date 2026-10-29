@@ -1,3 +1,15 @@
+/** A manifest represents the complete object, so offer it before a standalone scan. */
+export function preferManifest(previews) {
+    const primary = previews.filter(preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image');
+    return [...primary, ...previews.filter(preview => !primary.includes(preview))];
+}
+export function previewLabel(preview) {
+    if (preview.renderer === 'image' && preview.kind === 'iiif-manifest')
+        return 'Images';
+    if (preview.renderer === 'image' && preview.kind === 'iiif-image')
+        return 'Single image';
+    return preview.label();
+}
 function selection(preview) {
     return {
         previewId: preview.previewId,
@@ -87,6 +99,30 @@ export function observePreviewSelection(host, getPreviews, emit) {
     let signature;
     let activeId;
     let last;
+    const opened = new Set();
+    const failed = new Set();
+    const isIiifImage = (preview) => preview.renderer === 'image' && (preview.kind === 'iiif-manifest' || preview.kind === 'iiif-image');
+    const refreshAvailability = () => {
+        host.shadowRoot?.querySelectorAll('wa-tab').forEach(tab => {
+            const unavailable = failed.has(tab.getAttribute('panel') ?? '');
+            // Keep the active error readable when every alternative has failed.
+            tab.disabled = unavailable && tab.getAttribute('panel') !== activeId;
+            if (unavailable)
+                tab.setAttribute('title', 'Preview unavailable');
+            else
+                tab.removeAttribute('title');
+        });
+    };
+    const recover = () => {
+        if (!activeId || !failed.has(activeId) || opened.has(activeId))
+            return;
+        const fallback = getPreviews().find(preview => isIiifImage(preview) && opened.has(preview.previewId) && !failed.has(preview.previewId));
+        if (!fallback)
+            return;
+        const group = host.shadowRoot?.querySelector('wa-tab-group');
+        if (group)
+            group.active = fallback.previewId;
+    };
     const publish = (preview) => {
         const detail = preview ? selection(preview) : null;
         const serialized = JSON.stringify(detail);
@@ -101,8 +137,11 @@ export function observePreviewSelection(host, getPreviews, emit) {
         if (next !== signature) {
             signature = next;
             activeId = previews[0]?.previewId;
+            opened.clear();
+            failed.clear();
         }
         publish(previews.find(preview => preview.previewId === activeId));
+        refreshAvailability();
     };
     const shown = (event) => {
         const id = event.detail?.name;
@@ -113,6 +152,8 @@ export function observePreviewSelection(host, getPreviews, emit) {
         signature = JSON.stringify(getPreviews().map(selection));
         activeId = id;
         publish(preview);
+        refreshAvailability();
+        recover();
     };
     const loaded = () => {
         // Reloading the same record can preserve preview IDs and the active tab.
@@ -120,11 +161,51 @@ export function observePreviewSelection(host, getPreviews, emit) {
         last = undefined;
         update();
     };
+    const imageOpened = (event) => {
+        const detail = event.detail;
+        if (!detail?.image)
+            return;
+        const preview = getPreviews().find(preview => preview.previewId === detail.previewId && preview.resourceId === detail.resourceId && preview.url === detail.resourceUrl);
+        if (!preview || !isIiifImage(preview))
+            return;
+        update();
+        opened.add(preview.previewId);
+        failed.delete(preview.previewId);
+        refreshAvailability();
+        recover();
+    };
+    const previewFailed = (event) => {
+        // Capture before ogm-preview stops propagation. The public previewer property
+        // identifies the failed image even when a manifest also has a map preview.
+        const origin = event.composedPath().find(node => node.tagName === 'OGM-IMAGE');
+        const source = origin?.previewer;
+        const preview = source && getPreviews().find(preview => preview.previewId === source.previewId && preview.resourceId === source.resourceId && preview.url === source.url);
+        if (!preview || !isIiifImage(preview))
+            return;
+        update();
+        // Never abandon a book because a later sheet cannot load.
+        if (opened.has(preview.previewId))
+            return;
+        failed.add(preview.previewId);
+        refreshAvailability();
+        recover();
+    };
+    const loading = () => {
+        opened.clear();
+        failed.clear();
+        refreshAvailability();
+    };
+    host.addEventListener('previewsLoading', loading);
+    host.addEventListener('imageChange', imageOpened);
+    host.addEventListener('previewError', previewFailed, true);
     host.addEventListener('wa-tab-show', shown);
     host.addEventListener('previewsLoaded', loaded);
     return {
         update,
         disconnect: () => {
+            host.removeEventListener('previewsLoading', loading);
+            host.removeEventListener('imageChange', imageOpened);
+            host.removeEventListener('previewError', previewFailed, true);
             host.removeEventListener('wa-tab-show', shown);
             host.removeEventListener('previewsLoaded', loaded);
         },

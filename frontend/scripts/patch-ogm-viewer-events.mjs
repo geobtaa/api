@@ -18,7 +18,8 @@ if (pkg.version !== '1.6.0')
     'Review/remove the OGM selection-event backport before upgrading ogm-viewer.'
   );
 const directory = path.join(packageRoot, 'dist/components');
-const marker = '// BTAA active-image events backport v1\n';
+const marker = '// BTAA active-image events backport v2\n';
+const legacyMarker = '// BTAA active-image events backport v1\n';
 const dispatch = (event) =>
   `(detail)=>this.el.dispatchEvent(new CustomEvent("${event}",{detail,bubbles:true,composed:true}))`;
 const patches = [
@@ -48,6 +49,11 @@ const patches = [
         'async onRecordChange(',
         'componentDidRender(){this.__previewSelection?.update()}disconnectedCallback(){this.__previewSelection?.disconnect()}async onRecordChange(',
       ],
+      [
+        'get tabs(){return this.previewers??this.recordPreviewers}',
+        'get tabs(){return this.previewers??__preferManifest(this.recordPreviewers)}',
+      ],
+      ['e.label()', '__previewLabel(e)'],
     ],
   },
 ];
@@ -59,6 +65,15 @@ for (const patch of patches) {
   const target = path.join(directory, chunk);
   let source = await readFile(target, 'utf8');
   if (source.startsWith(marker)) continue;
+  if (source.startsWith(legacyMarker)) {
+    // Restore the verified original before applying this revision of the patch.
+    source = source.split('\n').slice(2).join('\n');
+    for (const [before, after] of patch.edits.slice(0, 2).toReversed()) {
+      if (source.split(after).length !== 2)
+        throw new Error(`Unexpected legacy OGM patch: ${patch.entry}`);
+      source = source.replace(after, before);
+    }
+  }
   if (createHash('sha256').update(source).digest('hex') !== patch.sha)
     throw new Error(`Unexpected OGM artifact: ${patch.entry}`);
   for (const [before, after] of patch.edits) {
@@ -69,7 +84,7 @@ for (const patch of patches) {
   outputs.push([
     target,
     marker +
-      'import {observeImageSelection as __observeImageSelection,observePreviewSelection as __observePreviewSelection} from "./btaa-preview-events.js";\n' +
+      'import {observeImageSelection as __observeImageSelection,observePreviewSelection as __observePreviewSelection,preferManifest as __preferManifest,previewLabel as __previewLabel} from "./btaa-preview-events.js";\n' +
       source,
   ]);
 }
