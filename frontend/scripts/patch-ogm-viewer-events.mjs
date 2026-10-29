@@ -18,9 +18,7 @@ if (pkg.version !== '1.6.0')
     'Review/remove the OGM selection-event backport before upgrading ogm-viewer.'
   );
 const directory = path.join(packageRoot, 'dist/components');
-const marker = '// BTAA active-image events backport v3\n';
-const previousMarker = '// BTAA active-image events backport v2\n';
-const legacyMarker = '// BTAA active-image events backport v1\n';
+const marker = '// BTAA active-image events backport v4\n';
 const dispatch = (event) =>
   `(detail)=>this.el.dispatchEvent(new CustomEvent("${event}",{detail,bubbles:true,composed:true}))`;
 const patches = [
@@ -55,6 +53,18 @@ const patches = [
         'get tabs(){return this.previewers??__preferManifest(this.recordPreviewers,this.el)}',
       ],
       ['e.label()', '__previewLabel(e)'],
+      [
+        'panel:e.previewId}',
+        'panel:e.previewId,...this.__previewSelection.tabAttributes(e)}',
+      ],
+      [
+        'class:p(this.theme),key:e.map',
+        'class:p(this.theme),"data-single-preview":this.__previewSelection.singlePreview()?"":null,key:e.map',
+      ],
+      [
+        'wa-tab-group,wa-tab-group::part(base)',
+        'wa-tab-group[data-single-preview]::part(nav){display:none}wa-tab-group,wa-tab-group::part(base)',
+      ],
     ],
   },
 ];
@@ -66,25 +76,24 @@ for (const patch of patches) {
   const target = path.join(directory, chunk);
   let source = await readFile(target, 'utf8');
   if (source.startsWith(marker)) continue;
-  if (source.startsWith(previousMarker)) {
+  const priorVersion = source.match(
+    /^\/\/ BTAA active-image events backport v([123])\n/
+  )?.[1];
+  if (priorVersion) {
+    // Restore the exact registry artifact before applying the current revision.
     source = source.split('\n').slice(2).join('\n');
-    for (const [before, after] of patch.edits.toReversed()) {
-      const previous = after.replace(
-        '__preferManifest(this.recordPreviewers,this.el)',
-        '__preferManifest(this.recordPreviewers)'
-      );
+    const priorEdits = patch.edits.slice(0, priorVersion === '1' ? 2 : 4);
+    for (const [before, after] of priorEdits.toReversed()) {
+      const previous =
+        priorVersion === '2'
+          ? after.replace(
+              '__preferManifest(this.recordPreviewers,this.el)',
+              '__preferManifest(this.recordPreviewers)'
+            )
+          : after;
       if (source.split(previous).length !== 2)
         throw new Error(`Unexpected previous OGM patch: ${patch.entry}`);
       source = source.replace(previous, before);
-    }
-  }
-  if (source.startsWith(legacyMarker)) {
-    // Restore the verified original before applying this revision of the patch.
-    source = source.split('\n').slice(2).join('\n');
-    for (const [before, after] of patch.edits.slice(0, 2).toReversed()) {
-      if (source.split(after).length !== 2)
-        throw new Error(`Unexpected legacy OGM patch: ${patch.entry}`);
-      source = source.replace(after, before);
     }
   }
   if (createHash('sha256').update(source).digest('hex') !== patch.sha)
