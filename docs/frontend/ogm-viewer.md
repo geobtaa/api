@@ -44,6 +44,11 @@ and (except standalone mode) `hide-menubar`. The fork's defaults preserve
 upstream behavior. Location-only records do not mount a viewer. Presentation
 uses Stencil state and initial-render attributes rather than DOM patching.
 
+The application fullscreen toolbar shares its expanded state with `ResourceViewer`
+through React context. The viewer fills the frame below the toolbar while expanded,
+and returns to its embedded height on exit. Browser tests cover map and image
+canvases, native fullscreen, and the viewport fallback.
+
 ## Verification and upgrades
 
 1. Review the fork's focused source commits against the candidate upstream release.
