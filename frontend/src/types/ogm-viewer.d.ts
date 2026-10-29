@@ -9,6 +9,7 @@ declare module 'react' {
       > & {
         theme?: 'light' | 'dark';
         'omit-location'?: string;
+        'hide-menubar'?: string;
       };
     }
   }

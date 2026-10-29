@@ -14,6 +14,11 @@ const viewerBackportHash = createHash('sha256')
       new URL('./vendor/ogm-viewer/preview-events.js', import.meta.url)
     )
   )
+  .update(
+    readFileSync(
+      new URL('./scripts/patch-ogm-viewer-events.mjs', import.meta.url)
+    )
+  )
   .digest('hex')
   .slice(0, 12);
 

@@ -23,6 +23,17 @@ const dispatch = (event) =>
   `(detail)=>this.el.dispatchEvent(new CustomEvent("${event}",{detail,bubbles:true,composed:true}))`;
 const patches = [
   {
+    entry: 'ogm-viewer.js',
+    direct: true,
+    sha: '5328c5145cbf5d31b99fc7abf086d822557b9a6b19b4e5284fe33190cd252ecd',
+    edits: [
+      [
+        'a("ogm-menubar",',
+        'this.el.hasAttribute("hide-menubar")?null:a("ogm-menubar",',
+      ],
+    ],
+  },
+  {
     entry: 'ogm-image.js',
     sha: 'be16033c2022f9590133289d2266ed2b43794bbe4b35f99a72b8050a95f3ef88',
     edits: [
@@ -71,7 +82,9 @@ const patches = [
 const outputs = [];
 for (const patch of patches) {
   const entry = await readFile(path.join(directory, patch.entry), 'utf8');
-  const chunk = entry.match(/from"\.\/([^"/]+\.js)"/)?.[1];
+  const chunk = patch.direct
+    ? patch.entry
+    : entry.match(/from"\.\/([^"/]+\.js)"/)?.[1];
   if (!chunk) throw new Error(`Cannot locate OGM component ${patch.entry}`);
   const target = path.join(directory, chunk);
   let source = await readFile(target, 'utf8');
