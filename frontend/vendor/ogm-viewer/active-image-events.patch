@@ -1,0 +1,424 @@
+diff --git a/readme.md b/readme.md
+index 4421c92..f70f768 100644
+--- a/readme.md
++++ b/readme.md
+@@ -354,3 +354,27 @@ git push origin vX.Y.Z
+ ```
+ 
+ The `Release` workflow checks that the tag and `package.json` agree, lints, tests, publishes to npm, and drafts the GitHub release with generated notes. It authenticates with npm over OIDC using [trusted publishing](https://docs.npmjs.com/trusted-publishers).
++
++### Following the active image
++
++Listen on `<ogm-viewer>` for `previewChange` and `imageChange`. Both events bubble
++and are composed, crossing component shadow roots. Their shared identity is
++`{ previewId, resourceId, resourceUrl, renderer }`, where `resourceId` is the OGM
++record ID and `renderer` is `image` or `map`.
++
++`previewChange` reports the initial active preview, tab changes, and `null` when
++there are no previews. `imageChange` adds `image: { url, index, count, occurrence }` after an
++image opens, or `image: null` while loading, changing page, closing, or failing.
++`index` is zero-based in the image sequence; it is not a IIIF canvas index.
++`occurrence` is the zero-based occurrence of that URL within the sequence, so
++repeated scans can be distinguished. `url` is the tile source URL supplied by the previewer, normally an IIIF
++`info.json` URL. Sources that cannot be represented by a URL report `null`.
++
++Each image preview emits its own events, including previews in hidden tabs.
++Applications should remember the latest image per `previewId` and display only
++the selection belonging to the active `previewChange`. This also handles an
++image event arriving before the initial preview event. A map preview has no
++active image. Clear cached selections when replacing the record.
++
++The payload types `PreviewSelection` and `ImageSelection` are exported from
++`ogm-viewer/lib`.
+diff --git a/src/components.d.ts b/src/components.d.ts
+index 3e7320b..0cf78c9 100644
+--- a/src/components.d.ts
++++ b/src/components.d.ts
+@@ -11,6 +11,7 @@ import { ResourceKind } from "./lib/resources/resource";
+ import { RequestTransform } from "./lib/request";
+ import { References } from "./lib/references";
+ import { FieldDefinitions } from "./lib/field-definitions";
++import { ImageSelection, PreviewSelection } from "./lib/preview-events";
+ import { LayerControl } from "./lib/layers";
+ import { ColorRampName } from "./lib/colormap";
+ import { LegendEntry } from "./lib/legend";
+@@ -21,6 +22,7 @@ export { ResourceKind } from "./lib/resources/resource";
+ export { RequestTransform } from "./lib/request";
+ export { References } from "./lib/references";
+ export { FieldDefinitions } from "./lib/field-definitions";
++export { ImageSelection, PreviewSelection } from "./lib/preview-events";
+ export { LayerControl } from "./lib/layers";
+ export { ColorRampName } from "./lib/colormap";
+ export { LegendEntry } from "./lib/legend";
+@@ -303,6 +305,7 @@ declare global {
+         new (): HTMLOgmFieldsElement;
+     };
+     interface HTMLOgmImageElementEventMap {
++        "imageChange": ImageSelection;
+         "imageLoaded": void;
+         "imageLoading": void;
+         "previewError": PreviewError;
+@@ -440,6 +443,7 @@ declare global {
+         new (): HTMLOgmPreviewElement;
+     };
+     interface HTMLOgmPreviewsElementEventMap {
++        "previewChange": PreviewSelection | null;
+         "previewsLoading": void;
+         "previewsLoaded": void;
+     }
+@@ -529,6 +533,10 @@ declare namespace LocalJSX {
+         "theme"?: 'light' | 'dark';
+     }
+     interface OgmImage {
++        /**
++          * The opened image source; null while changing pages or after a failed image load.
++         */
++        "onImageChange"?: (event: OgmImageCustomEvent<ImageSelection>) => void;
+         "onImageLoaded"?: (event: OgmImageCustomEvent<void>) => void;
+         "onImageLoading"?: (event: OgmImageCustomEvent<void>) => void;
+         "onPreviewError"?: (event: OgmImageCustomEvent<PreviewError>) => void;
+@@ -694,6 +702,10 @@ declare namespace LocalJSX {
+     interface OgmPreviews {
+         "darkBasemap"?: string;
+         "lightBasemap"?: string;
++        /**
++          * The active preview on initial load and tab changes, or null when no previews exist.
++         */
++        "onPreviewChange"?: (event: OgmPreviewsCustomEvent<PreviewSelection | null>) => void;
+         "onPreviewsLoaded"?: (event: OgmPreviewsCustomEvent<void>) => void;
+         "onPreviewsLoading"?: (event: OgmPreviewsCustomEvent<void>) => void;
+         "previewers"?: AnyPreviewer[];
+diff --git a/src/components/ogm-image/ogm-image.tsx b/src/components/ogm-image/ogm-image.tsx
+index 792cc28..c285b5f 100644
+--- a/src/components/ogm-image/ogm-image.tsx
++++ b/src/components/ogm-image/ogm-image.tsx
+@@ -1,5 +1,6 @@
+ import { Component, Element, h, Host, Watch, Prop, Event, EventEmitter, State } from '@stencil/core';
+ import { Viewer } from 'openseadragon';
++import { observeImageSelection, type ImageSelection } from '../../lib/preview-events';
+ 
+ import '@awesome.me/webawesome/dist/components/button/button.js';
+ import '@awesome.me/webawesome/dist/components/icon/icon.js';
+@@ -20,6 +21,10 @@ export class OgmImage {
+   @Prop() previewer: ImagePreviewer;
+   @Prop() theme: 'light' | 'dark' = initialTheme(this.el);
+   @Prop() padding: number = 0;
++  /** The opened image source; null while changing pages or after a failed image load. */
++  @Event() imageChange: EventEmitter<ImageSelection>;
++  private removeImageSelection?: () => void;
++
+   @Event() imageLoaded: EventEmitter<void>;
+   @Event() imageLoading: EventEmitter<void>;
+   @Event() previewError: EventEmitter<PreviewError>;
+@@ -75,6 +80,13 @@ export class OgmImage {
+     document.addEventListener('keydown', this.onFullscreenKeydown);
+ 
+     // Clear loading state whether we succeeded or failed
++    this.removeImageSelection = observeImageSelection(
++      this.el,
++      this.viewer,
++      () => this.previewer,
++      detail => this.imageChange.emit(detail),
++    );
++
+     this.viewer.addHandler('open', () => this.imageLoaded.emit());
+ 
+     // Surface OpenSeaDragon decode errors here
+@@ -89,6 +101,7 @@ export class OgmImage {
+ 
+   // Destroy the viewer when we are removed from the DOM
+   disconnectedCallback() {
++    this.removeImageSelection?.();
+     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
+     document.removeEventListener('keydown', this.onFullscreenKeydown);
+     this.exitFullscreenFallback();
+diff --git a/src/components/ogm-previews/ogm-previews.tsx b/src/components/ogm-previews/ogm-previews.tsx
+index a9b3b00..27a7b62 100644
+--- a/src/components/ogm-previews/ogm-previews.tsx
++++ b/src/components/ogm-previews/ogm-previews.tsx
+@@ -4,6 +4,7 @@ import '@awesome.me/webawesome/dist/components/tab-group/tab-group.js';
+ import '@awesome.me/webawesome/dist/components/tab-panel/tab-panel.js';
+ import '@awesome.me/webawesome/dist/components/tab/tab.js';
+ 
++import { observePreviewSelection, type PreviewSelection } from '../../lib/preview-events';
+ import type OgmRecord from '../../lib/record';
+ import { adoptWebAwesomeTheme, initialTheme, waScope } from '../../lib/init';
+ import { resourcesFor } from '../../lib/resources/factory';
+@@ -32,6 +33,10 @@ export class OgmPreviews {
+   @Prop() requestTransform?: RequestTransform;
+   @Prop() sidebarPadding: number;
+   @State() private recordPreviewers: AnyPreviewer[] = [];
++  /** The active preview on initial load and tab changes, or null when no previews exist. */
++  @Event() previewChange: EventEmitter<PreviewSelection | null>;
++  private selectionObserver?: ReturnType<typeof observePreviewSelection>;
++
+   @Event() previewsLoading: EventEmitter<void>;
+   @Event() previewsLoaded: EventEmitter<void>;
+ 
+@@ -51,9 +56,22 @@ export class OgmPreviews {
+   // never painted empty and then filled in.
+   componentWillLoad() {
+     adoptWebAwesomeTheme(this.el);
++    this.selectionObserver = observePreviewSelection(
++      this.el,
++      () => this.tabs,
++      detail => this.previewChange.emit(detail),
++    );
+     return this.buildPreviewers(this.record);
+   }
+ 
++  componentDidRender() {
++    this.selectionObserver?.update();
++  }
++
++  disconnectedCallback() {
++    this.selectionObserver?.disconnect();
++  }
++
+   @Watch('record')
+   protected async onRecordChange(record?: OgmRecord) {
+     await this.buildPreviewers(record);
+diff --git a/src/index.ts b/src/index.ts
+index a9d7244..4619afd 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -109,3 +109,5 @@ export type { LegendEntry, LegendImage } from './lib/legend';
+ // facing it, so what's pointed at one is held to the half around its own middle.
+ export { unionBounds, clampToHemisphere, WORLD } from './lib/geometry';
+ export { fetchOrThrow, recordError, referenceError, HttpError, PreviewError } from './lib/errors';
++
++export type { PreviewSelection, ImageSelection } from './lib/preview-events';
+diff --git a/src/lib/preview-events.test.ts b/src/lib/preview-events.test.ts
+new file mode 100644
+index 0000000..da74f64
+--- /dev/null
++++ b/src/lib/preview-events.test.ts
+@@ -0,0 +1,103 @@
++import { describe, expect, it, vi } from 'vitest';
++import { observeImageSelection, observePreviewSelection } from './preview-events';
++
++const image = { previewId: 'image-1', resourceId: 'record', url: 'https://example.org/manifest', renderer: 'image' as const };
++const map = { previewId: 'map-1', resourceId: 'record', url: 'https://example.org/map', renderer: 'map' as const };
++const host = () => new EventTarget() as HTMLElement;
++
++describe('image selection events', () => {
++  it('reports initial and later opened sources, clearing during transitions and failures', () => {
++    const handlers = new Map<string, () => void>();
++    let page = 0;
++    const viewer = {
++      currentPage: () => page,
++      tileSources: [{ tileSource: 'https://example.org/a/info.json' }, { tileSource: 'https://example.org/b/info.json' }],
++      addHandler: (name: string, handler: () => void) => handlers.set(name, handler),
++      removeHandler: (name: string) => handlers.delete(name),
++    };
++    const element = host();
++    const emit = vi.fn();
++    const stop = observeImageSelection(element, viewer, () => image, emit);
++    handlers.get('open')!();
++    expect(emit).toHaveBeenLastCalledWith({
++      previewId: image.previewId,
++      resourceId: image.resourceId,
++      resourceUrl: image.url,
++      renderer: 'image',
++      image: { url: viewer.tileSources[0].tileSource, index: 0, count: 2, occurrence: 0 },
++    });
++    page = 1;
++    handlers.get('page')!();
++    expect(emit.mock.lastCall?.[0].image).toBeNull();
++    handlers.get('open')!();
++    expect(emit.mock.lastCall?.[0].image).toEqual({ url: viewer.tileSources[1].tileSource, index: 1, count: 2, occurrence: 0 });
++    viewer.tileSources[1] = viewer.tileSources[0];
++    handlers.get('open')!();
++    expect(emit.mock.lastCall?.[0].image.occurrence).toBe(1);
++    page = 0;
++    handlers.get('open')!();
++    expect(emit.mock.lastCall?.[0].image.occurrence).toBe(0);
++    handlers.get('open-failed')!();
++    expect(emit.mock.lastCall?.[0].image).toBeNull();
++    element.dispatchEvent(new Event('imageLoading'));
++    expect(emit.mock.lastCall?.[0].image).toBeNull();
++    stop();
++    const count = emit.mock.calls.length;
++    element.dispatchEvent(new Event('imageLoading'));
++    expect(emit).toHaveBeenCalledTimes(count);
++    expect(handlers.size).toBe(0);
++  });
++
++  it('does not invent a source URL for an unknown tile source', () => {
++    const handlers = new Map<string, () => void>();
++    const emit = vi.fn();
++    const stop = observeImageSelection(
++      host(),
++      {
++        currentPage: () => 0,
++        tileSources: [{ type: 'custom' }],
++        addHandler: (name, handler) => {
++          handlers.set(name, handler);
++        },
++        removeHandler: name => {
++          handlers.delete(name);
++        },
++      },
++      () => image,
++      emit,
++    );
++    handlers.get('open')!();
++    expect(emit.mock.lastCall?.[0].image).toBeNull();
++    stop();
++  });
++});
++
++describe('active preview events', () => {
++  it('follows tabs, ignores nested tab names, and resets when the record changes', () => {
++    const element = host();
++    let previews = [image, map];
++    const emit = vi.fn();
++    const observer = observePreviewSelection(element, () => previews, emit);
++    observer.update();
++    expect(emit.mock.lastCall?.[0].previewId).toBe('image-1');
++    element.dispatchEvent(new CustomEvent('wa-tab-show', { detail: { name: 'map-1' } }));
++    expect(emit.mock.lastCall?.[0].renderer).toBe('map');
++    emit.mockClear();
++    element.dispatchEvent(new Event('previewsLoaded'));
++    expect(emit).toHaveBeenCalledTimes(1);
++    expect(emit.mock.lastCall?.[0].renderer).toBe('map');
++    observer.update();
++    element.dispatchEvent(new CustomEvent('wa-tab-show', { detail: { name: 'metadata' } }));
++    expect(emit).toHaveBeenCalledTimes(1);
++    previews = [{ ...image, resourceId: 'next', previewId: 'image-2' }];
++    observer.update();
++    expect(emit.mock.lastCall?.[0].resourceId).toBe('next');
++    previews = [];
++    observer.update();
++    expect(emit.mock.lastCall?.[0]).toBeNull();
++    observer.disconnect();
++    previews = [image, map];
++    element.dispatchEvent(new CustomEvent('wa-tab-show', { detail: { name: 'map-1' } }));
++    expect(emit.mock.lastCall?.[0]).toBeNull();
++  });
++});
+diff --git a/src/lib/preview-events.ts b/src/lib/preview-events.ts
+new file mode 100644
+index 0000000..927b0b2
+--- /dev/null
++++ b/src/lib/preview-events.ts
+@@ -0,0 +1,119 @@
++/** Public selection events shared by the image and preview components. */
++export interface PreviewSelection {
++  previewId: string;
++  resourceId: string;
++  resourceUrl: string;
++  renderer: 'image' | 'map';
++}
++
++export interface ImageSelection extends PreviewSelection {
++  image: { url: string; index: number; count: number; occurrence: number } | null;
++}
++
++interface Preview {
++  previewId: string;
++  resourceId: string;
++  url: string;
++  renderer: 'image' | 'map';
++}
++
++interface ImageViewer {
++  currentPage(): number;
++  tileSources?: unknown[];
++  addHandler(name: string, handler: () => void): void;
++  removeHandler(name: string, handler: () => void): void;
++}
++
++function selection(preview: Preview): PreviewSelection {
++  return {
++    previewId: preview.previewId,
++    resourceId: preview.resourceId,
++    resourceUrl: preview.url,
++    renderer: preview.renderer,
++  };
++}
++
++/** Report the source actually opened, and clear it while a page changes or fails. */
++export function observeImageSelection(host: HTMLElement, viewer: ImageViewer, getPreview: () => Preview | undefined, emit: (detail: ImageSelection) => void): () => void {
++  const clear = () => {
++    const preview = getPreview();
++    if (preview) emit({ ...selection(preview), image: null });
++  };
++  const opened = () => {
++    const preview = getPreview();
++    if (!preview) return;
++    const index = viewer.currentPage();
++    // OpenSeadragon exposes tileSources at runtime, but omits it from its Viewer type.
++    const sources = viewer.tileSources ?? [];
++    const source = sources?.[index];
++    const url = typeof source === 'string' ? source : (source as { tileSource?: unknown })?.tileSource;
++    emit({
++      ...selection(preview),
++      image:
++        typeof url === 'string'
++          ? {
++              url,
++              index,
++              count: sources.length,
++              occurrence: sources.slice(0, index).filter(source => (typeof source === 'string' ? source : (source as { tileSource?: unknown })?.tileSource) === url).length,
++            }
++          : null,
++    });
++  };
++  viewer.addHandler('open', opened);
++  for (const event of ['page', 'open-failed', 'close']) viewer.addHandler(event, clear);
++  host.addEventListener('imageLoading', clear);
++  return () => {
++    viewer.removeHandler('open', opened);
++    for (const event of ['page', 'open-failed', 'close']) viewer.removeHandler(event, clear);
++    host.removeEventListener('imageLoading', clear);
++  };
++}
++
++/** Publish the initial preview and tab switches, including transitions to non-image previews. */
++export function observePreviewSelection(host: HTMLElement, getPreviews: () => Preview[], emit: (detail: PreviewSelection | null) => void) {
++  let signature: string | undefined;
++  let activeId: string | undefined;
++  let last: string | undefined;
++  const publish = (preview?: Preview) => {
++    const detail = preview ? selection(preview) : null;
++    const serialized = JSON.stringify(detail);
++    if (serialized !== last) {
++      last = serialized;
++      emit(detail);
++    }
++  };
++  const update = () => {
++    const previews = getPreviews();
++    const next = JSON.stringify(previews.map(selection));
++    if (next !== signature) {
++      signature = next;
++      activeId = previews[0]?.previewId;
++    }
++    publish(previews.find(preview => preview.previewId === activeId));
++  };
++  const shown = (event: Event) => {
++    const id = (event as CustomEvent<{ name?: string }>).detail?.name;
++    const preview = getPreviews().find(preview => preview.previewId === id);
++    if (!preview) return;
++    // An initial tab event can precede the first componentDidRender callback.
++    signature = JSON.stringify(getPreviews().map(selection));
++    activeId = id;
++    publish(preview);
++  };
++  const loaded = () => {
++    // Reloading the same record can preserve preview IDs and the active tab.
++    // Consumers cleared their selection on previewsLoading, so republish it.
++    last = undefined;
++    update();
++  };
++  host.addEventListener('wa-tab-show', shown);
++  host.addEventListener('previewsLoaded', loaded);
++  return {
++    update,
++    disconnect: () => {
++      host.removeEventListener('wa-tab-show', shown);
++      host.removeEventListener('previewsLoaded', loaded);
++    },
++  };
++}

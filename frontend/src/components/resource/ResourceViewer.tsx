@@ -1,9 +1,14 @@
 import { toAardvarkRecord } from '../../utils/ogmViewerRecord';
 import { BASEMAP_STYLES } from '../../config/mapStyles';
 import { useEffect, useRef, useState } from 'react';
+import type {
+  ImageSelection,
+  PreviewSelection,
+} from '../../utils/iiifSelection';
 import type { OgmRecord } from 'ogm-viewer/lib';
 
 interface ResourceViewerProps {
+  onImageSelectionChange?: (selection: ImageSelection | null) => void;
   data: {
     id?: string;
     attributes: {
@@ -25,7 +30,12 @@ type OgmViewerElement = HTMLElement & {
   theme: 'light' | 'dark';
 };
 
-export function ResourceViewer({ data }: ResourceViewerProps) {
+export function ResourceViewer({
+  data,
+  onImageSelectionChange,
+}: ResourceViewerProps) {
+  const selectionCallback = useRef(onImageSelectionChange);
+  selectionCallback.current = onImageSelectionChange;
   const viewerRef = useRef<OgmViewerElement | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
@@ -33,6 +43,33 @@ export function ResourceViewer({ data }: ResourceViewerProps) {
   useEffect(() => {
     const viewerElement = viewerRef.current;
     let cancelled = false;
+    let activePreview: PreviewSelection | null = null;
+    const images = new Map<string, ImageSelection>();
+    const recordId = String(data.attributes.ogm?.id ?? data.id ?? '');
+    const publish = () => {
+      if (cancelled) return;
+      selectionCallback.current?.(
+        activePreview?.renderer === 'image'
+          ? (images.get(activePreview.previewId) ?? {
+              ...activePreview,
+              image: null,
+            })
+          : null
+      );
+    };
+    const previewChanged = (event: Event) => {
+      const detail = (event as CustomEvent<PreviewSelection | null>).detail;
+      if (detail && detail.resourceId !== recordId) return;
+      activePreview = detail;
+      publish();
+    };
+    const imageChanged = (event: Event) => {
+      const detail = (event as CustomEvent<ImageSelection>).detail;
+      if (!detail || detail.resourceId !== recordId) return;
+      images.set(detail.previewId, detail);
+      if (activePreview?.previewId === detail.previewId) publish();
+    };
+    selectionCallback.current?.(null);
 
     async function loadViewer() {
       setReady(false);
@@ -46,17 +83,26 @@ export function ResourceViewer({ data }: ResourceViewerProps) {
         if (cancelled || !viewerElement) return;
 
         const handlePreviewsLoading = () => {
-          if (!cancelled) setReady(false);
+          if (!cancelled) {
+            setReady(false);
+            activePreview = null;
+            images.clear();
+            publish();
+          }
         };
         const handlePreviewsLoaded = () => {
           if (!cancelled) setReady(true);
         };
+        viewerElement.addEventListener('previewChange', previewChanged);
+        viewerElement.addEventListener('imageChange', imageChanged);
         viewerElement.addEventListener(
           'previewsLoading',
           handlePreviewsLoading
         );
         viewerElement.addEventListener('previewsLoaded', handlePreviewsLoaded);
         removeViewerListeners = () => {
+          viewerElement.removeEventListener('previewChange', previewChanged);
+          viewerElement.removeEventListener('imageChange', imageChanged);
           viewerElement.removeEventListener(
             'previewsLoading',
             handlePreviewsLoading
@@ -74,6 +120,7 @@ export function ResourceViewer({ data }: ResourceViewerProps) {
         removeViewerListeners?.();
         removeViewerListeners = undefined;
         console.error('Failed to load OGM viewer:', viewerError);
+        selectionCallback.current?.(null);
         setError(true);
       }
     }

@@ -101,6 +101,9 @@ export interface GeoDocument {
         source?: string;
         canvas_id?: string;
         canvas_label?: string;
+        image_source?: string;
+        image_occurrences?: number[];
+        iiif_resource_url?: string;
       }>;
       licensed_accesses?: Array<{
         institution_code: string;

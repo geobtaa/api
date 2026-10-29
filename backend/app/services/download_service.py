@@ -367,18 +367,25 @@ class DownloadService:
         if not manifest_url and not image_url:
             return []
         image_service = ImageService(self.document, distribution_context=self.distribution_context)
+        downloads = []
+        resolved = False
         if http_url(manifest_url):
             manifest = await asyncio.to_thread(image_service._get_manifest, manifest_url)
             if isinstance(manifest, dict):
-                downloads = manifest_downloads(manifest, manifest_url)
-                if downloads or not image_url:
-                    return downloads
+                resolved = True
+                downloads.extend(manifest_downloads(manifest, manifest_url))
         if http_url(image_url):
             base = urlsplit(service_base(image_url))
             info_url = urlunsplit(base._replace(path=f"{base.path}/info.json"))
             info = await asyncio.to_thread(image_service._get_manifest, info_url)
             if isinstance(info, dict):
-                return image_downloads(image_url, info)
+                resolved = True
+                downloads.extend(
+                    {**item, "iiif_resource_url": image_url}
+                    for item in image_downloads(image_url, info)
+                )
+        if resolved:
+            return downloads
         raise ValueError("IIIF downloads are currently unavailable")
 
     def get_generated_download_options(self) -> List[Dict]:

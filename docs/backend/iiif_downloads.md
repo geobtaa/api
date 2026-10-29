@@ -7,12 +7,16 @@ The initial resource/search `meta.ui.downloads` remains a local, provisional
 list; clients that need manifest-derived downloads should use the downloads
 endpoint.
 
-For a multi-part manifest, the component offers a **Page or sheet** selector in
-manifest order. Links apply to that page only. Images are downloaded individually;
-the API does not synthesize a ZIP, PDF, or composite image of an atlas. Explicit
-manifest-level `rendering` files, such as a publisher's whole-atlas PDF, remain
-available alongside the selector. Canvas-level renderings belong to their page.
-Multiple painting images or image choices on one canvas are offered separately.
+For a multi-part manifest, Downloads follows the image currently open in OGM
+Viewer. Moving forward/backward or switching preview tabs updates the links.
+Links are cleared while an image opens or when a map preview is selected.
+Matching uses the preview URL and image service URL, rather than page position:
+one canvas can contain several images, and some canvases have no image.
+
+Images are downloaded individually; the API does not synthesize a ZIP, PDF, or
+composite atlas image. Publisher-supplied whole-item renderings and ordinary
+files remain available. Canvas renderings appear with their matching image.
+The component retains its manual page selector for callers without viewer events.
 
 ## Download extraction
 
@@ -20,7 +24,7 @@ Multiple painting images or image choices on one canvas are offered separately.
   URLs. The downloads endpoint reads image information to determine the version
   and advertised capabilities. Query strings and encoded identifiers survive
   URL normalization.
-- Presentation 2 uses the first/default sequence's canvases, `images`, and
+- Presentation 2 traverses all sequences' canvases, matching OGM Viewer's ordering, `images`, and
   `resource`. Presentation 3 uses canvases, annotation pages, painting
   annotations, and image bodies. Canvas labels support strings, Presentation 2
   language values, and Presentation 3 language maps, with page-number fallbacks.
@@ -35,7 +39,11 @@ Multiple painting images or image choices on one canvas are offered separately.
   different canvases remains available for each page.
 
 IIIF entries have `source: "iiif"`. Entries belonging to a page also include
-`canvas_id` and `canvas_label`, in addition to `label`, `url`, `type`, and `format`.
+`canvas_id` and `canvas_label`. `iiif_resource_url` identifies the originating
+manifest or standalone Image API reference; `image_source` identifies the image
+service (or plain image body). `image_occurrences` records repeated uses of that
+source in viewer order, distinguishing a scan reused on several canvases. Canvas rendering files have no `image_source`.
+These fields are supplied in addition to `label`, `url`, `type`, and `format`.
 The downloads endpoint preserves direct, generated GIS, and bridge-asset files.
 If a remote provider cannot be read, those existing options remain available and
 `iiif_error: true` lets the component offer a retry.
@@ -44,14 +52,15 @@ If a remote provider cannot be read, those existing options remain available and
 
 Resolution reuses the image service's cached JSON fetch and five-second upstream
 timeout, running blocking work outside the async event loop. It reads the
-manifest once; it does not fetch `info.json` for every page in a large atlas.
+manifest once and resolves a separately supplied Image API reference too, so both
+viewer tabs have options. It does not fetch `info.json` for every page in a large atlas.
 Consequently, page-image options use the capabilities and dimensions embedded
 in the manifest. Provider restrictions omitted from that metadata may still
 cause a download to fail.
 
 Only embedded canvases and annotation pages are traversed. External-only canvas
 or annotation-page references and IIIF Collections are not recursively fetched.
-The selector is independent of the viewer's current page. Image links open the
+Images the viewer cannot open have no active-image downloads. Image links open the
 publisher's file in a new tab; the publisher's response determines whether the
 browser displays or saves it.
 
@@ -72,10 +81,14 @@ BTAA_SKIP_TEST_DB=1 python -m pytest backend/tests/services/test_iiif_downloads.
 From `frontend/`, run:
 
 ```bash
-npm test -- --run src/__tests__/components/resource/DownloadsTable.test.tsx src/__tests__/components/ResourceView.test.tsx
+npm test -- --run src/__tests__/components/resource/DownloadsTable.test.tsx src/__tests__/components/resource/ResourceViewer.test.tsx src/__tests__/components/ResourceView.test.tsx
 ```
 
 Reference specifications: [Image API 2](https://iiif.io/api/image/2.1/),
 [Image API 3](https://iiif.io/api/image/3.0/),
 [Presentation 2](https://iiif.io/api/presentation/2.1/), and the
 [Presentation 3 multi-page recipe](https://iiif.io/api/cookbook/recipe/0009-book-1/).
+
+
+See [the OGM selection-event backport](../../frontend/vendor/ogm-viewer/README.md)
+for the event contract, upstream patch, and upgrade/removal instructions.

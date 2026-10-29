@@ -1,4 +1,5 @@
 import React from 'react';
+import { imageSourceKey, type ImageSelection } from '../../utils/iiifSelection';
 import { Download, Image } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { getApiBasePath } from '../../services/api';
@@ -15,6 +16,9 @@ interface DownloadItem {
   source?: string;
   canvas_id?: string;
   canvas_label?: string;
+  image_source?: string;
+  image_occurrences?: number[];
+  iiif_resource_url?: string;
 }
 
 interface DownloadsTableProps {
@@ -22,6 +26,8 @@ interface DownloadsTableProps {
   resourceId?: string;
   searchId?: string;
   resolveIiif?: boolean;
+  followViewer?: boolean;
+  activeImage?: ImageSelection | null;
 }
 
 export function DownloadsTable({
@@ -29,6 +35,8 @@ export function DownloadsTable({
   resourceId,
   searchId,
   resolveIiif = false,
+  followViewer = false,
+  activeImage = null,
 }: DownloadsTableProps) {
   const [preparing, setPreparing] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
@@ -79,7 +87,10 @@ export function DownloadsTable({
 
   const allDownloads = resolved ?? downloads ?? [];
   const isIiif = (d: DownloadItem) =>
-    (d.source === 'iiif' && (d.canvas_id || d.type?.startsWith('image/'))) ||
+    (d.source === 'iiif' &&
+      (d.canvas_id ||
+        d.image_source ||
+        (!d.iiif_resource_url && d.type?.startsWith('image/')))) ||
     (!d.source && d.type === 'image/jpeg' && d.label.includes('Image'));
   const iiifDownloads = allDownloads.filter(isIiif);
   const otherDownloads = allDownloads.filter((d) => !isIiif(d));
@@ -94,9 +105,38 @@ export function DownloadsTable({
   const activeCanvas = canvases.some(([id]) => id === selectedCanvas)
     ? selectedCanvas
     : canvases[0]?.[0];
-  const visibleImages = iiifDownloads.filter(
-    (d) => (d.canvas_id || 'image') === activeCanvas
+  const sourceMatches =
+    activeImage?.image && activeImage.resourceId === resourceId
+      ? iiifDownloads.filter(
+          (d) =>
+            imageSourceKey(d.image_source) ===
+              imageSourceKey(activeImage.image?.url) &&
+            Boolean(d.image_source) &&
+            imageSourceKey(d.iiif_resource_url) ===
+              imageSourceKey(activeImage.resourceUrl)
+        )
+      : [];
+  // A repeated scan can belong to several canvases. Never guess its page-specific files.
+  const distinctCanvases = new Set(sourceMatches.map((d) => d.canvas_id));
+  const matchingImages = sourceMatches.filter((d) =>
+    activeImage?.image?.occurrence !== undefined && d.image_occurrences
+      ? d.image_occurrences.includes(activeImage.image.occurrence)
+      : distinctCanvases.size <= 1
   );
+  const matchingCanvases = new Set(
+    matchingImages.map((d) => d.canvas_id).filter(Boolean)
+  );
+  const visibleImages = followViewer
+    ? iiifDownloads.filter(
+        (d) =>
+          matchingImages.includes(d) ||
+          (!d.image_source &&
+            d.canvas_id &&
+            matchingCanvases.has(d.canvas_id) &&
+            imageSourceKey(d.iiif_resource_url) ===
+              imageSourceKey(activeImage?.resourceUrl))
+      )
+    : iiifDownloads.filter((d) => (d.canvas_id || 'image') === activeCanvas);
 
   if (!allDownloads.length && !resolveIiif) return null;
 
@@ -288,10 +328,14 @@ export function DownloadsTable({
             <div className="flex items-center gap-2 mb-2">
               <Image className="w-5 h-5 text-gray-400" />
               <span className="text-sm font-medium text-gray-900">
-                {canvases.length > 1 ? 'Download Images' : 'Download Image'}
+                {followViewer
+                  ? 'Download current image'
+                  : canvases.length > 1
+                    ? 'Download Images'
+                    : 'Download Image'}
               </span>
             </div>
-            {canvases.length > 1 && (
+            {!followViewer && canvases.length > 1 && (
               <div className="mb-3">
                 <label
                   htmlFor={selectId}
@@ -316,6 +360,21 @@ export function DownloadsTable({
                   downloaded individually.
                 </p>
               </div>
+            )}
+            {followViewer && (
+              <p
+                className="mb-3 text-sm text-gray-600"
+                role="status"
+                aria-live="polite"
+              >
+                {visibleImages.length && activeImage?.image
+                  ? `${matchingImages[0]?.canvas_label || 'Current image'} · Image ${activeImage.image.index + 1} of ${activeImage.image.count}. Downloads follow the viewer.`
+                  : activeImage?.image
+                    ? 'No downloads are available for the current image.'
+                    : activeImage
+                      ? 'Image downloads are available once the current image opens.'
+                      : 'Select an image in the item viewer to see its downloads.'}
+              </p>
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {visibleImages.map((download) => (
