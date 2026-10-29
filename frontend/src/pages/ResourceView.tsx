@@ -794,14 +794,13 @@ export function ResourceView({
                     )}
 
                     {/* Downloads section */}
-                    {data?.meta?.ui?.downloads &&
-                      data.meta.ui.downloads.length > 0 && (
-                        <DownloadsTable
-                          downloads={data.meta.ui.downloads}
-                          resourceId={data.id}
-                          searchId={searchState?.searchId}
-                        />
-                      )}
+                    <DownloadsTable
+                      key={data.id}
+                      downloads={data.meta?.ui?.downloads ?? []}
+                      resourceId={data.id}
+                      searchId={searchState?.searchId}
+                      resolveIiif={Boolean(getAllmapsIiifUrl(data))}
+                    />
 
                     {/* Licensed access section */}
                     {data?.meta?.ui?.licensed_accesses &&
