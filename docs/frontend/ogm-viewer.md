@@ -3,11 +3,15 @@
 The application consumes a source-built prerelease of
 [geobtaa/ogm-viewer](https://github.com/geobtaa/ogm-viewer/tree/feature/viewer-integration),
 based on upstream v1.6.0. The dependency key remains `ogm-viewer`; the tarball
-contains `@geobtaa/ogm-viewer` version `1.6.0-btaa.1`. `package.json` names an
+contains `@geobtaa/ogm-viewer` version `1.6.0-btaa.2`. `package.json` names an
 exact release asset URL and `package-lock.json` pins its integrity.
 `fork-build.json` inside the installed package identifies its source commit,
 upstream baseline, build Node version, and lockfile hash. No upstream PRs have
 been opened for this work.
+
+This release also accepts comma-separated resource bounding boxes, fixing the
+initial map extent for records such as `cugir-007910`. The fork includes a WMS
+browser regression covering delayed capabilities loading.
 
 ## Ownership and contracts
 
