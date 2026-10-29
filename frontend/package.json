@@ -50,7 +50,7 @@
     "js-yaml": "^4.2.0",
     "lucide-react": "^0.544.0",
     "maplibre-gl": "6.16.0",
-    "ogm-viewer": "https://github.com/geobtaa/ogm-viewer/releases/download/v1.6.0-btaa.2/geobtaa-ogm-viewer-1.6.0-btaa.2.tgz",
+    "ogm-viewer": "https://github.com/geobtaa/ogm-viewer/releases/download/v1.7.0-btaa.1/geobtaa-ogm-viewer-1.7.0-btaa.1.tgz",
     "opentelemetry-instrumentation-remix": "^0.8.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
