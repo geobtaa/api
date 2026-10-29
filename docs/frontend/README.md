@@ -194,8 +194,25 @@ loads and after it succeeds. They are revealed if its initial load fails. A lone
 preview displays its canvas without a tab bar, including during initial loading. An initial preview failure switches to another IIIF image preview
 only after it has loaded; later page failures keep the reader in the book.
 
-IIIF image downloads load separately from resource metadata. Multi-part items
-follow the image currently open in OGM Viewer. Paging and preview-tab changes
-update individual image downloads. The Downloads page/sheet picker navigates
-the viewer too; publisher whole-item files remain available. See [IIIF downloads](../backend/iiif_downloads.md) for supported manifest
-shapes, endpoint fields, and local tests.
+IIIF image downloads use the active image service already loaded by OGM Viewer.
+The resource page does not make a separate manifest-derived download request,
+so collections that the viewer can open do not show a second resolver's error.
+Links respect the service's Image API version, advertised sizes and limits.
+Paging and preview-tab changes update individual image downloads. The Downloads
+page/sheet picker navigates the viewer too; publisher-provided downloads remain
+available. The download heading only appears when image links are available.
+The independent API endpoint remains available to other clients; see
+[IIIF downloads](../backend/iiif_downloads.md) for its supported manifest shapes
+and endpoint fields.
+
+### Standalone OGM Viewer
+
+“Open in new tab” opens `/ogm-viewer?resource=<encoded resource ID>` with
+the complete catalog record and a viewport-height OGM Viewer. Its native
+menubar remains available in this standalone view. The resource-page viewer
+continues to omit the repeated title. Both omit the Location preview.
+
+Existing `/mirador?manifest=<encoded manifest URL>` links permanently redirect
+to `/ogm-viewer` with their query string preserved. Manifest-only links create
+a minimal Aardvark record in the browser viewer; the server does not fetch the
+user-supplied manifest URL. Missing or invalid inputs show an accessible message.

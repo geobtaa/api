@@ -1,4 +1,5 @@
 import React from 'react';
+import { viewerImageDownloads } from '../../utils/viewerImageDownloads';
 import {
   imageSourceKey,
   type ImageSelection,
@@ -48,7 +49,8 @@ export function DownloadsTable({
   const [failed, setFailed] = useState<Record<string, boolean>>({});
 
   const [resolved, setResolved] = useState<DownloadItem[] | null>(null);
-  const [loading, setLoading] = useState(resolveIiif);
+  const resolveManifest = resolveIiif && !followViewer;
+  const [loading, setLoading] = useState(resolveManifest);
   const [iiifError, setIiifError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [selectedCanvas, setSelectedCanvas] = useState('');
@@ -58,7 +60,7 @@ export function DownloadsTable({
     setResolved(null);
     setSelectedCanvas('');
     setIiifError(false);
-    if (!resolveIiif || !resourceId) {
+    if (!resolveManifest || !resourceId) {
       setLoading(false);
       return;
     }
@@ -89,7 +91,7 @@ export function DownloadsTable({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [resolveIiif, resourceId, attempt]);
+  }, [resolveManifest, resourceId, attempt]);
 
   const allDownloads = resolved ?? downloads ?? [];
   const isIiif = (d: DownloadItem) =>
@@ -132,7 +134,7 @@ export function DownloadsTable({
   const matchingCanvases = new Set(
     matchingImages.map((d) => d.canvas_id).filter(Boolean)
   );
-  const visibleImages = followViewer
+  const matchedImages = followViewer
     ? iiifDownloads.filter(
         (d) =>
           matchingImages.includes(d) ||
@@ -143,6 +145,12 @@ export function DownloadsTable({
               imageSourceKey(activeImage?.resourceUrl))
       )
     : iiifDownloads.filter((d) => (d.canvas_id || 'image') === activeCanvas);
+
+  // Viewer mode never requests a second manifest traversal. The opened service is authoritative.
+  const visibleImages =
+    followViewer && activeImage?.image?.service
+      ? viewerImageDownloads(activeImage, resourceId)
+      : matchedImages;
 
   const viewerPages =
     activeImage && activeImage.resourceId === resourceId
@@ -162,7 +170,13 @@ export function DownloadsTable({
     };
   });
 
-  if (!allDownloads.length && !resolveIiif && !viewerPages.length) return null;
+  if (
+    !allDownloads.length &&
+    !resolveManifest &&
+    !viewerPages.length &&
+    !visibleImages.length
+  )
+    return null;
 
   const resolveDownloadLabel = (download: DownloadItem): string => {
     if (!download.generated) return download.label;
@@ -342,20 +356,24 @@ export function DownloadsTable({
             </button>
           </div>
         )}
-        {!loading && !iiifError && resolveIiif && !iiifDownloads.length && (
+        {!loading && !iiifError && resolveManifest && !iiifDownloads.length && (
           <p className="px-6 py-4 text-sm text-gray-600">
             No downloadable images were found in this IIIF item.
           </p>
         )}
-        {(iiifDownloads.length > 0 || viewerPages.length > 1) && (
+        {(iiifDownloads.length > 0 ||
+          visibleImages.length > 0 ||
+          viewerPages.length > 1) && (
           <div className="px-6 py-4">
-            <div className="text-sm font-medium text-gray-500 mb-2">
-              {followViewer
-                ? 'Download current image'
-                : canvases.length > 1
-                  ? 'Download Images'
-                  : 'Download Image'}
-            </div>
+            {visibleImages.length > 0 && (
+              <div className="text-sm font-medium text-gray-500 mb-2">
+                {followViewer
+                  ? 'Download current image'
+                  : canvases.length > 1
+                    ? 'Download Images'
+                    : 'Download Image'}
+              </div>
+            )}
             {followViewer && viewerPageOptions.length > 1 && (
               <div className="mb-3">
                 <label htmlFor={selectId} className="sr-only">

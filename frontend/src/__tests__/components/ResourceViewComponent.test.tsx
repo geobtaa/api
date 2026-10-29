@@ -609,20 +609,19 @@ describe('ResourceView Component', () => {
       expect(screen.getByTestId('resource-viewer')).toBeInTheDocument();
     });
 
-    it('renders AttributeTable when protocol is wms', async () => {
+    it('uses OGM Viewer without the legacy attribute inspection table', async () => {
       render(
         <TestWrapper>
           <ResourceView />
         </TestWrapper>
       );
-
-      await waitFor(() => {
-        expect(screen.getByText('Attribute')).toBeInTheDocument();
-        expect(screen.getByText('Value')).toBeInTheDocument();
-        expect(
-          screen.getByText('Click on map to inspect values')
-        ).toBeInTheDocument();
-      });
+      expect(await screen.findByTestId('resource-viewer')).toBeInTheDocument();
+      expect(
+        document.getElementById('attribute-table')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Click on map to inspect values')
+      ).not.toBeInTheDocument();
     });
 
     it('renders IndexMap when protocol is open_index_map', async () => {

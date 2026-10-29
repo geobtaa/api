@@ -42,6 +42,12 @@ vi.mock('../../components/resource/ResourceViewer', () => ({
               url: 'https://example.org/image/info.json',
               index: 0,
               count: 1,
+              service: {
+                id: 'https://example.org/image',
+                version: 2,
+                width: 3000,
+                height: 2000,
+              },
             },
           })
         }
@@ -994,26 +1000,19 @@ describe('ResourceView Component', () => {
       expect(screen.getByTestId('resource-viewer')).toBeInTheDocument();
     });
 
-    it('renders AttributeTable when protocol is wms', async () => {
+    it('uses OGM Viewer without the legacy attribute inspection table', async () => {
       render(
         <TestWrapper>
           <ResourceView />
         </TestWrapper>
       );
-
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', {
-            name: 'Nondigitized paper map with library catalog link',
-          })
-        ).toBeInTheDocument();
-      });
-
-      expect(screen.getByText('Attribute')).toBeInTheDocument();
-      expect(screen.getByText('Value')).toBeInTheDocument();
+      expect(await screen.findByTestId('resource-viewer')).toBeInTheDocument();
       expect(
-        screen.getByText('Click on map to inspect values')
-      ).toBeInTheDocument();
+        document.getElementById('attribute-table')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Click on map to inspect values')
+      ).not.toBeInTheDocument();
     });
 
     it('renders IndexMap when protocol is open_index_map', async () => {
@@ -1299,18 +1298,28 @@ describe('ResourceView Component', () => {
           <ResourceView />
         </TestWrapper>
       );
-      await screen.findByText(
-        'Select an image in the item viewer to see its downloads.'
-      );
+      await screen.findByRole('button', { name: 'View test image' });
       expect(
         screen.queryByRole('link', { name: 'Small' })
       ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Open in new tab' })
+      ).toHaveAttribute(
+        'href',
+        `/ogm-viewer?resource=${encodeURIComponent(realFixtureData[0].id)}`
+      );
+      expect(
+        screen.getByRole('link', { name: 'Open in new tab' })
+      ).toHaveAttribute('target', '_blank');
       await userEvent.click(
         screen.getByRole('button', { name: 'View test image' })
       );
       expect(
         await screen.findByRole('link', { name: 'Small' })
-      ).toHaveAttribute('href', 'https://example.org/map.jpg');
+      ).toHaveAttribute(
+        'href',
+        'https://example.org/image/full/800,/0/default.jpg'
+      );
     });
 
     it('renders DownloadsTable when downloads are available', async () => {
