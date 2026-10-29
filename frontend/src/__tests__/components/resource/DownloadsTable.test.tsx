@@ -308,7 +308,7 @@ it('matches current image source rather than canvas position and hides stale lin
     downloads[1].url
   );
   expect(screen.getByRole('link', { name: 'Sheet PDF' })).toBeInTheDocument();
-  expect(screen.getByRole('status')).toHaveTextContent('Image 5 of 7');
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
   for (const activeImage of [
     null,
     { ...selection, image: null },
@@ -429,7 +429,7 @@ it('distinguishes repeated scans on different canvases using source occurrence',
       activeImage={selection}
     />
   );
-  expect(screen.getByRole('status')).toHaveTextContent('Second use');
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: 'Small' })).toHaveLength(1);
   expect(
     screen.getByRole('link', { name: 'Second sheet PDF' })
@@ -445,7 +445,7 @@ it('distinguishes repeated scans on different canvases using source occurrence',
       }}
     />
   );
-  expect(screen.getByRole('status')).toHaveTextContent('First use');
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(
     screen.queryByRole('link', { name: 'Second sheet PDF' })
   ).not.toBeInTheDocument();

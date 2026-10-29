@@ -361,14 +361,12 @@ export function DownloadsTable({
             </div>
             {followViewer && viewerPageOptions.length > 1 && (
               <div className="mb-3">
-                <label
-                  htmlFor={selectId}
-                  className="block text-sm text-gray-700 mb-1"
-                >
+                <label htmlFor={selectId} className="sr-only">
                   Page or sheet ({viewerPageOptions.length})
                 </label>
                 <select
                   id={selectId}
+                  aria-describedby={`${selectId}-help`}
                   value={
                     activeImage?.pageIndex ?? activeImage?.image?.index ?? ''
                   }
@@ -395,7 +393,7 @@ export function DownloadsTable({
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-gray-500">
+                <p id={`${selectId}-help`} className="sr-only">
                   Choosing a page updates the viewer and its download links.
                 </p>
               </div>
@@ -426,19 +424,17 @@ export function DownloadsTable({
                 </p>
               </div>
             )}
-            {followViewer && (
+            {followViewer && !visibleImages.length && (
               <p
                 className="mb-3 text-sm text-gray-600"
                 role="status"
                 aria-live="polite"
               >
-                {visibleImages.length && activeImage?.image
-                  ? `${matchingImages[0]?.canvas_label || 'Current image'} · Image ${activeImage.image.index + 1} of ${activeImage.image.count}. Downloads follow the viewer.`
-                  : activeImage?.image
-                    ? 'No downloads are available for the current image.'
-                    : activeImage
-                      ? 'Image downloads are available once the current image opens.'
-                      : 'Select an image in the item viewer to see its downloads.'}
+                {activeImage?.image
+                  ? 'No downloads are available for the current image.'
+                  : activeImage
+                    ? 'Image downloads are available once the current image opens.'
+                    : 'Select an image in the item viewer to see its downloads.'}
               </p>
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-2">
