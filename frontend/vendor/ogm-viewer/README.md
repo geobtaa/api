@@ -20,12 +20,21 @@ Both events bubble and cross shadow roots, so consumers listen on `ogm-viewer`:
 - `imageChange`: the same identity plus `image: {url, index, count, occurrence}` after an image
   opens. `index` is zero-based in the viewer's image sequence, **not** a canvas
   index. `occurrence` distinguishes repeated uses of the same URL. `image: null` clears the current selection on loading, page transition,
-  close, or failure. Each image preview emits independently, including hidden tabs.
+  close, or failure. `sequence` lists `{url, index, occurrence}` for each URL-backed
+  image, and `pageIndex` tracks the selected position even while an image loads.
+  Each image preview emits independently, including hidden tabs.
+- Dispatch `imageNavigationRequest` on `ogm-viewer` with the preview identity,
+  `index`, and `url` from its sequence to select an image. The image component
+  validates record, preview, source URL, and bounds before calling OpenSeadragon.
+  A standalone `ogm-image` receives the same request on its own host. Listeners
+  are removed with the image observer.
 
 The React adapter stores each preview's latest image, publishes only the active
 preview, rejects events from other records, and unregisters listeners on cleanup.
 Downloads matches `resourceUrl` and the actual image URL against API metadata.
-No matches means no image links; it never guesses the first canvas.
+The Downloads picker uses the reported sequence and requests navigation through
+this public event contract. Viewer events remain authoritative for the picker
+and download links, including loading/failure states. No matches means no image links; it never guesses the first canvas.
 
 ## Installation and removal
 
@@ -34,7 +43,8 @@ version 1.6.0 and the SHA-256 of both original component chunks before adding th
 hooks and copying the helper. Re-running it is idempotent. A version or artifact
 change fails installation so an upgrade cannot silently break synchronization.
 The Docker dependencies stage copies the installer and vendor directory before
-installing. After dependency changes, rebuild the frontend dependency layer and
+installing. Vite includes the helper content hash in its plugin identity to
+invalidate browser dependency URLs when the backport changes. After dependency changes, rebuild the frontend dependency layer and
 run `make frontend-reset`, then hard-refresh the browser.
 
 Once an upstream release includes equivalent events, remove the postinstall

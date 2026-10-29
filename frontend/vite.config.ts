@@ -1,16 +1,28 @@
 import { reactRouter } from '@react-router/dev/vite';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { defineConfig } from 'vite';
 import path from 'node:path';
 import { BASEMAP_STYLES } from './src/config/mapStyles';
+
+// A vendor backport changes without a package-lock update. Include its content
+// in Vite's plugin identity so browser dependency URLs get a fresh cache key.
+const viewerBackportHash = createHash('sha256')
+  .update(
+    readFileSync(
+      new URL('./vendor/ogm-viewer/preview-events.js', import.meta.url)
+    )
+  )
+  .digest('hex')
+  .slice(0, 12);
 
 // https://vitejs.dev/config/
 // Force restart: 1
 export default defineConfig({
   plugins: [
     {
-      name: 'ogm-viewer-assets-and-basemaps',
+      name: `ogm-viewer-assets-and-basemaps-${viewerBackportHash}`,
       enforce: 'pre',
       transform(source, id) {
         if (!id.includes('/ogm-viewer/dist/components/')) return;

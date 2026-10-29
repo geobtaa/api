@@ -450,3 +450,90 @@ it('distinguishes repeated scans on different canvases using source occurrence',
     screen.queryByRole('link', { name: 'Second sheet PDF' })
   ).not.toBeInTheDocument();
 });
+
+it('uses the viewer sequence for a two-way picker, retaining its selection while images load', () => {
+  const onImageNavigate = vi.fn();
+  const source = 'https://example.org/scan';
+  const manifest = 'https://example.org/manifest';
+  const sequence = [
+    { url: source + '/info.json', index: 0, occurrence: 0 },
+    { url: source + '/info.json', index: 7, occurrence: 1 },
+  ];
+  const downloads = [
+    {
+      label: 'First scan',
+      url: source + '/first.jpg',
+      source: 'iiif',
+      canvas_id: 'one',
+      canvas_label: 'Cover',
+      image_source: source,
+      image_occurrences: [0],
+      iiif_resource_url: manifest,
+    },
+    {
+      label: 'Second scan',
+      url: source + '/second.jpg',
+      source: 'iiif',
+      canvas_id: 'two',
+      canvas_label: 'Map sheet',
+      image_source: source,
+      image_occurrences: [1],
+      iiif_resource_url: manifest,
+    },
+  ];
+  const active = {
+    previewId: 'preview',
+    resourceId: 'record',
+    resourceUrl: manifest,
+    renderer: 'image' as const,
+    sequence,
+    pageIndex: 0,
+    image: { ...sequence[0], count: 8 },
+  };
+  const props = {
+    downloads,
+    resourceId: 'record',
+    followViewer: true,
+    onImageNavigate,
+  };
+  const { rerender } = render(
+    <DownloadsTable {...props} activeImage={active} />
+  );
+  const picker = screen.getByRole('combobox', { name: 'Page or sheet (2)' });
+  expect(picker).toHaveValue('0');
+  expect(screen.getByRole('option', { name: '8. Map sheet' })).toHaveValue('7');
+  fireEvent.change(picker, { target: { value: '7' } });
+  expect(onImageNavigate).toHaveBeenCalledExactlyOnceWith({
+    previewId: 'preview',
+    resourceId: 'record',
+    resourceUrl: manifest,
+    renderer: 'image',
+    index: 7,
+    url: sequence[1].url,
+  });
+  expect(screen.getByRole('link', { name: 'First scan' })).toBeInTheDocument();
+  rerender(
+    <DownloadsTable
+      {...props}
+      activeImage={{ ...active, pageIndex: 7, image: null }}
+    />
+  );
+  expect(picker).toHaveValue('7');
+  expect(
+    screen.queryByRole('link', { name: 'First scan' })
+  ).not.toBeInTheDocument();
+  rerender(
+    <DownloadsTable
+      {...props}
+      activeImage={{
+        ...active,
+        pageIndex: 7,
+        image: { ...sequence[1], count: 8 },
+      }}
+    />
+  );
+  expect(screen.getByRole('link', { name: 'Second scan' })).toBeInTheDocument();
+  rerender(<DownloadsTable {...props} activeImage={active} />);
+  expect(picker).toHaveValue('0');
+  expect(onImageNavigate).toHaveBeenCalledTimes(1);
+});

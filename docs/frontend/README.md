@@ -179,5 +179,6 @@ Search map controls:
 
 IIIF image downloads load separately from resource metadata. Multi-part items
 follow the image currently open in OGM Viewer. Paging and preview-tab changes
-update individual image downloads; publisher whole-item files remain available. See [IIIF downloads](../backend/iiif_downloads.md) for supported manifest
+update individual image downloads. The Downloads page/sheet picker navigates
+the viewer too; publisher whole-item files remain available. See [IIIF downloads](../backend/iiif_downloads.md) for supported manifest
 shapes, endpoint fields, and local tests.

@@ -1,8 +1,8 @@
 diff --git a/readme.md b/readme.md
-index 4421c92..f70f768 100644
+index 4421c92..9fb64b6 100644
 --- a/readme.md
 +++ b/readme.md
-@@ -354,3 +354,27 @@ git push origin vX.Y.Z
+@@ -354,3 +354,46 @@ git push origin vX.Y.Z
  ```
  
  The `Release` workflow checks that the tag and `package.json` agree, lints, tests, publishes to npm, and drafts the GitHub release with generated notes. It authenticates with npm over OIDC using [trusted publishing](https://docs.npmjs.com/trusted-publishers).
@@ -28,8 +28,27 @@ index 4421c92..f70f768 100644
 +image event arriving before the initial preview event. A map preview has no
 +active image. Clear cached selections when replacing the record.
 +
-+The payload types `PreviewSelection` and `ImageSelection` are exported from
-+`ogm-viewer/lib`.
++`imageChange` also includes `sequence: [{ url, index, occurrence }]` and
++`pageIndex`. The sequence retains original viewer indices, excluding sources
++that cannot be represented by a URL. It remains available during page changes,
++even while `image` is null.
++
++To select a page, dispatch `imageNavigationRequest` on `<ogm-viewer>` with the
++preview identity plus an `index` and `url` from that sequence:
++
++```js
++viewer.dispatchEvent(new CustomEvent('imageNavigationRequest', {
++  detail: { previewId, resourceId, resourceUrl, renderer: 'image', index, url },
++}));
++```
++
++Only the addressed image preview responds; mismatched records, URLs, preview IDs,
++and out-of-bounds indices are ignored. Keep UI state driven by `imageChange`,
++which reports the loading transition and eventual image. Standalone `<ogm-image>`
++consumers dispatch the request on that element instead.
++
++The payload types `PreviewSelection`, `ImageSelection`, `ImageSequenceEntry`,
++and `ImageNavigation` are exported from `ogm-viewer/lib`.
 diff --git a/src/components.d.ts b/src/components.d.ts
 index 3e7320b..0cf78c9 100644
 --- a/src/components.d.ts
@@ -179,7 +198,7 @@ index a9b3b00..27a7b62 100644
    protected async onRecordChange(record?: OgmRecord) {
      await this.buildPreviewers(record);
 diff --git a/src/index.ts b/src/index.ts
-index a9d7244..4619afd 100644
+index a9d7244..e267801 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -109,3 +109,5 @@ export type { LegendEntry, LegendImage } from './lib/legend';
@@ -187,13 +206,13 @@ index a9d7244..4619afd 100644
  export { unionBounds, clampToHemisphere, WORLD } from './lib/geometry';
  export { fetchOrThrow, recordError, referenceError, HttpError, PreviewError } from './lib/errors';
 +
-+export type { PreviewSelection, ImageSelection } from './lib/preview-events';
++export type { PreviewSelection, ImageSelection, ImageSequenceEntry, ImageNavigation } from './lib/preview-events';
 diff --git a/src/lib/preview-events.test.ts b/src/lib/preview-events.test.ts
 new file mode 100644
-index 0000000..da74f64
+index 0000000..54544de
 --- /dev/null
 +++ b/src/lib/preview-events.test.ts
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,140 @@
 +import { describe, expect, it, vi } from 'vitest';
 +import { observeImageSelection, observePreviewSelection } from './preview-events';
 +
@@ -207,6 +226,7 @@ index 0000000..da74f64
 +    let page = 0;
 +    const viewer = {
 +      currentPage: () => page,
++      goToPage: vi.fn(),
 +      tileSources: [{ tileSource: 'https://example.org/a/info.json' }, { tileSource: 'https://example.org/b/info.json' }],
 +      addHandler: (name: string, handler: () => void) => handlers.set(name, handler),
 +      removeHandler: (name: string) => handlers.delete(name),
@@ -220,6 +240,8 @@ index 0000000..da74f64
 +      resourceId: image.resourceId,
 +      resourceUrl: image.url,
 +      renderer: 'image',
++      sequence: viewer.tileSources.map((source, index) => ({ url: source.tileSource, index, occurrence: 0 })),
++      pageIndex: 0,
 +      image: { url: viewer.tileSources[0].tileSource, index: 0, count: 2, occurrence: 0 },
 +    });
 +    page = 1;
@@ -251,6 +273,7 @@ index 0000000..da74f64
 +      host(),
 +      {
 +        currentPage: () => 0,
++        goToPage: vi.fn(),
 +        tileSources: [{ type: 'custom' }],
 +        addHandler: (name, handler) => {
 +          handlers.set(name, handler);
@@ -297,12 +320,45 @@ index 0000000..da74f64
 +    expect(emit.mock.lastCall?.[0]).toBeNull();
 +  });
 +});
++
++it('routes navigation through shadow hosts to the addressed image and removes the listener', () => {
++  const root = Object.assign(new EventTarget(), { nodeName: 'OGM-VIEWER' });
++  const element = Object.assign(new EventTarget(), { parentNode: { host: root } }) as unknown as HTMLElement;
++  const goToPage = vi.fn();
++  const viewer = {
++    currentPage: () => 0,
++    goToPage,
++    tileSources: [{ tileSource: 'https://example.org/a/info.json' }, { tileSource: 'https://example.org/a/info.json' }],
++    addHandler: vi.fn(),
++    removeHandler: vi.fn(),
++  };
++  const stop = observeImageSelection(element, viewer, () => image, vi.fn());
++  const request = { previewId: image.previewId, resourceId: image.resourceId, resourceUrl: image.url, renderer: 'image', index: 1, url: viewer.tileSources[1].tileSource };
++  const send = (detail: unknown) => root.dispatchEvent(new CustomEvent('imageNavigationRequest', { detail }));
++  for (const invalid of [
++    null,
++    { ...request, index: -1 },
++    { ...request, index: 2 },
++    { ...request, index: 0.5 },
++    { ...request, previewId: 'hidden-preview' },
++    { ...request, resourceId: 'old-record' },
++    { ...request, resourceUrl: 'other-manifest' },
++    { ...request, url: 'different-source' },
++  ])
++    send(invalid);
++  expect(goToPage).not.toHaveBeenCalled();
++  send(request);
++  expect(goToPage).toHaveBeenCalledExactlyOnceWith(1);
++  stop();
++  send(request);
++  expect(goToPage).toHaveBeenCalledTimes(1);
++});
 diff --git a/src/lib/preview-events.ts b/src/lib/preview-events.ts
 new file mode 100644
-index 0000000..927b0b2
+index 0000000..44ae6e2
 --- /dev/null
 +++ b/src/lib/preview-events.ts
-@@ -0,0 +1,119 @@
+@@ -0,0 +1,170 @@
 +/** Public selection events shared by the image and preview components. */
 +export interface PreviewSelection {
 +  previewId: string;
@@ -311,7 +367,20 @@ index 0000000..927b0b2
 +  renderer: 'image' | 'map';
 +}
 +
++export interface ImageSequenceEntry {
++  url: string;
++  index: number;
++  occurrence: number;
++}
++
++export interface ImageNavigation extends PreviewSelection {
++  index: number;
++  url: string;
++}
++
 +export interface ImageSelection extends PreviewSelection {
++  sequence: ImageSequenceEntry[];
++  pageIndex: number;
 +  image: { url: string; index: number; count: number; occurrence: number } | null;
 +}
 +
@@ -324,6 +393,7 @@ index 0000000..927b0b2
 +
 +interface ImageViewer {
 +  currentPage(): number;
++  goToPage(index: number): unknown;
 +  tileSources?: unknown[];
 +  addHandler(name: string, handler: () => void): void;
 +  removeHandler(name: string, handler: () => void): void;
@@ -340,31 +410,67 @@ index 0000000..927b0b2
 +
 +/** Report the source actually opened, and clear it while a page changes or fails. */
 +export function observeImageSelection(host: HTMLElement, viewer: ImageViewer, getPreview: () => Preview | undefined, emit: (detail: ImageSelection) => void): () => void {
++  const sourceUrl = (source: unknown) => {
++    const url = typeof source === 'string' ? source : (source as { tileSource?: unknown })?.tileSource;
++    return typeof url === 'string' ? url : undefined;
++  };
++  const snapshot = () => {
++    const occurrences = new Map<string, number>();
++    const sequence: ImageSequenceEntry[] = [];
++    (viewer.tileSources ?? []).forEach((source, index) => {
++      const url = sourceUrl(source);
++      if (!url) return;
++      const occurrence = occurrences.get(url) ?? 0;
++      occurrences.set(url, occurrence + 1);
++      sequence.push({ url, index, occurrence });
++    });
++    return { sequence, pageIndex: viewer.currentPage() };
++  };
 +  const clear = () => {
 +    const preview = getPreview();
-+    if (preview) emit({ ...selection(preview), image: null });
++    if (preview) emit({ ...selection(preview), ...snapshot(), image: null });
 +  };
 +  const opened = () => {
 +    const preview = getPreview();
 +    if (!preview) return;
-+    const index = viewer.currentPage();
-+    // OpenSeadragon exposes tileSources at runtime, but omits it from its Viewer type.
-+    const sources = viewer.tileSources ?? [];
-+    const source = sources?.[index];
-+    const url = typeof source === 'string' ? source : (source as { tileSource?: unknown })?.tileSource;
++    const state = snapshot();
++    const image = state.sequence.find(image => image.index === state.pageIndex);
 +    emit({
 +      ...selection(preview),
-+      image:
-+        typeof url === 'string'
-+          ? {
-+              url,
-+              index,
-+              count: sources.length,
-+              occurrence: sources.slice(0, index).filter(source => (typeof source === 'string' ? source : (source as { tileSource?: unknown })?.tileSource) === url).length,
-+            }
-+          : null,
++      ...state,
++      image: image ? { ...image, count: viewer.tileSources?.length ?? 0 } : null,
 +    });
 +  };
++  // Requests are addressed to the public viewer host; each image validates its identity.
++  // Standalone ogm-image elements receive the same request on their own host.
++  let commandTarget = host;
++  let ancestor: Node | undefined = host;
++  while (ancestor) {
++    if (ancestor.nodeName === 'OGM-VIEWER') {
++      commandTarget = ancestor as HTMLElement;
++      break;
++    }
++    ancestor = ancestor.parentNode ?? (ancestor as ShadowRoot).host;
++  }
++  const navigate = (event: Event) => {
++    const request = (event as CustomEvent<ImageNavigation>).detail;
++    const preview = getPreview();
++    if (
++      !request ||
++      !preview ||
++      request.previewId !== preview.previewId ||
++      request.resourceId !== preview.resourceId ||
++      request.resourceUrl !== preview.url ||
++      request.renderer !== 'image' ||
++      !Number.isInteger(request.index) ||
++      request.index < 0 ||
++      request.index >= (viewer.tileSources?.length ?? 0) ||
++      request.url !== sourceUrl(viewer.tileSources?.[request.index])
++    )
++      return;
++    viewer.goToPage(request.index);
++  };
++  commandTarget.addEventListener('imageNavigationRequest', navigate);
 +  viewer.addHandler('open', opened);
 +  for (const event of ['page', 'open-failed', 'close']) viewer.addHandler(event, clear);
 +  host.addEventListener('imageLoading', clear);
@@ -372,6 +478,7 @@ index 0000000..927b0b2
 +    viewer.removeHandler('open', opened);
 +    for (const event of ['page', 'open-failed', 'close']) viewer.removeHandler(event, clear);
 +    host.removeEventListener('imageLoading', clear);
++    commandTarget.removeEventListener('imageNavigationRequest', navigate);
 +  };
 +}
 +
