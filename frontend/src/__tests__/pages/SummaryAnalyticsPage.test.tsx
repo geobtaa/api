@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// Use jsdom for the full-dashboard axe scan; happy-dom is too slow in CI.
 import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SummaryAnalyticsPage } from '../../components/analytics/SummaryAnalyticsPage';
