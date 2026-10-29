@@ -1,4 +1,7 @@
-import { toAardvarkRecord } from '../../utils/ogmViewerRecord';
+import {
+  toAardvarkRecord,
+  hasOgmContentPreview,
+} from '../../utils/ogmViewerRecord';
 import { BASEMAP_STYLES } from '../../config/mapStyles';
 import { useEffect, useRef, useState } from 'react';
 import type {
@@ -32,7 +35,16 @@ type OgmViewerElement = HTMLElement & {
   theme: 'light' | 'dark';
 };
 
-export function ResourceViewer({
+export function ResourceViewer(props: ResourceViewerProps) {
+  const { data, onImageSelectionChange } = props;
+  const hasContent = hasOgmContentPreview(data);
+  useEffect(() => {
+    if (!hasContent) onImageSelectionChange?.(null);
+  }, [hasContent, onImageSelectionChange]);
+  return hasContent ? <ContentViewer {...props} /> : null;
+}
+
+function ContentViewer({
   data,
   onImageSelectionChange,
   imageNavigation,
@@ -182,6 +194,7 @@ export function ResourceViewer({
         ref={viewerRef}
         className={error ? 'hidden' : 'block h-[600px] w-full'}
         theme="light"
+        omit-location=""
       />
     </div>
   );

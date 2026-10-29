@@ -177,6 +177,11 @@ Search map controls:
 
 - The Location filter, results, and resource Location maps start with compact attribution collapsed behind the native MapLibre information button. Users can open or close it with mouse or keyboard. The shared `collapsedAttribution` map option applies only the initial state; attribution remains available and later user choices are preserved.
 
+The resource page omits OGM Viewer's metadata-only Location preview because the
+sidebar already shows that map. Records without a supported content reference
+skip the viewer and its controls entirely. Image, manifest, and actual map-layer
+previews remain available; WMS/WMTS references require a layer identifier.
+
 For records with both IIIF references, the viewer opens the manifest's **Images**
 tab before the **Single image** tab. Failed inactive image previews become
 unavailable; **Single image** tabs are hidden once the manifest opens

@@ -1,8 +1,8 @@
 diff --git a/readme.md b/readme.md
-index 4421c92..77ba0e4 100644
+index 4421c92..a7319bf 100644
 --- a/readme.md
 +++ b/readme.md
-@@ -354,3 +354,58 @@ git push origin vX.Y.Z
+@@ -354,3 +354,66 @@ git push origin vX.Y.Z
  ```
  
  The `Release` workflow checks that the tag and `package.json` agree, lints, tests, publishes to npm, and drafts the GitHub release with generated notes. It authenticates with npm over OIDC using [trusted publishing](https://docs.npmjs.com/trusted-publishers).
@@ -61,6 +61,14 @@ index 4421c92..77ba0e4 100644
 +
 +The payload types `PreviewSelection`, `ImageSelection`, `ImageSequenceEntry`,
 +and `ImageNavigation` are exported from `ogm-viewer/lib`.
++
++### Omitting the Location fallback
++
++Set `omit-location` on `ogm-viewer` before loading a record to exclude its
++metadata-only Location preview. Real map layers are preserved. The default
++viewer behavior and explicitly supplied custom previewers are unchanged.
++BTAA resource pages use this option because their sidebar already shows Location,
++and skip mounting the viewer when the record has no supported content references.
 diff --git a/src/components.d.ts b/src/components.d.ts
 index 3e7320b..0cf78c9 100644
 --- a/src/components.d.ts
@@ -164,7 +172,7 @@ index 792cc28..c285b5f 100644
      document.removeEventListener('keydown', this.onFullscreenKeydown);
      this.exitFullscreenFallback();
 diff --git a/src/components/ogm-previews/ogm-previews.tsx b/src/components/ogm-previews/ogm-previews.tsx
-index a9b3b00..7c6e459 100644
+index a9b3b00..712f798 100644
 --- a/src/components/ogm-previews/ogm-previews.tsx
 +++ b/src/components/ogm-previews/ogm-previews.tsx
 @@ -4,6 +4,7 @@ import '@awesome.me/webawesome/dist/components/tab-group/tab-group.js';
@@ -191,7 +199,7 @@ index a9b3b00..7c6e459 100644
    // out to offer.
    private get tabs(): AnyPreviewer[] {
 -    return this.previewers ?? this.recordPreviewers;
-+    return this.previewers ?? preferManifest(this.recordPreviewers);
++    return this.previewers ?? preferManifest(this.recordPreviewers, this.el);
    }
  
    // @Watch only fires on changes, so the record we were rendered with is handled here. Returning
@@ -239,10 +247,10 @@ index a9d7244..e267801 100644
 +export type { PreviewSelection, ImageSelection, ImageSequenceEntry, ImageNavigation } from './lib/preview-events';
 diff --git a/src/lib/preview-events.test.ts b/src/lib/preview-events.test.ts
 new file mode 100644
-index 0000000..64b6941
+index 0000000..42a3fc0
 --- /dev/null
 +++ b/src/lib/preview-events.test.ts
-@@ -0,0 +1,277 @@
+@@ -0,0 +1,287 @@
 +import { describe, expect, it, vi } from 'vitest';
 +import { observeImageSelection, observePreviewSelection, preferManifest, previewLabel } from './preview-events';
 +
@@ -441,6 +449,16 @@ index 0000000..64b6941
 +    expect(previewLabel({ ...map, label: () => 'Location' })).toBe('Location');
 +  });
 +
++  it('omits location previews only when requested by a containing viewer', () => {
++    const location = { ...map, kind: 'location' };
++    const layer = { ...map, kind: 'wms' };
++    const viewer = { hasAttribute: (name: string) => name === 'omit-location' };
++    const element = { parentNode: { host: viewer } } as unknown as HTMLElement;
++    expect(preferManifest([location, layer, manifest], element)).toEqual([manifest, layer]);
++    expect(preferManifest([location], element)).toEqual([]);
++    expect(preferManifest([location])).toEqual([location]);
++  });
++
 +  it.each([true, false])('hides a failed single image only after the manifest opens (loaded first: %s)', loadedFirst => {
 +    const { element, open, fail, tabs, changed } = setup();
 +    if (loadedFirst) open(manifest);
@@ -522,10 +540,10 @@ index 0000000..64b6941
 +});
 diff --git a/src/lib/preview-events.ts b/src/lib/preview-events.ts
 new file mode 100644
-index 0000000..d9f570c
+index 0000000..fdc48c2
 --- /dev/null
 +++ b/src/lib/preview-events.ts
-@@ -0,0 +1,260 @@
+@@ -0,0 +1,269 @@
 +/** Public selection events shared by the image and preview components. */
 +export interface PreviewSelection {
 +  previewId: string;
@@ -560,7 +578,16 @@ index 0000000..d9f570c
 +}
 +
 +/** A manifest represents the complete object, so offer it before a standalone scan. */
-+export function preferManifest<T extends Preview>(previews: T[]): T[] {
++export function preferManifest<T extends Preview>(previews: T[], host?: HTMLElement): T[] {
++  // Consumers with a separate location map can omit the metadata-only preview.
++  let ancestor: Node | undefined = host;
++  while (ancestor) {
++    if ((ancestor as HTMLElement).hasAttribute?.('omit-location')) {
++      previews = previews.filter(preview => preview.kind !== 'location');
++      break;
++    }
++    ancestor = ancestor.parentNode ?? (ancestor as ShadowRoot).host;
++  }
 +  const primary = previews.filter(preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image');
 +  return [...primary, ...previews.filter(preview => !primary.includes(preview))];
 +}

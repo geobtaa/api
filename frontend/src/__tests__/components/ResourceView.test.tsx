@@ -99,6 +99,10 @@ const realFixtureData: GeoDocument[] = [
         dct_accessrights_s: 'Public',
         gbl_wxsidentifier_s: 'mit-001145244',
         gbl_wxsIdentifier_s: 'mit-001145244',
+        dct_references_s: JSON.stringify({
+          'http://www.opengis.net/def/serviceType/ogc/wms':
+            'https://example.com/wms',
+        }),
         locn_geometry_original: 'POINT(-71.0935 42.3601)',
       },
     },
@@ -931,6 +935,47 @@ describe('ResourceView Component', () => {
   });
 
   describe('Conditional Rendering', () => {
+    it('keeps the sidebar Location map without rendering a viewer or its controls for location-only records', async () => {
+      fetchResourceDetails.mockResolvedValue({
+        ...mockResourceData,
+        attributes: {
+          ...mockResourceData.attributes,
+          ogm: {
+            ...mockResourceData.attributes.ogm,
+            dct_references_s: JSON.stringify({
+              'http://schema.org/url': 'https://example.org/catalog',
+            }),
+          },
+        },
+        meta: {
+          ...mockResourceData.meta,
+          ui: {
+            ...mockResourceData.meta?.ui,
+            viewer: {
+              protocol: 'geo_json',
+              endpoint: '',
+              geometry: 'POINT(-71.0935 42.3601)',
+            },
+          },
+        },
+      });
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+      expect(
+        await screen.findByRole('heading', { name: 'Location', exact: true })
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('resource-viewer')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Fullscreen', exact: true })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: 'Open in new tab' })
+      ).not.toBeInTheDocument();
+    });
+
     it('renders ResourceViewer when viewer protocol is available', async () => {
       render(
         <TestWrapper>
@@ -1212,6 +1257,16 @@ describe('ResourceView Component', () => {
     it('loads DownloadsTable for manifest-only items with no initial downloads', async () => {
       fetchResourceDetails.mockResolvedValue({
         ...realFixtureData[0],
+        attributes: {
+          ...realFixtureData[0].attributes,
+          ogm: {
+            ...realFixtureData[0].attributes.ogm,
+            dct_references_s: JSON.stringify({
+              'http://iiif.io/api/presentation#manifest':
+                'https://example.org/manifest',
+            }),
+          },
+        },
         meta: {
           ui: {
             downloads: [],
