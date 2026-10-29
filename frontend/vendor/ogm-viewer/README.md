@@ -17,7 +17,7 @@ Both events bubble and cross shadow roots, so consumers listen on `ogm-viewer`:
 
 - `previewChange`: `{previewId, resourceId, resourceUrl, renderer}` on initial
   selection and preview-tab changes; `null` when there are no previews.
-- `imageChange`: the same identity plus `image: {url, index, count, occurrence}` after an image
+- `imageChange`: the same identity plus `image: {url, index, count, occurrence, service?}` after an image
   opens. `index` is zero-based in the viewer's image sequence, **not** a canvas
   index. `occurrence` distinguishes repeated uses of the same URL. `image: null` clears the current selection on loading, page transition,
   close, or failure. `sequence` lists `{url, index, occurrence}` for each URL-backed
@@ -31,10 +31,14 @@ Both events bubble and cross shadow roots, so consumers listen on `ogm-viewer`:
 
 The React adapter stores each preview's latest image, publishes only the active
 preview, rejects events from other records, and unregisters listeners on cleanup.
-Downloads matches `resourceUrl` and the actual image URL against API metadata.
+The optional `image.service` contains the opened IIIF service's ID, version,
+dimensions, compliance profile, advertised sizes and size limits. It is copied
+from OpenSeadragon's loaded tile source without another request. Downloads uses
+these capabilities to build links for the active image, including images reached
+through IIIF collections; it does not re-fetch or traverse the manifest.
 The Downloads picker uses the reported sequence and requests navigation through
 this public event contract. Viewer events remain authoritative for the picker
-and download links, including loading/failure states. No matches means no image links; it never guesses the first canvas.
+and download links, including loading/failure states. No opened service means no derived image links; it never guesses the first canvas.
 
 ## Initial preview and recovery
 

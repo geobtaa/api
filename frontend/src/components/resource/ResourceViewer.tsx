@@ -12,6 +12,7 @@ import type {
 import type { OgmRecord } from 'ogm-viewer/lib';
 
 interface ResourceViewerProps {
+  standalone?: boolean;
   imageNavigation?: ImageNavigation | null;
   onImageSelectionChange?: (selection: ImageSelection | null) => void;
   data: {
@@ -48,6 +49,7 @@ function ContentViewer({
   data,
   onImageSelectionChange,
   imageNavigation,
+  standalone = false,
 }: ResourceViewerProps) {
   const selectionCallback = useRef(onImageSelectionChange);
   selectionCallback.current = onImageSelectionChange;
@@ -172,11 +174,16 @@ function ContentViewer({
     );
   }, [imageNavigation]);
 
+  const height = standalone ? 'h-dvh' : 'h-[600px]';
   return (
-    <div className="sticky top-[88px] min-h-[600px]">
+    <div
+      className={
+        standalone ? 'relative h-dvh' : 'sticky top-[88px] min-h-[600px]'
+      }
+    >
       {!ready && !error && (
         <div
-          className="viewer pointer-events-none absolute inset-0 z-10 flex h-[600px] items-center justify-center bg-white/70 text-gray-500"
+          className={`viewer pointer-events-none absolute inset-0 z-10 flex ${height} items-center justify-center bg-white/70 text-gray-500`}
           role="status"
         >
           Loading viewer…
@@ -184,7 +191,7 @@ function ContentViewer({
       )}
       {error && (
         <div
-          className="viewer flex h-[600px] items-center justify-center bg-gray-50 text-gray-500"
+          className={`viewer flex ${height} items-center justify-center bg-gray-50 text-gray-500`}
           role="alert"
         >
           Item viewer unavailable.
@@ -192,10 +199,10 @@ function ContentViewer({
       )}
       <ogm-viewer
         ref={viewerRef}
-        className={error ? 'hidden' : 'block h-[600px] w-full'}
+        className={error ? 'hidden' : `block ${height} w-full`}
         theme="light"
         omit-location=""
-        hide-menubar=""
+        hide-menubar={standalone ? undefined : ''}
       />
     </div>
   );

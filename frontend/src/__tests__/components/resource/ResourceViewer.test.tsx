@@ -130,6 +130,25 @@ describe('ResourceViewer', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  it('fills the viewport and preserves the native menubar when opened standalone', async () => {
+    const { container } = render(
+      <ResourceViewer
+        standalone
+        data={viewerData('book', {
+          'http://iiif.io/api/presentation#manifest':
+            'https://example.org/book/manifest',
+        })}
+      />
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    );
+    const viewer = container.querySelector('ogm-viewer');
+    expect(viewer).toHaveClass('h-dvh');
+    expect(viewer).not.toHaveAttribute('hide-menubar');
+    expect(viewer).toHaveAttribute('omit-location');
+  });
+
   it('preserves serialized references and replaces the record when data changes', async () => {
     const firstReferences = JSON.stringify({
       [WMS_REFERENCE]: 'https://example.com/first/wms',

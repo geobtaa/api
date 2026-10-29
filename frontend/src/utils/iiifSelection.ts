@@ -22,6 +22,17 @@ export interface ImageSelection extends PreviewSelection {
     index: number;
     count: number;
     occurrence?: number;
+    service?: {
+      id: string;
+      version: number;
+      width: number;
+      height: number;
+      profile?: unknown;
+      sizes?: { width: number; height: number }[];
+      maxWidth?: number;
+      maxHeight?: number;
+      maxArea?: number;
+    };
   } | null;
 }
 

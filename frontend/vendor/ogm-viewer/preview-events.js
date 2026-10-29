@@ -57,10 +57,18 @@ export function observeImageSelection(host, viewer, getPreview, emit) {
             return;
         const state = snapshot();
         const image = state.sequence.find(image => image.index === state.pageIndex);
+        const source = viewer.world?.getItemAt(0)?.source;
+        // Publish only serializable Image API capabilities already loaded by the viewer.
+        const id = source?.id ?? source?.['@id'];
+        const service = source && id && typeof source.version === 'number' && [1, 2, 3].includes(source.version) ? {
+            id, version: source.version, width: source.width, height: source.height,
+            profile: source.profile, sizes: source.sizes,
+            maxWidth: source.maxWidth, maxHeight: source.maxHeight, maxArea: source.maxArea,
+        } : undefined;
         emit({
             ...selection(preview),
             ...state,
-            image: image ? { ...image, count: viewer.tileSources?.length ?? 0 } : null,
+            image: image ? { ...image, count: viewer.tileSources?.length ?? 0, ...(service ? { service } : {}) } : null,
         });
     };
     // Requests are addressed to the public viewer host; each image validates its identity.

@@ -1,8 +1,8 @@
 diff --git a/readme.md b/readme.md
-index 4421c92..4e5ca6a 100644
+index 4421c92..78c8f14 100644
 --- a/readme.md
 +++ b/readme.md
-@@ -354,3 +354,77 @@ git push origin vX.Y.Z
+@@ -354,3 +354,82 @@ git push origin vX.Y.Z
  ```
  
  The `Release` workflow checks that the tag and `package.json` agree, lints, tests, publishes to npm, and drafts the GitHub release with generated notes. It authenticates with npm over OIDC using [trusted publishing](https://docs.npmjs.com/trusted-publishers).
@@ -80,6 +80,11 @@ index 4421c92..4e5ca6a 100644
 +Set `hide-menubar` on `ogm-viewer` before loading a record to omit its internal
 +title/menu row. BTAA resource pages use their own title and metadata sections
 +and display the canvas directly. The default viewer retains its menubar.
++
++The active-image event also includes optional `image.service` capabilities from
++the opened IIIF tile source: ID, Image API version, dimensions, profile, sizes,
++and size limits. Consumers can derive current-image downloads without independently
++fetching or resolving the manifest. These capabilities disappear with `image: null`.
 diff --git a/src/components.d.ts b/src/components.d.ts
 index 3e7320b..0cf78c9 100644
 --- a/src/components.d.ts
@@ -296,10 +301,10 @@ index a9d7244..e267801 100644
 +export type { PreviewSelection, ImageSelection, ImageSequenceEntry, ImageNavigation } from './lib/preview-events';
 diff --git a/src/lib/preview-events.test.ts b/src/lib/preview-events.test.ts
 new file mode 100644
-index 0000000..a703409
+index 0000000..d34490b
 --- /dev/null
 +++ b/src/lib/preview-events.test.ts
-@@ -0,0 +1,311 @@
+@@ -0,0 +1,328 @@
 +import { describe, expect, it, vi } from 'vitest';
 +import { observeImageSelection, observePreviewSelection, preferManifest, previewLabel } from './preview-events';
 +
@@ -611,12 +616,29 @@ index 0000000..a703409
 +    expect(changed).not.toHaveBeenCalled();
 +  });
 +});
++
++it('publishes the opened IIIF capabilities and clears them on page transitions', () => {
++  const handlers = new Map<string, () => void>();
++  const source = { '@id': 'https://example.org/image', version: 3, width: 4000, height: 2000, profile: 'level0', sizes: [{width: 400, height: 200}], maxArea: 2000000 };
++  const viewer = {
++    currentPage: () => 0, goToPage: vi.fn(), tileSources: ['https://example.org/image/info.json'],
++    world: { getItemAt: () => ({source}) },
++    addHandler: (name: string, handler: () => void) => handlers.set(name, handler),
++    removeHandler: (name: string) => handlers.delete(name),
++  };
++  const emit = vi.fn();
++  observeImageSelection(host(), viewer, () => image, emit);
++  handlers.get('open')!();
++  expect(emit.mock.lastCall?.[0].image.service).toMatchObject({ id: source['@id'], version: 3, sizes: source.sizes, maxArea: source.maxArea });
++  handlers.get('page')!();
++  expect(emit.mock.lastCall?.[0].image).toBeNull();
++});
 diff --git a/src/lib/preview-events.ts b/src/lib/preview-events.ts
 new file mode 100644
-index 0000000..fbb1de6
+index 0000000..94152ba
 --- /dev/null
 +++ b/src/lib/preview-events.ts
-@@ -0,0 +1,282 @@
+@@ -0,0 +1,303 @@
 +/** Public selection events shared by the image and preview components. */
 +export interface PreviewSelection {
 +  previewId: string;
@@ -636,10 +658,22 @@ index 0000000..fbb1de6
 +  url: string;
 +}
 +
++export interface ImageService {
++  id: string;
++  version: number;
++  width: number;
++  height: number;
++  profile?: unknown;
++  sizes?: { width: number; height: number }[];
++  maxWidth?: number;
++  maxHeight?: number;
++  maxArea?: number;
++}
++
 +export interface ImageSelection extends PreviewSelection {
 +  sequence: ImageSequenceEntry[];
 +  pageIndex: number;
-+  image: { url: string; index: number; count: number; occurrence: number } | null;
++  image: { url: string; index: number; count: number; occurrence: number; service?: ImageService } | null;
 +}
 +
 +interface Preview {
@@ -675,6 +709,7 @@ index 0000000..fbb1de6
 +  currentPage(): number;
 +  goToPage(index: number): unknown;
 +  tileSources?: unknown[];
++  world?: { getItemAt(index: number): { source?: unknown } | undefined };
 +  addHandler(name: string, handler: () => void): void;
 +  removeHandler(name: string, handler: () => void): void;
 +}
@@ -715,10 +750,18 @@ index 0000000..fbb1de6
 +    if (!preview) return;
 +    const state = snapshot();
 +    const image = state.sequence.find(image => image.index === state.pageIndex);
++    const source = viewer.world?.getItemAt(0)?.source as (Partial<ImageService> & { '@id'?: string }) | undefined;
++    // Publish only serializable Image API capabilities already loaded by the viewer.
++    const id = source?.id ?? source?.['@id'];
++    const service = source && id && typeof source.version === 'number' && [1, 2, 3].includes(source.version) ? {
++      id, version: source.version, width: source.width, height: source.height,
++      profile: source.profile, sizes: source.sizes,
++      maxWidth: source.maxWidth, maxHeight: source.maxHeight, maxArea: source.maxArea,
++    } as ImageService : undefined;
 +    emit({
 +      ...selection(preview),
 +      ...state,
-+      image: image ? { ...image, count: viewer.tileSources?.length ?? 0 } : null,
++      image: image ? { ...image, count: viewer.tileSources?.length ?? 0, ...(service ? { service } : {}) } : null,
 +    });
 +  };
 +  // Requests are addressed to the public viewer host; each image validates its identity.

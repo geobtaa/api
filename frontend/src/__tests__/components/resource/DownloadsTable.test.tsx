@@ -537,3 +537,93 @@ it('uses the viewer sequence for a two-way picker, retaining its selection while
   expect(picker).toHaveValue('0');
   expect(onImageNavigate).toHaveBeenCalledTimes(1);
 });
+
+it('downloads the opened collection image without fetching derived manifest downloads', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockRejectedValue(new Error('collection resolver unavailable'));
+  vi.stubGlobal('fetch', fetchMock);
+  const image = {
+    resourceId: 'chicago',
+    previewId: 'collection',
+    renderer: 'image' as const,
+    resourceUrl:
+      'https://quod.lib.umich.edu/cgi/i/image/api/search/clark1ic:001718038',
+    sequence: [
+      { url: 'https://example.org/one/info.json', index: 0, occurrence: 0 },
+      { url: 'https://example.org/two/info.json', index: 1, occurrence: 0 },
+    ],
+    pageIndex: 0,
+    image: {
+      url: 'https://example.org/one/info.json',
+      index: 0,
+      count: 2,
+      service: {
+        id: 'https://example.org/one',
+        version: 2,
+        width: 3000,
+        height: 2000,
+      },
+    },
+  };
+  const props = {
+    resourceId: 'chicago',
+    resolveIiif: true,
+    followViewer: true,
+    onImageNavigate: vi.fn(),
+    downloads: [
+      { label: 'Publisher PDF', url: 'https://example.org/file.pdf' },
+    ],
+  };
+  const { rerender } = render(
+    <DownloadsTable {...props} activeImage={image} />
+  );
+  expect(screen.getByRole('link', { name: 'Full Resolution' })).toHaveAttribute(
+    'href',
+    'https://example.org/one/full/full/0/default.jpg'
+  );
+  expect(screen.queryByText(/could not be loaded/)).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Retry' })
+  ).not.toBeInTheDocument();
+  expect(fetchMock).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: '1' } });
+  expect(props.onImageNavigate).toHaveBeenCalledWith(
+    expect.objectContaining({ index: 1, url: image.sequence[1].url })
+  );
+  rerender(
+    <DownloadsTable
+      {...props}
+      activeImage={{ ...image, pageIndex: 1, image: null }}
+    />
+  );
+  expect(
+    screen.queryByRole('link', { name: 'Full Resolution' })
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText('Download current image')).not.toBeInTheDocument();
+  rerender(
+    <DownloadsTable
+      {...props}
+      activeImage={{
+        ...image,
+        pageIndex: 1,
+        image: {
+          ...image.image,
+          index: 1,
+          url: image.sequence[1].url,
+          service: { ...image.image.service, id: 'https://example.org/two' },
+        },
+      }}
+    />
+  );
+  expect(screen.getByRole('link', { name: 'Full Resolution' })).toHaveAttribute(
+    'href',
+    'https://example.org/two/full/full/0/default.jpg'
+  );
+  expect(
+    screen.getByRole('link', { name: 'Publisher PDF' })
+  ).toBeInTheDocument();
+  rerender(<DownloadsTable {...props} activeImage={null} />);
+  expect(screen.queryByText('Download current image')).not.toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
