@@ -179,7 +179,8 @@ Search map controls:
 
 For records with both IIIF references, the viewer opens the manifest's **Images**
 tab before the **Single image** tab. Failed inactive image previews become
-unavailable. An initial preview failure switches to another IIIF image preview
+unavailable; **Single image** tabs are hidden once the manifest opens
+successfully. An initial preview failure switches to another IIIF image preview
 only after it has loaded; later page failures keep the reader in the book.
 
 IIIF image downloads load separately from resource metadata. Multi-part items

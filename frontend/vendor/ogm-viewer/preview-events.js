@@ -103,8 +103,15 @@ export function observePreviewSelection(host, getPreviews, emit) {
     const failed = new Set();
     const isIiifImage = (preview) => preview.renderer === 'image' && (preview.kind === 'iiif-manifest' || preview.kind === 'iiif-image');
     const refreshAvailability = () => {
+        const previews = getPreviews();
+        const manifestOpened = previews.some(preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image' && opened.has(preview.previewId) && !failed.has(preview.previewId));
         host.shadowRoot?.querySelectorAll('wa-tab').forEach(tab => {
-            const unavailable = failed.has(tab.getAttribute('panel') ?? '');
+            const id = tab.getAttribute('panel') ?? '';
+            const unavailable = failed.has(id);
+            const hide = id !== activeId && manifestOpened && previews.some(preview => preview.previewId === id && preview.kind === 'iiif-image');
+            tab.hidden = hide;
+            // The custom tab's display rule can override the browser's hidden style.
+            tab.style.display = hide ? 'none' : '';
             // Keep the active error readable when every alternative has failed.
             tab.disabled = unavailable && tab.getAttribute('panel') !== activeId;
             if (unavailable)
@@ -114,6 +121,15 @@ export function observePreviewSelection(host, getPreviews, emit) {
         });
     };
     const recover = () => {
+        const previews = getPreviews();
+        const active = previews.find(preview => preview.previewId === activeId);
+        const manifest = previews.find(preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image' && opened.has(preview.previewId) && !failed.has(preview.previewId));
+        if (active?.kind === 'iiif-image' && manifest) {
+            const group = host.shadowRoot?.querySelector('wa-tab-group');
+            if (group)
+                group.active = manifest.previewId;
+            return;
+        }
         if (!activeId || !failed.has(activeId) || opened.has(activeId))
             return;
         const fallback = getPreviews().find(preview => isIiifImage(preview) && opened.has(preview.previewId) && !failed.has(preview.previewId));

@@ -1,8 +1,8 @@
 diff --git a/readme.md b/readme.md
-index 4421c92..86bc199 100644
+index 4421c92..77ba0e4 100644
 --- a/readme.md
 +++ b/readme.md
-@@ -354,3 +354,56 @@ git push origin vX.Y.Z
+@@ -354,3 +354,58 @@ git push origin vX.Y.Z
  ```
  
  The `Release` workflow checks that the tag and `package.json` agree, lints, tests, publishes to npm, and drafts the GitHub release with generated notes. It authenticates with npm over OIDC using [trusted publishing](https://docs.npmjs.com/trusted-publishers).
@@ -12,7 +12,9 @@ index 4421c92..86bc199 100644
 +Record-derived previews prefer the IIIF manifest image viewer (**Images**) over
 +standalone Image API references (**Single image**). Explicit custom previewer
 +order is preserved. Failed inactive IIIF image tabs are disabled with a
-+**Preview unavailable** tooltip. If the initial active image preview fails, the
++**Preview unavailable** tooltip. Once a manifest opens successfully,
++**Single image** tabs are hidden entirely, including healthy ones. An active
++single image switches to the working manifest. If the initial active image preview fails, the
 +viewer switches to another IIIF image preview only after it opens successfully.
 +It preserves map selections and does not abandon an already-opened book because
 +a later page fails. Availability resets when previews reload or records change.
@@ -237,10 +239,10 @@ index a9d7244..e267801 100644
 +export type { PreviewSelection, ImageSelection, ImageSequenceEntry, ImageNavigation } from './lib/preview-events';
 diff --git a/src/lib/preview-events.test.ts b/src/lib/preview-events.test.ts
 new file mode 100644
-index 0000000..21ba5aa
+index 0000000..64b6941
 --- /dev/null
 +++ b/src/lib/preview-events.test.ts
-@@ -0,0 +1,247 @@
+@@ -0,0 +1,277 @@
 +import { describe, expect, it, vi } from 'vitest';
 +import { observeImageSelection, observePreviewSelection, preferManifest, previewLabel } from './preview-events';
 +
@@ -389,6 +391,8 @@ index 0000000..21ba5aa
 +    const element = host();
 +    const tabs = previews.map(preview => ({
 +      disabled: false,
++      hidden: false,
++      style: { display: '' },
 +      getAttribute: (key: string) => (key === 'panel' ? preview.previewId : null),
 +      setAttribute: vi.fn(),
 +      removeAttribute: vi.fn(),
@@ -437,15 +441,42 @@ index 0000000..21ba5aa
 +    expect(previewLabel({ ...map, label: () => 'Location' })).toBe('Location');
 +  });
 +
-+  it('keeps a healthy manifest active and disables its failed alternate', () => {
-+    const { open, fail, tabs, changed } = setup();
-+    open(manifest);
++  it.each([true, false])('hides a failed single image only after the manifest opens (loaded first: %s)', loadedFirst => {
++    const { element, open, fail, tabs, changed } = setup();
++    if (loadedFirst) open(manifest);
 +    fail(single);
++    if (!loadedFirst) {
++      expect(tabs[1].hidden).toBe(false);
++      open(manifest);
++    }
 +    expect(changed).not.toHaveBeenCalled();
 +    expect(tabs[1].disabled).toBe(true);
++    expect(tabs[1].hidden).toBe(true);
++    expect(tabs[1].style.display).toBe('none');
 +    expect(tabs[1].setAttribute).toHaveBeenCalledWith('title', 'Preview unavailable');
 +    open(single);
 +    expect(tabs[1].disabled).toBe(false);
++    expect(tabs[1].hidden).toBe(true);
++    expect(tabs[1].style.display).toBe('none');
++    element.dispatchEvent(new Event('previewsLoading'));
++    fail(single);
++    open(manifest);
++    expect(tabs[1].hidden).toBe(true);
++    element.dispatchEvent(new Event('previewsLoading'));
++    expect(tabs[1].hidden).toBe(false);
++    expect(tabs[1].style.display).toBe('');
++  });
++
++  it('replaces a healthy single image with a loaded manifest and hides the redundant tab', () => {
++    const { element, open, tabs, changed } = setup();
++    open(single);
++    expect(tabs[1].hidden).toBe(false);
++    element.dispatchEvent(new CustomEvent('wa-tab-show', { detail: { name: single.previewId } }));
++    open(manifest);
++    expect(changed).toHaveBeenCalledExactlyOnceWith('manifest');
++    expect(tabs[1].hidden).toBe(true);
++    expect(tabs[1].disabled).toBe(false);
++    expect(tabs[0].hidden).toBe(false);
 +  });
 +
 +  it.each([true, false])('recovers an initial failure only after the other image opens (loaded first: %s)', loadedFirst => {
@@ -472,6 +503,7 @@ index 0000000..21ba5aa
 +    unavailable.fail(single);
 +    expect(unavailable.changed).not.toHaveBeenCalled();
 +    expect(unavailable.tabs[0].disabled).toBe(false);
++    expect(unavailable.tabs.every(tab => !tab.hidden)).toBe(true);
 +  });
 +
 +  it('ignores previous records, respects a chosen non-image preview, and cleans up listeners', () => {
@@ -490,10 +522,10 @@ index 0000000..21ba5aa
 +});
 diff --git a/src/lib/preview-events.ts b/src/lib/preview-events.ts
 new file mode 100644
-index 0000000..b143650
+index 0000000..d9f570c
 --- /dev/null
 +++ b/src/lib/preview-events.ts
-@@ -0,0 +1,243 @@
+@@ -0,0 +1,260 @@
 +/** Public selection events shared by the image and preview components. */
 +export interface PreviewSelection {
 +  previewId: string;
@@ -639,8 +671,17 @@ index 0000000..b143650
 +  const failed = new Set<string>();
 +  const isIiifImage = (preview: Preview) => preview.renderer === 'image' && (preview.kind === 'iiif-manifest' || preview.kind === 'iiif-image');
 +  const refreshAvailability = () => {
++    const previews = getPreviews();
++    const manifestOpened = previews.some(
++      preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image' && opened.has(preview.previewId) && !failed.has(preview.previewId),
++    );
 +    host.shadowRoot?.querySelectorAll('wa-tab').forEach(tab => {
-+      const unavailable = failed.has(tab.getAttribute('panel') ?? '');
++      const id = tab.getAttribute('panel') ?? '';
++      const unavailable = failed.has(id);
++      const hide = id !== activeId && manifestOpened && previews.some(preview => preview.previewId === id && preview.kind === 'iiif-image');
++      (tab as HTMLElement).hidden = hide;
++      // The custom tab's display rule can override the browser's hidden style.
++      (tab as HTMLElement).style.display = hide ? 'none' : '';
 +      // Keep the active error readable when every alternative has failed.
 +      (tab as HTMLElement & { disabled: boolean }).disabled = unavailable && tab.getAttribute('panel') !== activeId;
 +      if (unavailable) tab.setAttribute('title', 'Preview unavailable');
@@ -648,6 +689,14 @@ index 0000000..b143650
 +    });
 +  };
 +  const recover = () => {
++    const previews = getPreviews();
++    const active = previews.find(preview => preview.previewId === activeId);
++    const manifest = previews.find(preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image' && opened.has(preview.previewId) && !failed.has(preview.previewId));
++    if (active?.kind === 'iiif-image' && manifest) {
++      const group = host.shadowRoot?.querySelector('wa-tab-group') as (HTMLElement & { active: string }) | null;
++      if (group) group.active = manifest.previewId;
++      return;
++    }
 +    if (!activeId || !failed.has(activeId) || opened.has(activeId)) return;
 +    const fallback = getPreviews().find(preview => isIiifImage(preview) && opened.has(preview.previewId) && !failed.has(preview.previewId));
 +    if (!fallback) return;
