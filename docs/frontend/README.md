@@ -170,8 +170,10 @@ at the application boundary, converting once to MapLibre longitude/latitude and
 512-pixel zoom. GeoJSON collections share a source and use feature state for hover.
 Homepage protocol previews use OGM Viewer previewers and Allmaps MapLibre layers.
 
-The frontend Docker image uses Node 22 and installs the committed lockfile with
-`npm ci --legacy-peer-deps`, matching the MapLibre dependency runtime requirements.
+The frontend Docker image and the combined application image use Node 22 and installs the committed lockfile with
+`npm ci --legacy-peer-deps`, matching the MapLibre dependency runtime requirements. Both copy the OGM patch
+installer and vendor files before dependency installation, including production
+dependencies, so postinstall applies the same viewer changes in each image.
 
 Search map controls:
 
