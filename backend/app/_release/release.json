@@ -1,5 +1,5 @@
 {
-  "version": "0.12.0",
-  "release_date": "2026-10-28",
-  "summary": "Add an analytics Summary tab with director-friendly metrics, search categories, daily trends, and clearer reporting periods and access context."
+  "version": "0.12.1",
+  "release_date": "2026-10-29",
+  "summary": "Fix PMTiles loading for valid polygon geometry with duplicate vertices and add a bounding-box fallback when viewer geometry is unavailable."
 }
