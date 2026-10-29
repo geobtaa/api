@@ -819,7 +819,7 @@ requires-dist = [
     { name = "pydantic-core", specifier = "==2.41.5" },
     { name = "pygments", specifier = "==2.20.0" },
     { name = "pytesseract", specifier = "==0.3.10" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3,<9.2" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = "==1.4.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==4.1.0" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.5.0" },

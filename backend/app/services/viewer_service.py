@@ -126,6 +126,26 @@ def parse_references(
         return {}
 
 
+def _viewer_geometry_with_bbox_fallback(viewer: ItemViewer, document: Dict):
+    """Prefer parsed full geometry, then try the independent bounding box."""
+    try:
+        geometry = viewer.viewer_geometry()
+        if geometry is not None:
+            return geometry
+    except Exception:
+        logger.warning("Error getting viewer geometry; trying bounding box", exc_info=True)
+
+    bbox = document.get("dcat_bbox")
+    if not bbox or bbox == viewer.references.get("locn_geometry"):
+        return None
+
+    try:
+        return ItemViewer({"locn_geometry": bbox}).viewer_geometry()
+    except Exception:
+        logger.warning("Error getting viewer bounding box", exc_info=True)
+        return None
+
+
 def create_viewer_attributes(
     document: Union[Dict, object], distribution_context: Optional[DistributionContext] = None
 ) -> Dict:
@@ -138,12 +158,7 @@ def create_viewer_attributes(
 
     viewer = ItemViewer(references)
 
-    try:
-        geometry = viewer.viewer_geometry()
-        logger.debug(f"Viewer geometry: {geometry}")
-    except Exception as e:
-        logger.error(f"Error getting viewer geometry: {str(e)}", exc_info=True)
-        geometry = None
+    geometry = _viewer_geometry_with_bbox_fallback(viewer, document)
 
     return {
         "ui_viewer_protocol": viewer.viewer_protocol(),
@@ -171,12 +186,7 @@ class ViewerService:
 
     def get_viewer_attributes(self) -> Dict:
         """Get all viewer attributes for the document."""
-        try:
-            geometry = self.viewer.viewer_geometry()
-            logger.debug(f"Viewer geometry: {geometry}")
-        except Exception as e:
-            logger.error(f"Error getting viewer geometry: {str(e)}", exc_info=True)
-            geometry = None
+        geometry = _viewer_geometry_with_bbox_fallback(self.viewer, _to_base_dict(self.document))
 
         return {
             "ui_viewer_protocol": self.viewer.viewer_protocol(),

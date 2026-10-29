@@ -104,6 +104,12 @@ Core resource and presentation services:
 - `citation_service.py` and `citation_formats_service.py`: generate APA, MLA,
   Chicago, RIS, BibTeX, and related citation formats.
 - `viewer_service.py`: determines map/viewer attributes and protocols.
+  Viewer geometry prefers parsed `locn_geometry` and falls back to `dcat_bbox`
+  when full geometry is missing, rejected, or raises a parsing error. Bounding
+  boxes accept `ENVELOPE(west,east,north,south)` or `west,south,east,north`.
+  Polygon validation checks for non-collinear vertices across the outer ring,
+  allowing repeated vertices or straight segments at its start. These viewer
+  fallbacks do not modify the original resource metadata.
 - `download_service.py`: builds download options, including bridge-synced asset
   downloads.
 - `link_service.py`: exposes UI and API links derived from distribution data.

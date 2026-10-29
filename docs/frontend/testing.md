@@ -15,6 +15,12 @@ The project uses **Vitest** as the testing framework, which provides fast unit t
 - **User Interaction**: @testing-library/user-event
 - **Coverage Provider**: @vitest/coverage-v8
 
+The Summary and September analytics page suites opt into `jsdom` with a
+`@vitest-environment` file directive. Their large dashboard DOMs make role
+queries and full-page axe scans substantially slower under happy-dom. Keep
+their existing assertions and accessibility rules intact; use the per-file
+environment override instead of increasing timeouts or disabling checks.
+
 ## Available Test Commands
 
 ### Basic Testing

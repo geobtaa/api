@@ -1,5 +1,7 @@
 import importlib
+import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -7,6 +9,13 @@ import pytest
 # Turnstile-specific tests monkeypatch this back on when they need the protected path.
 os.environ.setdefault("APP_ENV", "test")
 os.environ["TURNSTILE_ENABLED"] = "false"
+
+
+@pytest.fixture
+def tacoma_streets_record():
+    """Public OGM geometry from the October 1 refresh, reported in issue #473."""
+    path = Path(__file__).parent / "fixtures" / "tacoma_streets_473.json"
+    return json.loads(path.read_text())
 
 
 def _load_dotenv_if_available(path: str) -> None:

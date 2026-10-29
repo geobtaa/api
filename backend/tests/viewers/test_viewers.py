@@ -4,6 +4,17 @@ import pytest_asyncio
 from app.viewers import ItemViewer
 
 
+def test_viewer_geometry_preserves_tacoma_rings_with_duplicate_vertices(tacoma_streets_record):
+    viewer = ItemViewer({"locn_geometry": tacoma_streets_record["locn_geometry"]})
+
+    geometry = viewer.viewer_geometry()
+
+    assert geometry["type"] == "MultiPolygon"
+    assert [len(polygon[0]) for polygon in geometry["coordinates"]] == [96, 6]
+    assert geometry["coordinates"][0][0][:2] == [[-122.4372, 47.17]] * 2
+    assert geometry["coordinates"][1][0][:2] == [[-122.5064, 47.2247]] * 2
+
+
 def pytest_configure(config):
     config.addinivalue_line(
         "markers", "ignore_event_loop: mark test to ignore event loop closed errors"
