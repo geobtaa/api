@@ -1,5 +1,9 @@
 import React from 'react';
-import { imageSourceKey, type ImageSelection } from '../../utils/iiifSelection';
+import {
+  imageSourceKey,
+  type ImageSelection,
+  type ImageNavigation,
+} from '../../utils/iiifSelection';
 import { Download, Image } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { getApiBasePath } from '../../services/api';
@@ -28,6 +32,7 @@ interface DownloadsTableProps {
   resolveIiif?: boolean;
   followViewer?: boolean;
   activeImage?: ImageSelection | null;
+  onImageNavigate?: (request: ImageNavigation) => void;
 }
 
 export function DownloadsTable({
@@ -37,6 +42,7 @@ export function DownloadsTable({
   resolveIiif = false,
   followViewer = false,
   activeImage = null,
+  onImageNavigate,
 }: DownloadsTableProps) {
   const [preparing, setPreparing] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
@@ -138,7 +144,25 @@ export function DownloadsTable({
       )
     : iiifDownloads.filter((d) => (d.canvas_id || 'image') === activeCanvas);
 
-  if (!allDownloads.length && !resolveIiif) return null;
+  const viewerPages =
+    activeImage && activeImage.resourceId === resourceId
+      ? (activeImage.sequence ?? [])
+      : [];
+  const viewerPageOptions = viewerPages.map((page) => {
+    const download = iiifDownloads.find(
+      (d) =>
+        imageSourceKey(d.iiif_resource_url) ===
+          imageSourceKey(activeImage?.resourceUrl) &&
+        imageSourceKey(d.image_source) === imageSourceKey(page.url) &&
+        (!d.image_occurrences || d.image_occurrences.includes(page.occurrence))
+    );
+    return {
+      ...page,
+      label: download?.canvas_label || `Image ${page.index + 1}`,
+    };
+  });
+
+  if (!allDownloads.length && !resolveIiif && !viewerPages.length) return null;
 
   const resolveDownloadLabel = (download: DownloadItem): string => {
     if (!download.generated) return download.label;
@@ -323,7 +347,7 @@ export function DownloadsTable({
             No downloadable images were found in this IIIF item.
           </p>
         )}
-        {iiifDownloads.length > 0 && (
+        {(iiifDownloads.length > 0 || viewerPages.length > 1) && (
           <div className="px-6 py-4">
             <div className="flex items-center gap-2 mb-2">
               <Image className="w-5 h-5 text-gray-400" />
@@ -335,6 +359,47 @@ export function DownloadsTable({
                     : 'Download Image'}
               </span>
             </div>
+            {followViewer && viewerPageOptions.length > 1 && (
+              <div className="mb-3">
+                <label
+                  htmlFor={selectId}
+                  className="block text-sm text-gray-700 mb-1"
+                >
+                  Page or sheet ({viewerPageOptions.length})
+                </label>
+                <select
+                  id={selectId}
+                  value={
+                    activeImage?.pageIndex ?? activeImage?.image?.index ?? ''
+                  }
+                  disabled={!onImageNavigate}
+                  onChange={(event) => {
+                    const page = viewerPages.find(
+                      (page) => page.index === Number(event.target.value)
+                    );
+                    if (page && activeImage)
+                      onImageNavigate?.({
+                        previewId: activeImage.previewId,
+                        resourceId: activeImage.resourceId,
+                        resourceUrl: activeImage.resourceUrl,
+                        renderer: 'image',
+                        index: page.index,
+                        url: page.url,
+                      });
+                  }}
+                  className="w-full min-w-0 rounded border border-gray-300 p-2 text-sm"
+                >
+                  {viewerPageOptions.map((page) => (
+                    <option key={page.index} value={page.index}>
+                      {page.index + 1}. {page.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Choosing a page updates the viewer and its download links.
+                </p>
+              </div>
+            )}
             {!followViewer && canvases.length > 1 && (
               <div className="mb-3">
                 <label

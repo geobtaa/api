@@ -9,6 +9,8 @@ endpoint.
 
 For a multi-part manifest, Downloads follows the image currently open in OGM
 Viewer. Moving forward/backward or switching preview tabs updates the links.
+The **Page or sheet** picker also moves OGM Viewer to the selected image. Its
+options come from the viewer sequence, using manifest labels where available.
 Links are cleared while an image opens or when a map preview is selected.
 Matching uses the preview URL and image service URL, rather than page position:
 one canvas can contain several images, and some canvases have no image.

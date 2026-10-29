@@ -8,32 +8,68 @@ function selection(preview) {
 }
 /** Report the source actually opened, and clear it while a page changes or fails. */
 export function observeImageSelection(host, viewer, getPreview, emit) {
+    const sourceUrl = (source) => {
+        const url = typeof source === 'string' ? source : source?.tileSource;
+        return typeof url === 'string' ? url : undefined;
+    };
+    const snapshot = () => {
+        const occurrences = new Map();
+        const sequence = [];
+        (viewer.tileSources ?? []).forEach((source, index) => {
+            const url = sourceUrl(source);
+            if (!url)
+                return;
+            const occurrence = occurrences.get(url) ?? 0;
+            occurrences.set(url, occurrence + 1);
+            sequence.push({ url, index, occurrence });
+        });
+        return { sequence, pageIndex: viewer.currentPage() };
+    };
     const clear = () => {
         const preview = getPreview();
         if (preview)
-            emit({ ...selection(preview), image: null });
+            emit({ ...selection(preview), ...snapshot(), image: null });
     };
     const opened = () => {
         const preview = getPreview();
         if (!preview)
             return;
-        const index = viewer.currentPage();
-        // OpenSeadragon exposes tileSources at runtime, but omits it from its Viewer type.
-        const sources = viewer.tileSources ?? [];
-        const source = sources?.[index];
-        const url = typeof source === 'string' ? source : source?.tileSource;
+        const state = snapshot();
+        const image = state.sequence.find(image => image.index === state.pageIndex);
         emit({
             ...selection(preview),
-            image: typeof url === 'string'
-                ? {
-                    url,
-                    index,
-                    count: sources.length,
-                    occurrence: sources.slice(0, index).filter(source => (typeof source === 'string' ? source : source?.tileSource) === url).length,
-                }
-                : null,
+            ...state,
+            image: image ? { ...image, count: viewer.tileSources?.length ?? 0 } : null,
         });
     };
+    // Requests are addressed to the public viewer host; each image validates its identity.
+    // Standalone ogm-image elements receive the same request on their own host.
+    let commandTarget = host;
+    let ancestor = host;
+    while (ancestor) {
+        if (ancestor.nodeName === 'OGM-VIEWER') {
+            commandTarget = ancestor;
+            break;
+        }
+        ancestor = ancestor.parentNode ?? ancestor.host;
+    }
+    const navigate = (event) => {
+        const request = event.detail;
+        const preview = getPreview();
+        if (!request ||
+            !preview ||
+            request.previewId !== preview.previewId ||
+            request.resourceId !== preview.resourceId ||
+            request.resourceUrl !== preview.url ||
+            request.renderer !== 'image' ||
+            !Number.isInteger(request.index) ||
+            request.index < 0 ||
+            request.index >= (viewer.tileSources?.length ?? 0) ||
+            request.url !== sourceUrl(viewer.tileSources?.[request.index]))
+            return;
+        viewer.goToPage(request.index);
+    };
+    commandTarget.addEventListener('imageNavigationRequest', navigate);
     viewer.addHandler('open', opened);
     for (const event of ['page', 'open-failed', 'close'])
         viewer.addHandler(event, clear);
@@ -43,6 +79,7 @@ export function observeImageSelection(host, viewer, getPreview, emit) {
         for (const event of ['page', 'open-failed', 'close'])
             viewer.removeHandler(event, clear);
         host.removeEventListener('imageLoading', clear);
+        commandTarget.removeEventListener('imageNavigationRequest', navigate);
     };
 }
 /** Publish the initial preview and tab switches, including transitions to non-image previews. */

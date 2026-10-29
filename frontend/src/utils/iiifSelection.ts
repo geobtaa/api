@@ -5,7 +5,18 @@ export interface PreviewSelection {
   resourceUrl: string;
   renderer: 'image' | 'map';
 }
+export interface ImageSequenceEntry {
+  url: string;
+  index: number;
+  occurrence: number;
+}
+export interface ImageNavigation extends PreviewSelection {
+  index: number;
+  url: string;
+}
 export interface ImageSelection extends PreviewSelection {
+  sequence?: ImageSequenceEntry[];
+  pageIndex?: number;
   image: {
     url: string;
     index: number;

@@ -215,3 +215,60 @@ it('follows the active preview, caches hidden images, clears transitions and ign
   emit('imageChange', { ...first, image });
   expect(onChange).toHaveBeenCalledTimes(calls);
 });
+
+it('sends picker navigation to the public viewer host only for the active sequence', async () => {
+  const data = viewerData('record', {});
+  const { container, rerender } = render(<ResourceViewer data={data} />);
+  await waitFor(() =>
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  );
+  const viewer = container.querySelector('ogm-viewer')!;
+  const preview = {
+    previewId: 'preview',
+    resourceId: 'record',
+    resourceUrl: 'https://example.org/manifest',
+    renderer: 'image' as const,
+  };
+  const page = {
+    url: 'https://example.org/page/info.json',
+    index: 2,
+    occurrence: 0,
+  };
+  act(() => {
+    viewer.dispatchEvent(new CustomEvent('previewChange', { detail: preview }));
+    viewer.dispatchEvent(
+      new CustomEvent('imageChange', {
+        detail: {
+          ...preview,
+          sequence: [page],
+          pageIndex: 2,
+          image: { ...page, count: 3 },
+        },
+      })
+    );
+  });
+  const navigate = vi.fn();
+  viewer.addEventListener('imageNavigationRequest', navigate);
+  const request = { ...preview, index: page.index, url: page.url };
+  rerender(<ResourceViewer data={data} imageNavigation={request} />);
+  expect(navigate).toHaveBeenCalledTimes(1);
+  expect(navigate.mock.lastCall?.[0].detail).toEqual(request);
+  for (const invalid of [
+    { ...request, previewId: 'hidden' },
+    { ...request, resourceId: 'old' },
+    { ...request, index: 1 },
+    { ...request, url: 'https://example.org/old' },
+  ]) {
+    rerender(<ResourceViewer data={data} imageNavigation={invalid} />);
+  }
+  expect(navigate).toHaveBeenCalledTimes(1);
+  act(() =>
+    viewer.dispatchEvent(
+      new CustomEvent('previewChange', {
+        detail: { ...preview, renderer: 'map' },
+      })
+    )
+  );
+  rerender(<ResourceViewer data={data} imageNavigation={{ ...request }} />);
+  expect(navigate).toHaveBeenCalledTimes(1);
+});
