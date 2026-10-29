@@ -6,7 +6,8 @@ import { BASEMAP_STYLES } from '../config/mapStyles';
  * boundary remain latitude/longitude for existing search/camera contracts. */
 import * as ml from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-ml.setWorkerUrl(workerUrl);
+// Avoid reusing immutable responses cached with the old non-JavaScript MIME type.
+ml.setWorkerUrl(`${workerUrl}?module=1`);
 import 'maplibre-gl/dist/maplibre-gl.css';
 export type LatLng = { lat: number; lng: number };
 export type ControlPosition =
