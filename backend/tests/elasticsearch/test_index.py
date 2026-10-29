@@ -7,6 +7,31 @@ import pytest
 import app.elasticsearch.index as index_module
 
 
+@pytest.mark.parametrize(
+    "ring, expected",
+    [
+        ([[0, 0], [0, 0], [1, 0], [1, 1], [0, 0]], True),
+        ([[0, 0], [1, 0], [2, 0], [2, 1], [0, 0]], True),
+        ([[0, 0], [0, 0], [0, 0], [0, 0]], False),
+        ([[0, 0], [1, 0], [1, 0], [0, 0]], False),
+        ([[0, 0], [1, 0], [2, 0], [0, 0]], False),
+        ([[0, 0], [1, 0], [1, 1]], False),
+        ([[0, 0], [1, 0], [1, 1], [0, 1]], False),
+        ([[0, 0], [181, 0], [1, 1], [0, 0]], False),
+    ],
+)
+def test_polygon_validation_checks_entire_ring_in_either_winding_order(ring, expected):
+    assert index_module._is_valid_single_polygon([ring]) is expected
+    assert index_module._is_valid_single_polygon([list(reversed(ring))]) is expected
+
+
+def test_process_geometry_preserves_tacoma_multipolygon(tacoma_streets_record):
+    geometry = index_module.process_geometry(tacoma_streets_record["locn_geometry"])
+
+    assert geometry["type"].lower() == "multipolygon"
+    assert [len(polygon[0]) for polygon in geometry["coordinates"]] == [96, 6]
+
+
 def test_process_geometry_indexes_wkt_point():
     assert index_module.process_geometry("POINT(-87.6200 43.0800)") == {
         "type": "Point",

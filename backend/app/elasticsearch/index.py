@@ -791,15 +791,15 @@ def _is_valid_single_polygon(coords):
         if not _is_valid_point(coord):
             return False
 
-    # Check for minimum area (at least 3 non-collinear points)
-    if len(outer_ring) < 4:  # 3 unique points + closing point
+    # Repeated vertices and straight segments at the start do not make the
+    # entire ring degenerate. Find a distinct baseline, then check all vertices
+    # for a point off that line (in either winding order).
+    first = outer_ring[0]
+    second = next((point for point in outer_ring[1:] if point[:2] != first[:2]), None)
+    if second is None:
         return False
 
-    # Check for collinear points (simplified check)
-    if _are_points_collinear(outer_ring[:3]):
-        return False
-
-    return True
+    return any(not _are_points_collinear([first, second, point]) for point in outer_ring)
 
 
 def _are_points_collinear(points):

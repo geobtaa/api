@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// Large analytics DOMs make happy-dom role queries exceed the CI timeout.
 import { renderAnalytics as render } from '../utils/renderAnalytics';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { AnalyticsTestRouter as BrowserRouter } from '../utils/AnalyticsTestRouter';
