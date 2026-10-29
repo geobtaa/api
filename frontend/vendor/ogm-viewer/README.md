@@ -41,7 +41,9 @@ and download links, including loading/failure states. No matches means no image 
 Record-derived previews prefer the IIIF manifest image viewer, labeled **Images**,
 before a standalone Image API reference, labeled **Single image**. Explicit
 custom previewer order is preserved. Failed inactive IIIF image tabs are disabled
-with a **Preview unavailable** tooltip. If the initial active IIIF preview fails,
+with a **Preview unavailable** tooltip. Once a manifest opens successfully,
+**Single image** tabs are hidden entirely, including healthy ones. An active
+single image switches to the working manifest. If the initial active IIIF preview fails,
 the viewer switches to another IIIF image preview only after it has opened
 successfully. It never abandons an already-opened book because a later page fails,
 and it respects a user's choice of a map preview. Availability resets on reload
