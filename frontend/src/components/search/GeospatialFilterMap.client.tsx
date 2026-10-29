@@ -176,7 +176,8 @@ export function GeospatialFilterMap({
       try {
         mapRef.current = L.map(mapContainerRef.current, {
           zoomControl: true,
-          attributionControl: false,
+          attributionControl: true,
+          collapsedAttribution: true,
           minZoom: 1,
           ...mapInteractionOptions,
         });

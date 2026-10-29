@@ -1,3 +1,4 @@
+import { collapseInitialAttribution } from './attribution';
 import { addPaneLayer } from './panes';
 import { BASEMAP_STYLES } from '../config/mapStyles';
 /* eslint-disable @typescript-eslint/no-explicit-any -- Adapter for existing GeoJSON and map event contracts. */
@@ -31,6 +32,7 @@ export type MapOptions = {
   touchZoom?: boolean;
   keyboard?: boolean;
   attributionControl?: boolean;
+  collapsedAttribution?: boolean;
   minZoom?: number;
   maxZoom?: number;
   center?: [number, number];
@@ -124,6 +126,7 @@ export class Map {
   native: ml.Map;
   layers = new Set<Layer>();
   removed = false;
+  private attributionCleanup?: () => void;
   observer: ResizeObserver;
   constructor(container: HTMLElement, options: MapOptions = {}) {
     this.native = new ml.Map({
@@ -168,6 +171,8 @@ export class Map {
           ],
         });
     });
+    if (options.collapsedAttribution)
+      this.attributionCleanup = collapseInitialAttribution(this.native);
     this.observer = new ResizeObserver(() => this.native.resize());
     this.observer.observe(container);
   }
@@ -338,6 +343,7 @@ export class Map {
   }
   remove() {
     this.removed = true;
+    this.attributionCleanup?.();
     this.observer.disconnect();
     for (const l of [...this.layers]) l.remove();
     this.native.remove();
