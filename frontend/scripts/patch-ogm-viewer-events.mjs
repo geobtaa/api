@@ -18,7 +18,8 @@ if (pkg.version !== '1.6.0')
     'Review/remove the OGM selection-event backport before upgrading ogm-viewer.'
   );
 const directory = path.join(packageRoot, 'dist/components');
-const marker = '// BTAA active-image events backport v2\n';
+const marker = '// BTAA active-image events backport v3\n';
+const previousMarker = '// BTAA active-image events backport v2\n';
 const legacyMarker = '// BTAA active-image events backport v1\n';
 const dispatch = (event) =>
   `(detail)=>this.el.dispatchEvent(new CustomEvent("${event}",{detail,bubbles:true,composed:true}))`;
@@ -51,7 +52,7 @@ const patches = [
       ],
       [
         'get tabs(){return this.previewers??this.recordPreviewers}',
-        'get tabs(){return this.previewers??__preferManifest(this.recordPreviewers)}',
+        'get tabs(){return this.previewers??__preferManifest(this.recordPreviewers,this.el)}',
       ],
       ['e.label()', '__previewLabel(e)'],
     ],
@@ -65,6 +66,18 @@ for (const patch of patches) {
   const target = path.join(directory, chunk);
   let source = await readFile(target, 'utf8');
   if (source.startsWith(marker)) continue;
+  if (source.startsWith(previousMarker)) {
+    source = source.split('\n').slice(2).join('\n');
+    for (const [before, after] of patch.edits.toReversed()) {
+      const previous = after.replace(
+        '__preferManifest(this.recordPreviewers,this.el)',
+        '__preferManifest(this.recordPreviewers)'
+      );
+      if (source.split(previous).length !== 2)
+        throw new Error(`Unexpected previous OGM patch: ${patch.entry}`);
+      source = source.replace(previous, before);
+    }
+  }
   if (source.startsWith(legacyMarker)) {
     // Restore the verified original before applying this revision of the patch.
     source = source.split('\n').slice(2).join('\n');

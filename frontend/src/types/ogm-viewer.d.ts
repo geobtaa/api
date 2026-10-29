@@ -8,6 +8,7 @@ declare module 'react' {
         HTMLElement
       > & {
         theme?: 'light' | 'dark';
+        'omit-location'?: string;
       };
     }
   }

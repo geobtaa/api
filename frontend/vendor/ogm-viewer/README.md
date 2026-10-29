@@ -81,3 +81,11 @@ clear/failure states, unknown tile sources, preview switching, new records, and
 listener cleanup. They also cover manifest preference, unavailable tabs, fallback
 load ordering, later-page failures, and preservation of map selection. Application regression tests additionally cover hidden-image
 loads, multiple images on one canvas, unmatched sources, and record navigation.
+
+### Omitting the Location fallback
+
+Set `omit-location` on `ogm-viewer` before loading a record to exclude its
+metadata-only Location preview. Real map layers are preserved. The default
+viewer behavior and explicitly supplied custom previewers are unchanged.
+BTAA resource pages use this option because their sidebar already shows Location,
+and skip mounting the viewer when the record has no supported content references.

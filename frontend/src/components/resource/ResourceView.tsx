@@ -11,6 +11,7 @@ import { Header } from '../layout/Header';
 import { Footer } from '../layout/Footer';
 import { MetadataTable } from './MetadataTable';
 import { useApi } from '../../context/ApiContext';
+import { hasOgmContentPreview } from '../../utils/ogmViewerRecord';
 import { ResourceViewer } from './ResourceViewer';
 import { ResourceBreadcrumbs } from './ResourceBreadcrumbs';
 import { ResourceSubtitle } from './ResourceSubtitle';
@@ -230,7 +231,9 @@ export function ResourceView() {
     return <ErrorMessage message={error} />;
   }
 
-  const viewerProtocol = data?.data?.meta?.ui?.viewer?.protocol;
+  const viewerProtocol = hasOgmContentPreview(data.data)
+    ? data?.data?.meta?.ui?.viewer?.protocol
+    : undefined;
   const dataDictionaries = data?.data?.attributes?.b1g?.data_dictionaries || [];
   const isRestricted = isRestrictedAccessResource(data?.data);
 

@@ -16,6 +16,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useApi } from '../context/ApiContext';
 import type { ImageSelection, ImageNavigation } from '../utils/iiifSelection';
+import { hasOgmContentPreview } from '../utils/ogmViewerRecord';
 import { ResourceViewer } from '../components/resource/ResourceViewer';
 import { ResourceBreadcrumbs } from '../components/resource/ResourceBreadcrumbs';
 import { ResourceSubtitle } from '../components/resource/ResourceSubtitle';
@@ -539,7 +540,9 @@ export function ResourceView({
   // const geometry = data?.data?.meta?.ui?.viewer?.geometry;
 
   // Extract data from the new structure
-  const viewerProtocol = data?.meta?.ui?.viewer?.protocol;
+  const viewerProtocol = hasOgmContentPreview(data)
+    ? data?.meta?.ui?.viewer?.protocol
+    : undefined;
   const dataDictionaries = data?.attributes?.b1g?.data_dictionaries || [];
   const hasAllmapsViewer = Boolean(getAllmapsViewerUrl(allmapsAttributes));
   const resourceGeometry =

@@ -65,6 +65,36 @@ describe('ResourceViewer', () => {
     vi.clearAllMocks();
   });
 
+  it('does not mount a viewer for location-only records and clears the previous image', async () => {
+    const onChange = vi.fn();
+    const locationOnly = viewerData('location', {
+      'http://schema.org/url': 'https://example.org/catalog',
+    });
+    locationOnly.attributes.ogm!.locn_geometry = 'ENVELOPE(-90,-89,45,44)';
+    const { container, rerender } = render(
+      <ResourceViewer data={locationOnly} onImageSelectionChange={onChange} />
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(mocks.recordConstructor).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenLastCalledWith(null);
+    rerender(
+      <ResourceViewer
+        data={viewerData('map', {
+          [PMTILES_REFERENCE]: 'https://example.org/map.pmtiles',
+        })}
+        onImageSelectionChange={onChange}
+      />
+    );
+    await waitFor(() =>
+      expect(mocks.recordConstructor).toHaveBeenCalledTimes(1)
+    );
+    rerender(
+      <ResourceViewer data={locationOnly} onImageSelectionChange={onChange} />
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+
   it('loads the Aardvark record into the full OGM viewer', async () => {
     const references = {
       [PMTILES_REFERENCE]: 'https://example.com/resource.pmtiles',
@@ -95,6 +125,7 @@ describe('ResourceViewer', () => {
     };
     expect(viewer.loadedRecord).toBe(mocks.recordConstructor.mock.instances[0]);
     expect(viewer).toHaveAttribute('theme', 'light');
+    expect(viewer).toHaveAttribute('omit-location');
     expect(viewer).toHaveClass('h-[600px]');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
@@ -145,7 +176,13 @@ describe('ResourceViewer', () => {
       throw new Error('Invalid record');
     });
 
-    render(<ResourceViewer data={viewerData('broken', {})} />);
+    render(
+      <ResourceViewer
+        data={viewerData('broken', {
+          [PMTILES_REFERENCE]: 'https://example.org/map.pmtiles',
+        })}
+      />
+    );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Item viewer unavailable.'
@@ -161,7 +198,9 @@ describe('ResourceViewer', () => {
 
 it('follows the active preview, caches hidden images, clears transitions and ignores old records', async () => {
   const onChange = vi.fn();
-  const data = viewerData('record', {});
+  const data = viewerData('record', {
+    [PMTILES_REFERENCE]: 'https://example.org/map.pmtiles',
+  });
   const { container, rerender, unmount } = render(
     <ResourceViewer data={data} onImageSelectionChange={onChange} />
   );
@@ -200,7 +239,9 @@ it('follows the active preview, caches hidden images, clears transitions and ign
   expect(onChange).toHaveBeenLastCalledWith(null);
   rerender(
     <ResourceViewer
-      data={viewerData('new-record', {})}
+      data={viewerData('new-record', {
+        [PMTILES_REFERENCE]: 'https://example.org/map.pmtiles',
+      })}
       onImageSelectionChange={onChange}
     />
   );
@@ -217,7 +258,9 @@ it('follows the active preview, caches hidden images, clears transitions and ign
 });
 
 it('sends picker navigation to the public viewer host only for the active sequence', async () => {
-  const data = viewerData('record', {});
+  const data = viewerData('record', {
+    [PMTILES_REFERENCE]: 'https://example.org/map.pmtiles',
+  });
   const { container, rerender } = render(<ResourceViewer data={data} />);
   await waitFor(() =>
     expect(screen.queryByRole('status')).not.toBeInTheDocument()

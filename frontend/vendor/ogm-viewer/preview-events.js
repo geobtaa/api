@@ -1,5 +1,14 @@
 /** A manifest represents the complete object, so offer it before a standalone scan. */
-export function preferManifest(previews) {
+export function preferManifest(previews, host) {
+    // Consumers with a separate location map can omit the metadata-only preview.
+    let ancestor = host;
+    while (ancestor) {
+        if (ancestor.hasAttribute?.('omit-location')) {
+            previews = previews.filter(preview => preview.kind !== 'location');
+            break;
+        }
+        ancestor = ancestor.parentNode ?? ancestor.host;
+    }
     const primary = previews.filter(preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image');
     return [...primary, ...previews.filter(preview => !primary.includes(preview))];
 }
