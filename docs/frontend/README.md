@@ -172,3 +172,7 @@ Homepage protocol previews use OGM Viewer previewers and Allmaps MapLibre layers
 
 The frontend Docker image uses Node 22 and installs the committed lockfile with
 `npm ci --legacy-peer-deps`, matching the MapLibre dependency runtime requirements.
+
+Search map controls:
+
+- The Location filter and results maps start with compact attribution collapsed behind the native MapLibre information button. Users can open or close it with mouse or keyboard. The shared `collapsedAttribution` map option applies only the initial state; attribution remains available and later user choices are preserved.

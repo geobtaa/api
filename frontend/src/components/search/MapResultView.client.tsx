@@ -553,6 +553,7 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
     <div className="h-full w-full bg-slate-100 rounded-lg overflow-hidden relative z-0">
       <style>{`.numbered-pin-icon { background: transparent !important; border: none !important; }`}</style>
       <MapContainer
+        collapsedAttribution
         center={[0, 0]}
         zoom={2}
         className="h-full w-full"
