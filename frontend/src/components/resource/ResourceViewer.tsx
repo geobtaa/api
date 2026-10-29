@@ -3,7 +3,8 @@ import {
   hasOgmContentPreview,
 } from '../../utils/ogmViewerRecord';
 import { BASEMAP_STYLES } from '../../config/mapStyles';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { ViewerExpandedContext } from './viewerFrameContext';
 import type {
   ImageSelection,
   ImageNavigation,
@@ -51,6 +52,7 @@ function ContentViewer({
   imageNavigation,
   standalone = false,
 }: ResourceViewerProps) {
+  const expanded = useContext(ViewerExpandedContext);
   const selectionCallback = useRef(onImageSelectionChange);
   selectionCallback.current = onImageSelectionChange;
   const activeSelection = useRef<ImageSelection | null>(null);
@@ -176,11 +178,15 @@ function ContentViewer({
     );
   }, [imageNavigation]);
 
-  const height = standalone ? 'h-dvh' : 'h-[600px]';
+  const height = expanded ? 'h-full' : standalone ? 'h-dvh' : 'h-[600px]';
   return (
     <div
       className={
-        standalone ? 'relative h-dvh' : 'sticky top-[88px] min-h-[600px]'
+        expanded
+          ? 'relative h-full min-h-0'
+          : standalone
+            ? 'relative h-dvh'
+            : 'sticky top-[88px] min-h-[600px]'
       }
     >
       {!ready && !error && (

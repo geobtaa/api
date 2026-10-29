@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { AllmapsViewerFrame } from '../src/components/resource/AllmapsViewerFrame';
 import { ResourceViewer } from '../src/components/resource/ResourceViewer';
 import { DownloadsTable } from '../src/components/resource/DownloadsTable';
 import type { ImageNavigation, ImageSelection } from 'ogm-viewer/lib';
@@ -61,11 +62,15 @@ function Fixture() {
         </select>
       </label>
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] gap-6 mt-4">
-        <ResourceViewer
-          data={data}
-          onImageSelectionChange={setSelection}
-          imageNavigation={navigation}
-        />
+        <AllmapsViewerFrame tabs={null} viewerUrl="/ogm-viewer">
+          <div role="tabpanel">
+            <ResourceViewer
+              data={data}
+              onImageSelectionChange={setSelection}
+              imageNavigation={navigation}
+            />
+          </div>
+        </AllmapsViewerFrame>
         <DownloadsTable
           downloads={[
             {

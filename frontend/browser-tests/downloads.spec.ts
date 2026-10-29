@@ -190,3 +190,79 @@ test('location-only records unmount the viewer and clear image downloads', async
   await expect(full(page)).toHaveCount(0);
   await expect.poll(() => image(page)).toBeNull();
 });
+
+for (const scenario of ['good', 'arcgis']) {
+  for (const fallback of [false, true]) {
+    test(`${scenario}: toolbar fullscreen fills the viewport (${fallback ? 'fallback' : 'native'})`, async ({
+      page,
+    }) => {
+      if (fallback) {
+        await page.evaluate(() => {
+          HTMLElement.prototype.requestFullscreen = () =>
+            Promise.reject(new Error('Fullscreen unavailable'));
+        });
+      }
+      await page
+        .getByRole('combobox', { name: 'Fixture', exact: true })
+        .selectOption(scenario);
+      const canvas = page
+        .locator(
+          scenario === 'arcgis'
+            ? 'ogm-map canvas.maplibregl-canvas'
+            : 'ogm-image #openseadragon > .openseadragon-container > .openseadragon-canvas'
+        )
+        .filter({ visible: true });
+      await expect(canvas).toBeVisible();
+      if (scenario === 'good') await opened(page);
+      const viewer = await page.locator('ogm-viewer').elementHandle();
+      await page
+        .getByRole('button', { name: 'Fullscreen', exact: true })
+        .click();
+      await expect
+        .poll(() => page.evaluate(() => Boolean(document.fullscreenElement)))
+        .toBe(!fallback);
+      await expect
+        .poll(async () => {
+          const box = await canvas.boundingBox();
+          return box
+            ? Math.abs(box.y + box.height - page.viewportSize()!.height)
+            : 999;
+        })
+        .toBeLessThan(5);
+      expect(
+        await page
+          .locator('ogm-viewer')
+          .evaluate((el, previous) => el === previous, viewer)
+      ).toBe(true);
+      await page
+        .getByRole('button', { name: 'Exit fullscreen', exact: true })
+        .click();
+      await expect
+        .poll(() => page.evaluate(() => Boolean(document.fullscreenElement)))
+        .toBe(false);
+      await expect
+        .poll(
+          async () => (await page.locator('ogm-viewer').boundingBox())?.height
+        )
+        .toBe(600);
+      await page
+        .getByRole('button', { name: 'Fullscreen', exact: true })
+        .click();
+      if (fallback) await page.keyboard.press('Escape');
+      else {
+        await expect
+          .poll(() => page.evaluate(() => Boolean(document.fullscreenElement)))
+          .toBe(true);
+        await page.evaluate(() => document.exitFullscreen());
+      }
+      await expect(
+        page.getByRole('button', { name: 'Fullscreen', exact: true })
+      ).toHaveAttribute('aria-pressed', 'false');
+      await expect
+        .poll(
+          async () => (await page.locator('ogm-viewer').boundingBox())?.height
+        )
+        .toBe(600);
+    });
+  }
+}
