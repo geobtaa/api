@@ -178,6 +178,6 @@ Search map controls:
 - The Location filter, results, and resource Location maps start with compact attribution collapsed behind the native MapLibre information button. Users can open or close it with mouse or keyboard. The shared `collapsedAttribution` map option applies only the initial state; attribution remains available and later user choices are preserved.
 
 IIIF image downloads load separately from resource metadata. Multi-part items
-offer a page/sheet selector and individual image downloads, plus any publisher
-files. See [IIIF downloads](../backend/iiif_downloads.md) for supported manifest
+follow the image currently open in OGM Viewer. Paging and preview-tab changes
+update individual image downloads; publisher whole-item files remain available. See [IIIF downloads](../backend/iiif_downloads.md) for supported manifest
 shapes, endpoint fields, and local tests.

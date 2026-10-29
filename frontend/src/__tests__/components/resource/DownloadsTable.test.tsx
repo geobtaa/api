@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   cleanup,
   fireEvent,
@@ -248,4 +247,206 @@ describe('DownloadsTable', () => {
       window.open = originalOpen;
     }
   });
+});
+
+it('matches current image source rather than canvas position and hides stale links', () => {
+  const manifest = 'https://example.org/manifest';
+  const downloads = [
+    {
+      label: 'First image',
+      url: 'https://example.org/one.jpg',
+      type: 'image/jpeg',
+      source: 'iiif',
+      canvas_id: 'same-canvas',
+      canvas_label: 'Two scans',
+      image_source: 'https://example.org/iiif/one',
+      iiif_resource_url: manifest,
+    },
+    {
+      label: 'Second image',
+      url: 'https://example.org/two.jpg',
+      type: 'image/jpeg',
+      source: 'iiif',
+      canvas_id: 'same-canvas',
+      image_source: 'https://example.org/iiif/two',
+      iiif_resource_url: manifest,
+    },
+    {
+      label: 'Sheet PDF',
+      url: 'https://example.org/sheet.pdf',
+      source: 'iiif',
+      canvas_id: 'same-canvas',
+      iiif_resource_url: manifest,
+    },
+    { label: 'Original TIFF', url: 'https://example.org/original.tif' },
+  ];
+  const selection = {
+    resourceId: 'record',
+    previewId: 'preview',
+    resourceUrl: manifest,
+    renderer: 'image' as const,
+    image: {
+      url: 'https://example.org/iiif/two/info.json',
+      index: 4,
+      count: 7,
+    },
+  };
+  const { rerender } = render(
+    <DownloadsTable
+      downloads={downloads}
+      resourceId="record"
+      followViewer
+      activeImage={selection}
+    />
+  );
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('link', { name: 'First image' })
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Second image' })).toHaveAttribute(
+    'href',
+    downloads[1].url
+  );
+  expect(screen.getByRole('link', { name: 'Sheet PDF' })).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Image 5 of 7');
+  for (const activeImage of [
+    null,
+    { ...selection, image: null },
+    { ...selection, resourceUrl: 'https://example.org/other' },
+    { ...selection, resourceId: 'previous-record' },
+    {
+      ...selection,
+      image: {
+        ...selection.image,
+        url: 'https://example.org/unknown/info.json',
+      },
+    },
+  ]) {
+    rerender(
+      <DownloadsTable
+        downloads={downloads}
+        resourceId="record"
+        followViewer
+        activeImage={activeImage}
+      />
+    );
+    expect(
+      screen.queryByRole('link', { name: 'Second image' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Sheet PDF' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Original TIFF' })
+    ).toBeInTheDocument();
+  }
+  rerender(
+    <DownloadsTable
+      downloads={downloads}
+      resourceId="record"
+      followViewer
+      activeImage={{
+        ...selection,
+        image: {
+          ...selection.image,
+          url: 'https://example.org/iiif/one/info.json',
+          index: 0,
+        },
+      }}
+    />
+  );
+  expect(screen.getByRole('link', { name: 'First image' })).toBeInTheDocument();
+});
+
+it('keeps manifest-wide image renderings available without an active canvas', () => {
+  render(
+    <DownloadsTable
+      resourceId="record"
+      followViewer
+      downloads={[
+        {
+          label: 'Whole atlas image',
+          url: 'https://example.org/atlas.jpg',
+          type: 'image/jpeg',
+          source: 'iiif',
+          iiif_resource_url: 'https://example.org/manifest',
+        },
+      ]}
+    />
+  );
+  expect(
+    screen.getByRole('link', { name: 'Whole atlas image' })
+  ).toHaveAttribute('href', 'https://example.org/atlas.jpg');
+});
+
+it('distinguishes repeated scans on different canvases using source occurrence', () => {
+  const common = {
+    label: 'Small Image',
+    url: 'https://example.org/scan.jpg',
+    type: 'image/jpeg',
+    source: 'iiif',
+    image_source: 'https://example.org/scan',
+    iiif_resource_url: 'https://example.org/manifest',
+  };
+  const downloads = [
+    {
+      ...common,
+      canvas_id: 'first',
+      canvas_label: 'First use',
+      image_occurrences: [0],
+    },
+    {
+      ...common,
+      canvas_id: 'second',
+      canvas_label: 'Second use',
+      image_occurrences: [1],
+    },
+    {
+      label: 'Second sheet PDF',
+      url: 'https://example.org/second.pdf',
+      source: 'iiif',
+      canvas_id: 'second',
+      iiif_resource_url: common.iiif_resource_url,
+    },
+  ];
+  const selection = {
+    previewId: 'preview',
+    resourceId: 'record',
+    resourceUrl: common.iiif_resource_url,
+    renderer: 'image' as const,
+    image: {
+      url: common.image_source + '/info.json',
+      index: 7,
+      count: 10,
+      occurrence: 1,
+    },
+  };
+  const { rerender } = render(
+    <DownloadsTable
+      downloads={downloads}
+      resourceId="record"
+      followViewer
+      activeImage={selection}
+    />
+  );
+  expect(screen.getByRole('status')).toHaveTextContent('Second use');
+  expect(screen.getAllByRole('link', { name: 'Small' })).toHaveLength(1);
+  expect(
+    screen.getByRole('link', { name: 'Second sheet PDF' })
+  ).toBeInTheDocument();
+  rerender(
+    <DownloadsTable
+      downloads={downloads}
+      resourceId="record"
+      followViewer
+      activeImage={{
+        ...selection,
+        image: { ...selection.image, occurrence: 0 },
+      }}
+    />
+  );
+  expect(screen.getByRole('status')).toHaveTextContent('First use');
+  expect(
+    screen.queryByRole('link', { name: 'Second sheet PDF' })
+  ).not.toBeInTheDocument();
 });

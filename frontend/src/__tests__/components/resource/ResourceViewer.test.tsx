@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -157,4 +157,61 @@ describe('ResourceViewer', () => {
 
     consoleError.mockRestore();
   });
+});
+
+it('follows the active preview, caches hidden images, clears transitions and ignores old records', async () => {
+  const onChange = vi.fn();
+  const data = viewerData('record', {});
+  const { container, rerender, unmount } = render(
+    <ResourceViewer data={data} onImageSelectionChange={onChange} />
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  );
+  const viewer = container.querySelector('ogm-viewer')!;
+  const first = {
+    previewId: 'first',
+    resourceId: 'record',
+    resourceUrl: 'https://example.org/manifest',
+    renderer: 'image',
+  };
+  const second = { ...first, previewId: 'second' };
+  const image = {
+    url: 'https://example.org/iiif/1/info.json',
+    index: 0,
+    count: 2,
+  };
+  const emit = (name: string, detail: unknown) =>
+    act(() => {
+      viewer.dispatchEvent(new CustomEvent(name, { detail }));
+    });
+  emit('imageChange', { ...first, image });
+  emit('previewChange', first);
+  expect(onChange).toHaveBeenLastCalledWith({ ...first, image });
+  emit('imageChange', { ...second, image: { ...image, index: 1 } });
+  expect(onChange).toHaveBeenLastCalledWith({ ...first, image });
+  emit('previewChange', second);
+  expect(onChange.mock.lastCall?.[0].image.index).toBe(1);
+  emit('imageChange', { ...second, image: null });
+  expect(onChange.mock.lastCall?.[0].image).toBeNull();
+  emit('previewChange', { ...first, renderer: 'map' });
+  expect(onChange).toHaveBeenLastCalledWith(null);
+  emit('previewChange', { ...first, resourceId: 'old-record' });
+  expect(onChange).toHaveBeenLastCalledWith(null);
+  rerender(
+    <ResourceViewer
+      data={viewerData('new-record', {})}
+      onImageSelectionChange={onChange}
+    />
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  );
+  emit('imageChange', { ...first, image });
+  emit('previewChange', first);
+  expect(onChange).toHaveBeenLastCalledWith(null);
+  unmount();
+  const calls = onChange.mock.calls.length;
+  emit('imageChange', { ...first, image });
+  expect(onChange).toHaveBeenCalledTimes(calls);
 });

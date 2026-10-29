@@ -125,6 +125,7 @@ services:
       - ./frontend/private-analytics-reports:/app/private-analytics-reports:ro
       - ./frontend/public:/app/public
       - ./frontend/scripts:/app/scripts
+      - ./frontend/vendor:/app/vendor
       - ./frontend/server:/app/server
       - ./frontend/index.html:/app/index.html
       - ./frontend/package.json:/app/package.json

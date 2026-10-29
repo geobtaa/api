@@ -108,7 +108,7 @@ def image_downloads(url, service=None, body=None):
     def add(name, size):
         link = image_request(base, size, quality)
         if link not in seen:
-            downloads.append(option(name, link))
+            downloads.append(option(name, link, image_source=base))
             seen.add(link)
         elif name == "Largest Available Image":
             next(download for download in downloads if download["url"] == link)["label"] = name
@@ -160,14 +160,17 @@ def image_bodies(value):
 
 
 def manifest_downloads(manifest, manifest_url):
-    """Read v2's default sequence or v3's ordered canvases and their painting images."""
+    """Read v2's sequences or v3's ordered canvases and their painting images."""
     if not isinstance(manifest, dict):
         return []
     downloads = renderings(manifest)
     sequences = objects(manifest.get("sequences"))
     canvases = (
-        objects(sequences[0].get("canvases")) if sequences else objects(manifest.get("items"))
+        [canvas for sequence in sequences for canvas in objects(sequence.get("canvases"))]
+        if sequences
+        else objects(manifest.get("items"))
     )
+    occurrences = {}
     for index, canvas in enumerate(canvases, 1):
         metadata = {
             "canvas_id": identifier(canvas) or f"{manifest_url}#canvas-{index}",
@@ -199,17 +202,29 @@ def manifest_downloads(manifest, manifest_url):
                     break
             if not images and identifier(body):
                 images = [
-                    option("Download Image", identifier(body), body.get("format") or "image/jpeg")
+                    option(
+                        "Download Image",
+                        identifier(body),
+                        body.get("format") or "image/jpeg",
+                        image_source=identifier(body),
+                    )
                 ]
+            source = images[0]["image_source"] if images else None
+            occurrence = occurrences.get(source, 0)
+            if source:
+                occurrences[source] = occurrence + 1
             for image in images:
+                image["image_occurrences"] = [occurrence]
                 if len(bodies) > 1:
                     image["label"] = f"Image {number}: {image['label']}"
                 downloads.append({**image, **metadata})
-    seen = set()
+    seen = {}
     unique = []
     for download in downloads:
         key = (download.get("canvas_id"), download["url"])
         if key not in seen:
-            unique.append(download)
-            seen.add(key)
+            unique.append({**download, "iiif_resource_url": manifest_url})
+            seen[key] = unique[-1]
+        elif download.get("image_occurrences"):
+            seen[key].setdefault("image_occurrences", []).extend(download["image_occurrences"])
     return unique

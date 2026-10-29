@@ -23,7 +23,33 @@ vi.mock('../../components/resource/AllmapsOverlayViewer', () => ({
 }));
 
 vi.mock('../../components/resource/ResourceViewer', () => ({
-  ResourceViewer: () => <div data-testid="resource-viewer" />,
+  ResourceViewer: ({
+    data,
+    onImageSelectionChange,
+  }: {
+    data: GeoDocument;
+    onImageSelectionChange?: (selection: unknown) => void;
+  }) => (
+    <div data-testid="resource-viewer">
+      <button
+        onClick={() =>
+          onImageSelectionChange?.({
+            resourceId: data.id,
+            previewId: 'test',
+            resourceUrl: 'https://example.org/manifest',
+            renderer: 'image',
+            image: {
+              url: 'https://example.org/image/info.json',
+              index: 0,
+              count: 1,
+            },
+          })
+        }
+      >
+        View test image
+      </button>
+    </div>
+  ),
 }));
 
 // Mock the API functions to return real fixture data
@@ -1207,6 +1233,8 @@ describe('ResourceView Component', () => {
               source: 'iiif',
               canvas_id: 'page-1',
               canvas_label: 'Map',
+              image_source: 'https://example.org/image',
+              iiif_resource_url: 'https://example.org/manifest',
             },
           ],
         }),
@@ -1215,6 +1243,15 @@ describe('ResourceView Component', () => {
         <TestWrapper>
           <ResourceView />
         </TestWrapper>
+      );
+      await screen.findByText(
+        'Select an image in the item viewer to see its downloads.'
+      );
+      expect(
+        screen.queryByRole('link', { name: 'Small' })
+      ).not.toBeInTheDocument();
+      await userEvent.click(
+        screen.getByRole('button', { name: 'View test image' })
       );
       expect(
         await screen.findByRole('link', { name: 'Small' })

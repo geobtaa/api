@@ -167,7 +167,10 @@ def test_unsafe_links_are_not_emitted(url):
 def test_repeated_urls_deduplicate_within_page_but_keep_distinct_pages():
     manifest = v3_manifest([image_body(), image_body()])
     manifest["items"].append({**manifest["items"][0], "id": f"{MANIFEST}/canvas/2"})
-    assert len(manifest_downloads(manifest, MANIFEST)) == 10
+    downloads = manifest_downloads(manifest, MANIFEST)
+    assert len(downloads) == 10
+    assert downloads[0]["image_occurrences"] == [0, 1]
+    assert downloads[-1]["image_occurrences"] == [2, 3]
 
 
 @pytest.mark.asyncio
@@ -255,3 +258,61 @@ async def test_download_endpoint_merges_iiif_and_preserves_other_downloads(unava
     payload = json.loads(response.body)
     assert payload["iiif_error"] is unavailable
     assert payload["downloads"] == ([direct, provisional] if unavailable else [direct, *resolved])
+
+
+@pytest.mark.asyncio
+async def test_both_preview_sources_have_downloads_and_stable_image_identity():
+    image_url = "https://example.org/standalone/info.json"
+    service = DownloadService(
+        {
+            "dct_references_s": {
+                "http://iiif.io/api/presentation#manifest": MANIFEST,
+                "http://iiif.io/api/image": image_url,
+            }
+        }
+    )
+    with patch(
+        "app.services.image_service.ImageService._get_manifest",
+        side_effect=[v3_manifest(image_body()), {"type": "ImageService3"}],
+    ) as fetch:
+        downloads = await service.resolve_iiif_downloads()
+    assert fetch.call_count == 2
+    assert len(downloads) == 10
+    assert {item["iiif_resource_url"] for item in downloads} == {MANIFEST, image_url}
+    assert downloads[0]["image_source"] == BASE
+    assert downloads[-1]["image_source"] == "https://example.org/standalone"
+
+
+def test_multiple_images_in_a_canvas_keep_individual_source_identity():
+    second = image_body()
+    second["service"][0]["id"] = "https://example.org/second"
+    downloads = manifest_downloads(v3_manifest([image_body(), second]), MANIFEST)
+    assert len(downloads) == 10
+    assert len({item["canvas_id"] for item in downloads}) == 1
+    assert {item["image_source"] for item in downloads} == {BASE, "https://example.org/second"}
+
+
+def test_v2_multiple_sequences_follow_viewer_order():
+    body = {"@type": "dctypes:Image", "@id": "https://example.org/one.jpg"}
+    manifest = {
+        "sequences": [
+            {
+                "canvases": [
+                    {"@id": "https://example.org/canvas/one", "images": [{"resource": body}]}
+                ]
+            },
+            {
+                "canvases": [
+                    {
+                        "@id": "https://example.org/canvas/two",
+                        "images": [{"resource": {**body, "@id": "https://example.org/two.jpg"}}],
+                    }
+                ]
+            },
+        ]
+    }
+    downloads = manifest_downloads(manifest, MANIFEST)
+    assert [item["image_source"] for item in downloads] == [
+        "https://example.org/one.jpg",
+        "https://example.org/two.jpg",
+    ]

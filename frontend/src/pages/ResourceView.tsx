@@ -15,6 +15,7 @@ import { isGeoportalErrorStatus } from './errorPageContent';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useApi } from '../context/ApiContext';
+import type { ImageSelection } from '../utils/iiifSelection';
 import { ResourceViewer } from '../components/resource/ResourceViewer';
 import { ResourceBreadcrumbs } from '../components/resource/ResourceBreadcrumbs';
 import { ResourceSubtitle } from '../components/resource/ResourceSubtitle';
@@ -199,6 +200,7 @@ export function ResourceView({
   const [visitedOverlayResource, setVisitedOverlayResource] = useState<
     string | null
   >(null);
+  const [viewerImage, setViewerImage] = useState<ImageSelection | null>(null);
   const [activeViewerTab, setActiveViewerTab] = useState<'item' | 'allmaps'>(
     'item'
   );
@@ -736,7 +738,11 @@ export function ResourceView({
                               : undefined
                           }
                         >
-                          <ResourceViewer data={data} />
+                          <ResourceViewer
+                            key={data.id}
+                            data={data}
+                            onImageSelectionChange={setViewerImage}
+                          />
                         </div>
                       )}
 
@@ -800,6 +806,14 @@ export function ResourceView({
                       resourceId={data.id}
                       searchId={searchState?.searchId}
                       resolveIiif={Boolean(getAllmapsIiifUrl(data))}
+                      followViewer
+                      activeImage={
+                        showItemViewer &&
+                        viewerImage?.resourceId ===
+                          String(data.attributes.ogm?.id ?? data.id)
+                          ? viewerImage
+                          : null
+                      }
                     />
 
                     {/* Licensed access section */}
