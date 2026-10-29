@@ -53,11 +53,11 @@ or record changes.
 ## Installation and removal
 
 `npm ci --legacy-peer-deps` runs `scripts/patch-ogm-viewer-events.mjs`. It checks
-version 1.6.0 and the SHA-256 of both original component chunks before adding the
+version 1.6.0 and the SHA-256 of the original component artifacts before adding the
 hooks and copying the helper. Re-running it is idempotent. A version or artifact
 change fails installation so an upgrade cannot silently break synchronization.
 The Docker dependencies stage copies the installer and vendor directory before
-installing. Vite includes the helper content hash in its plugin identity to
+installing. Vite includes the helper and installer content hash in its plugin identity to
 invalidate browser dependency URLs when the backport changes. After dependency changes, rebuild the frontend dependency layer and
 run `make frontend-reset`, then hard-refresh the browser.
 
@@ -96,3 +96,7 @@ navigation visibility are included in the initial render, so a successful
 manifest load does not briefly show extra tabs. The preview panels stay mounted
 when fallback availability changes, preserving canvas state. Multiple distinct
 previews retain tab navigation.
+
+Set `hide-menubar` on `ogm-viewer` before loading a record to omit its internal
+title/menu row. BTAA resource pages use their own title and metadata sections
+and display the canvas directly. The default viewer retains its menubar.

@@ -1,8 +1,8 @@
 diff --git a/readme.md b/readme.md
-index 4421c92..8421de6 100644
+index 4421c92..4e5ca6a 100644
 --- a/readme.md
 +++ b/readme.md
-@@ -354,3 +354,73 @@ git push origin vX.Y.Z
+@@ -354,3 +354,77 @@ git push origin vX.Y.Z
  ```
  
  The `Release` workflow checks that the tag and `package.json` agree, lints, tests, publishes to npm, and drafts the GitHub release with generated notes. It authenticates with npm over OIDC using [trusted publishing](https://docs.npmjs.com/trusted-publishers).
@@ -76,6 +76,10 @@ index 4421c92..8421de6 100644
 +manifest load does not briefly show extra tabs. The preview panels stay mounted
 +when fallback availability changes, preserving canvas state. Multiple distinct
 +previews retain tab navigation.
++
++Set `hide-menubar` on `ogm-viewer` before loading a record to omit its internal
++title/menu row. BTAA resource pages use their own title and metadata sections
++and display the canvas directly. The default viewer retains its menubar.
 diff --git a/src/components.d.ts b/src/components.d.ts
 index 3e7320b..0cf78c9 100644
 --- a/src/components.d.ts
@@ -267,6 +271,19 @@ index a9b3b00..ec96865 100644
              </wa-tab>
            ))}
            {tabs.map((previewer, idx) => (
+diff --git a/src/components/ogm-viewer/ogm-viewer.tsx b/src/components/ogm-viewer/ogm-viewer.tsx
+index 3a3684c..e75a120 100644
+--- a/src/components/ogm-viewer/ogm-viewer.tsx
++++ b/src/components/ogm-viewer/ogm-viewer.tsx
+@@ -104,7 +104,7 @@ export class OgmViewer {
+     return (
+       <Host class={`wa-${this.theme}`}>
+         <div class={`container ${waScope(this.theme)}`}>
+-          <ogm-menubar theme={this.theme} record={this.record} loading={this.loading} hideTitle={this.hideTitle}></ogm-menubar>
++          {!this.el.hasAttribute('hide-menubar') && <ogm-menubar theme={this.theme} record={this.record} loading={this.loading} hideTitle={this.hideTitle}></ogm-menubar>}
+           <div class="main-container">
+             <ogm-sidebar theme={this.theme} record={this.record} open={this.sidebarOpen} requestTransform={this.requestTransform}></ogm-sidebar>
+             {this.error ? (
 diff --git a/src/index.ts b/src/index.ts
 index a9d7244..e267801 100644
 --- a/src/index.ts

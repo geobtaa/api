@@ -195,6 +195,7 @@ function ContentViewer({
         className={error ? 'hidden' : 'block h-[600px] w-full'}
         theme="light"
         omit-location=""
+        hide-menubar=""
       />
     </div>
   );

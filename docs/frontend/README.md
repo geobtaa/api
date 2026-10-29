@@ -177,6 +177,9 @@ Search map controls:
 
 - The Location filter, results, and resource Location maps start with compact attribution collapsed behind the native MapLibre information button. Users can open or close it with mouse or keyboard. The shared `collapsedAttribution` map option applies only the initial state; attribution remains available and later user choices are preserved.
 
+Resource pages hide OGM Viewer's internal menubar and repeated title, so the
+canvas starts directly below the page-level viewer controls.
+
 The resource page omits OGM Viewer's metadata-only Location preview because the
 sidebar already shows that map. Records without a supported content reference
 skip the viewer and its controls entirely. Image, manifest, and actual map-layer
