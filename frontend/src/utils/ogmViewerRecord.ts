@@ -21,7 +21,7 @@ export function toAardvarkRecord(data: {
   } as unknown as GeoBlacklightSchemaAardvark;
 }
 
-/** Content references supported by pinned OGM Viewer 1.6; geometry alone is not a preview. */
+/** Content references supported by pinned OGM Viewer 1.7; geometry alone is not a preview. */
 export function hasOgmContentPreview(data: {
   attributes: { ogm?: object };
 }): boolean {
