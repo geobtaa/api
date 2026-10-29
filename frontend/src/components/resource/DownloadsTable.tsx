@@ -4,7 +4,7 @@ import {
   type ImageSelection,
   type ImageNavigation,
 } from '../../utils/iiifSelection';
-import { Download, Image } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { getApiBasePath } from '../../services/api';
 import { scheduleAnalyticsBatch } from '../../services/analytics';
@@ -349,15 +349,12 @@ export function DownloadsTable({
         )}
         {(iiifDownloads.length > 0 || viewerPages.length > 1) && (
           <div className="px-6 py-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Image className="w-5 h-5 text-gray-400" />
-              <span className="text-sm font-medium text-gray-900">
-                {followViewer
-                  ? 'Download current image'
-                  : canvases.length > 1
-                    ? 'Download Images'
-                    : 'Download Image'}
-              </span>
+            <div className="text-sm font-medium text-gray-500 mb-2">
+              {followViewer
+                ? 'Download current image'
+                : canvases.length > 1
+                  ? 'Download Images'
+                  : 'Download Image'}
             </div>
             {followViewer && viewerPageOptions.length > 1 && (
               <div className="mb-3">
