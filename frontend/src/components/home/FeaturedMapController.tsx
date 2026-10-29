@@ -34,6 +34,7 @@ export function FeaturedMapController({
 }: FeaturedMapControllerProps) {
   const map = useMap();
   const wasInitiatedRef = useRef(false);
+  const detail = featuredDetails[activeIndex];
   const getHomeView = useCallback(() => {
     if (initialHomeViewRef?.current) return initialHomeViewRef.current;
     return { center: HOME_PAGE_MAP_CENTER, zoom: DEFAULT_US_ZOOM };
@@ -64,7 +65,6 @@ export function FeaturedMapController({
   useEffect(() => {
     if (!featuredInitiated) return;
 
-    const detail = featuredDetails[activeIndex];
     programmaticFlyRef.current = true;
 
     const duration = featuredCamera?.duration ?? 1.5;
@@ -166,8 +166,7 @@ export function FeaturedMapController({
     return cleanupMoveListener();
   }, [
     map,
-    activeIndex,
-    featuredDetails,
+    detail,
     featuredCamera,
     featuredInitiated,
     programmaticFlyRef,

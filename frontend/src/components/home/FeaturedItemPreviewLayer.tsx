@@ -1,5 +1,7 @@
 import { getAllmapsAnnotationUrl } from '../../utils/allmaps';
 import { toAardvarkRecord } from '../../utils/ogmViewerRecord';
+import { addPaneLayer, ensurePane } from '../../mapping/panes';
+import { addFeaturedPins } from './featuredPins';
 import { BASEMAP_STYLES } from '../../config/mapStyles';
 import { useEffect } from 'react';
 import { useMap } from '../../mapping/react';
@@ -38,9 +40,9 @@ export function FeaturedItemPreviewLayer({
   featuredInitiated: boolean;
 }) {
   const map = useMap();
+  const detail = featuredDetails[activeIndex];
   useEffect(() => {
     if (!featuredInitiated) return;
-    const detail = featuredDetails[activeIndex];
     if (!detail) return;
     let cancelled = false;
     let clear: (() => void) | undefined;
@@ -56,9 +58,14 @@ export function FeaturedItemPreviewLayer({
           const layer = new WarpedMapLayer({ layerId: 'featured-allmaps' });
           map.whenReady(async () => {
             if (cancelled) return;
-            map.native.addLayer(layer as never);
+            addPaneLayer(map.native, layer as never, 420);
             clear = () => {
-              if (map.native.getLayer(layer.id))
+              const installed = map.native.getLayer(layer.id);
+              if (
+                installed &&
+                'implementation' in installed &&
+                installed.implementation === layer
+              )
                 map.native.removeLayer(layer.id);
             };
             try {
@@ -87,13 +94,23 @@ export function FeaturedItemPreviewLayer({
           });
           map.whenReady(async () => {
             if (cancelled) return;
-            preview.attach(map.native, theme.getStyle());
+            ensurePane(map.native, 400);
+            ensurePane(map.native, 420);
+            preview.attach(map.native, {
+              ...theme.getStyle(),
+              opacity: 0.75,
+              dataColor: '#3388ff',
+              strokeColor: '#3388ff',
+            });
+            let clearPins: (() => void) | undefined;
             clear = () => {
+              clearPins?.();
               void preview.clearPreview();
             };
             try {
               await preview.preview();
               if (cancelled) await preview.clearPreview();
+              else clearPins = addFeaturedPins(map.native, preview.layerIds);
             } catch (error) {
               console.warn('Featured map unavailable', error);
             }
@@ -108,6 +125,6 @@ export function FeaturedItemPreviewLayer({
       cancelled = true;
       clear?.();
     };
-  }, [map, activeIndex, featuredDetails, featuredInitiated]);
+  }, [map, detail, featuredInitiated]);
   return null;
 }

@@ -1,3 +1,4 @@
+import { addPaneLayer } from './panes';
 import { BASEMAP_STYLES } from '../config/mapStyles';
 /* eslint-disable @typescript-eslint/no-explicit-any -- Adapter for existing GeoJSON and map event contracts. */
 /** Application map primitives backed entirely by MapLibre GL. Coordinates at this
@@ -170,6 +171,10 @@ export class Map {
     this.observer = new ResizeObserver(() => this.native.resize());
     this.observer.observe(container);
   }
+  addPaneLayer(layer: ml.AddLayerObject, pane?: string) {
+    const order = pane ? Number(this.getPane(pane)?.style.zIndex) || 400 : 400;
+    addPaneLayer(this.native, layer, order);
+  }
   panBy(p: number[], options: { animate?: boolean } = {}) {
     this.native.panBy([p[0], p[1]], {
       duration: options.animate === false ? 0 : 300,
@@ -276,15 +281,16 @@ export class Map {
     return this;
   }
   whenReady(fn: () => void) {
-    if (this.native.isStyleLoaded()) fn();
-    // `load` fires only once. Source changes can make isStyleLoaded() false
-    // again, so remounted overlays must wait for the next idle event instead.
+    // A serialized style is available once layers can be added. isStyleLoaded()
+    // also waits for source tiles, and idle may never fire for animated previews.
+    if (this.native.getStyle()) fn();
     else
-      this.native.once('idle', () => {
+      this.native.once('style.load', () => {
         if (!this.removed) fn();
       });
     return this;
   }
+
   on(name: string, fn: (e: any) => void) {
     this.native.on(name as any, fn);
     return this;
@@ -400,17 +406,20 @@ export class Path extends Layer {
     const polygon = type.includes('Polygon');
     const point = type.includes('Point');
     if (polygon)
-      map.addLayer({
-        id: this.id + '-fill',
-        type: 'fill',
-        source: this.id,
-        paint: {
-          'fill-color':
-            this.options.fillColor ?? this.options.color ?? '#2563eb',
-          'fill-opacity': this.options.fillOpacity ?? 0.1,
+      this.host!.addPaneLayer(
+        {
+          id: this.id + '-fill',
+          type: 'fill',
+          source: this.id,
+          paint: {
+            'fill-color':
+              this.options.fillColor ?? this.options.color ?? '#2563eb',
+            'fill-opacity': this.options.fillOpacity ?? 0.1,
+          },
         },
-      });
-    map.addLayer(
+        this.options.pane
+      );
+    this.host!.addPaneLayer(
       point
         ? {
             id: this.id,
@@ -440,7 +449,8 @@ export class Path extends Layer {
                   }
                 : {}),
             },
-          }
+          },
+      this.options.pane
     );
     for (const [native, event] of [
       ['mouseenter', 'mouseover'],
@@ -614,7 +624,7 @@ export class GeoJSON extends Layer {
         this.id + '-point',
         this.id + '-border',
       ];
-      native.addLayer({
+      map.addPaneLayer({
         id: ids[0],
         type: 'fill',
         source: this.id,
@@ -628,7 +638,7 @@ export class GeoJSON extends Layer {
         [ids[1], 'LineString'],
         [ids[3], 'Polygon'],
       ])
-        native.addLayer({
+        map.addPaneLayer({
           id,
           type: 'line',
           source: this.id,
@@ -639,7 +649,7 @@ export class GeoJSON extends Layer {
             'line-opacity': paint('opacity', '_opacity'),
           },
         });
-      native.addLayer({
+      map.addPaneLayer({
         id: ids[2],
         type: 'circle',
         source: this.id,

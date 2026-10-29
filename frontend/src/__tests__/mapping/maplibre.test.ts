@@ -10,10 +10,13 @@ vi.mock('maplibre-gl', () => ({
     layers = new Map();
     handlers = new Map();
     loaded = true;
+    styleReady = true;
     addSource = vi.fn((id, data) => this.sources.set(id, data));
     addLayer = vi.fn((l) => this.layers.set(l.id, l));
     removeLayer = vi.fn((id) => this.layers.delete(id));
     removeSource = vi.fn((id) => this.sources.delete(id));
+    getStyle = () =>
+      this.styleReady ? { layers: [...this.layers.values()] } : undefined;
     getLayer = (id) => this.layers.get(id);
     getSource = (id) => this.sources.get(id);
     addControl = vi.fn();
@@ -99,19 +102,19 @@ describe('MapLibre mapping boundary', () => {
     expect(native.addSource.mock.calls[0][1].data.features[0].geometry).toEqual(
       geometry
     );
-    expect(native.addLayer).toHaveBeenCalledTimes(4);
+    expect(native.addLayer).toHaveBeenCalledTimes(5);
     layer.remove();
     expect(native.sources.size).toBe(0);
-    expect(native.layers.size).toBe(0);
+    expect([...native.layers.keys()]).toEqual(['app-pane-400']);
     map.remove();
   });
   it('does not install a removed layer when the style finishes loading', () => {
     const map = new AppMap(document.createElement('div'));
     const native = mocks.instances[0];
-    native.loaded = false;
+    native.styleReady = false;
     const layer = geoJSON({ type: 'Point', coordinates: [1, 2] }).addTo(map);
     layer.remove();
-    native.handlers.get('idle')();
+    native.handlers.get('style.load')();
     expect(native.addSource).not.toHaveBeenCalled();
     map.remove();
   });
@@ -124,11 +127,10 @@ describe('MapLibre mapping boundary', () => {
     original.remove();
     native.loaded = false;
     const restored = geoJSON(data).addTo(map);
-    expect(native.sources.size).toBe(0);
-    native.loaded = true;
-    native.handlers.get('idle')();
+    // Source loading must not defer reinstallation until idle (Allmaps can animate forever).
+    expect(native.isStyleLoaded()).toBe(false);
     expect(native.sources.size).toBe(1);
-    expect(native.layers.size).toBe(4);
+    expect(native.layers.size).toBe(5);
     restored.remove();
     expect(native.sources.size).toBe(0);
     map.remove();
@@ -136,11 +138,11 @@ describe('MapLibre mapping boundary', () => {
   it('does not run deferred readiness callbacks after the map is removed', () => {
     const map = new AppMap(document.createElement('div'));
     const native = mocks.instances[0];
-    native.loaded = false;
+    native.styleReady = false;
     const callback = vi.fn();
     map.whenReady(callback);
     map.remove();
-    native.handlers.get('idle')();
+    native.handlers.get('style.load')();
     expect(callback).not.toHaveBeenCalled();
   });
   it('updates hover styling without rebuilding source data', () => {
