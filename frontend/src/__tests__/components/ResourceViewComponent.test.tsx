@@ -31,6 +31,10 @@ const realFixtureData: GeoDocument[] = [
         dct_accessrights_s: 'Public',
         gbl_wxsidentifier_s: 'mit-001145244',
         gbl_wxsIdentifier_s: 'mit-001145244',
+        dct_references_s: JSON.stringify({
+          'http://www.opengis.net/def/serviceType/ogc/wms':
+            'https://example.com/wms',
+        }),
         locn_geometry_original: 'POINT(-71.0935 42.3601)',
         ui_viewer_protocol: 'wms',
         ui_viewer_endpoint: 'https://example.com/wms',
