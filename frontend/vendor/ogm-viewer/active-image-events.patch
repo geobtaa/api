@@ -1,11 +1,21 @@
 diff --git a/readme.md b/readme.md
-index 4421c92..9fb64b6 100644
+index 4421c92..86bc199 100644
 --- a/readme.md
 +++ b/readme.md
-@@ -354,3 +354,46 @@ git push origin vX.Y.Z
+@@ -354,3 +354,56 @@ git push origin vX.Y.Z
  ```
  
  The `Release` workflow checks that the tag and `package.json` agree, lints, tests, publishes to npm, and drafts the GitHub release with generated notes. It authenticates with npm over OIDC using [trusted publishing](https://docs.npmjs.com/trusted-publishers).
++
++### Choosing the initial image preview
++
++Record-derived previews prefer the IIIF manifest image viewer (**Images**) over
++standalone Image API references (**Single image**). Explicit custom previewer
++order is preserved. Failed inactive IIIF image tabs are disabled with a
++**Preview unavailable** tooltip. If the initial active image preview fails, the
++viewer switches to another IIIF image preview only after it opens successfully.
++It preserves map selections and does not abandon an already-opened book because
++a later page fails. Availability resets when previews reload or records change.
 +
 +### Following the active image
 +
@@ -152,14 +162,14 @@ index 792cc28..c285b5f 100644
      document.removeEventListener('keydown', this.onFullscreenKeydown);
      this.exitFullscreenFallback();
 diff --git a/src/components/ogm-previews/ogm-previews.tsx b/src/components/ogm-previews/ogm-previews.tsx
-index a9b3b00..27a7b62 100644
+index a9b3b00..7c6e459 100644
 --- a/src/components/ogm-previews/ogm-previews.tsx
 +++ b/src/components/ogm-previews/ogm-previews.tsx
 @@ -4,6 +4,7 @@ import '@awesome.me/webawesome/dist/components/tab-group/tab-group.js';
  import '@awesome.me/webawesome/dist/components/tab-panel/tab-panel.js';
  import '@awesome.me/webawesome/dist/components/tab/tab.js';
  
-+import { observePreviewSelection, type PreviewSelection } from '../../lib/preview-events';
++import { preferManifest, previewLabel, observePreviewSelection, type PreviewSelection } from '../../lib/preview-events';
  import type OgmRecord from '../../lib/record';
  import { adoptWebAwesomeTheme, initialTheme, waScope } from '../../lib/init';
  import { resourcesFor } from '../../lib/resources/factory';
@@ -174,6 +184,15 @@ index a9b3b00..27a7b62 100644
    @Event() previewsLoading: EventEmitter<void>;
    @Event() previewsLoaded: EventEmitter<void>;
  
+@@ -43,7 +48,7 @@ export class OgmPreviews {
+   // Every preview to show, one per tab: the ones we were handed, or else the ones this record turned
+   // out to offer.
+   private get tabs(): AnyPreviewer[] {
+-    return this.previewers ?? this.recordPreviewers;
++    return this.previewers ?? preferManifest(this.recordPreviewers);
+   }
+ 
+   // @Watch only fires on changes, so the record we were rendered with is handled here. Returning
 @@ -51,9 +56,22 @@ export class OgmPreviews {
    // never painted empty and then filled in.
    componentWillLoad() {
@@ -197,6 +216,15 @@ index a9b3b00..27a7b62 100644
    @Watch('record')
    protected async onRecordChange(record?: OgmRecord) {
      await this.buildPreviewers(record);
+@@ -101,7 +119,7 @@ export class OgmPreviews {
+         <wa-tab-group class={waScope(this.theme)} key={tabs.map(previewer => previewer.previewId).join()}>
+           {tabs.map(previewer => (
+             <wa-tab key={`tab-${previewer.previewId}`} panel={previewer.previewId}>
+-              {previewer.label()}
++              {previewLabel(previewer)}
+             </wa-tab>
+           ))}
+           {tabs.map((previewer, idx) => (
 diff --git a/src/index.ts b/src/index.ts
 index a9d7244..e267801 100644
 --- a/src/index.ts
@@ -209,12 +237,12 @@ index a9d7244..e267801 100644
 +export type { PreviewSelection, ImageSelection, ImageSequenceEntry, ImageNavigation } from './lib/preview-events';
 diff --git a/src/lib/preview-events.test.ts b/src/lib/preview-events.test.ts
 new file mode 100644
-index 0000000..54544de
+index 0000000..21ba5aa
 --- /dev/null
 +++ b/src/lib/preview-events.test.ts
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,247 @@
 +import { describe, expect, it, vi } from 'vitest';
-+import { observeImageSelection, observePreviewSelection } from './preview-events';
++import { observeImageSelection, observePreviewSelection, preferManifest, previewLabel } from './preview-events';
 +
 +const image = { previewId: 'image-1', resourceId: 'record', url: 'https://example.org/manifest', renderer: 'image' as const };
 +const map = { previewId: 'map-1', resourceId: 'record', url: 'https://example.org/map', renderer: 'map' as const };
@@ -353,12 +381,119 @@ index 0000000..54544de
 +  send(request);
 +  expect(goToPage).toHaveBeenCalledTimes(1);
 +});
++
++describe('IIIF preview defaults and recovery', () => {
++  const manifest = { ...image, previewId: 'manifest', kind: 'iiif-manifest', url: 'https://example.org/manifest' };
++  const single = { ...image, previewId: 'single', kind: 'iiif-image', url: 'https://example.org/image' };
++  function setup(previews: Array<Omit<typeof single, 'renderer'> & { renderer: 'image' | 'map' }> = [manifest, single]) {
++    const element = host();
++    const tabs = previews.map(preview => ({
++      disabled: false,
++      getAttribute: (key: string) => (key === 'panel' ? preview.previewId : null),
++      setAttribute: vi.fn(),
++      removeAttribute: vi.fn(),
++    }));
++    let active = '';
++    const changed = vi.fn();
++    const group = {
++      get active() {
++        return active;
++      },
++      set active(value: string) {
++        active = value;
++        changed(value);
++        element.dispatchEvent(new CustomEvent('wa-tab-show', { detail: { name: value } }));
++      },
++    };
++    Object.defineProperty(element, 'shadowRoot', { value: { querySelector: () => group, querySelectorAll: () => tabs } });
++    const emit = vi.fn();
++    const observer = observePreviewSelection(element, () => previews, emit);
++    observer.update();
++    const fail = (preview: typeof single) => {
++      const event = new CustomEvent('previewError');
++      Object.defineProperty(event, 'composedPath', { value: () => [{ tagName: 'OGM-IMAGE', previewer: preview }] });
++      element.dispatchEvent(event);
++    };
++    const open = (preview: typeof single) =>
++      element.dispatchEvent(
++        new CustomEvent('imageChange', {
++          detail: {
++            previewId: preview.previewId,
++            resourceId: preview.resourceId,
++            resourceUrl: preview.url,
++            image: { url: 'https://example.org/scan' },
++          },
++        }),
++      );
++    return { element, tabs, changed, observer, emit, fail, open };
++  }
++
++  it('prefers the complete manifest without mutating source order and uses readable labels', () => {
++    const original = [single, map, manifest];
++    expect(preferManifest(original)).toEqual([manifest, single, map]);
++    expect(original).toEqual([single, map, manifest]);
++    expect(previewLabel({ ...manifest, label: () => 'IIIF Manifest' })).toBe('Images');
++    expect(previewLabel({ ...single, label: () => 'IIIF Image' })).toBe('Single image');
++    expect(previewLabel({ ...map, label: () => 'Location' })).toBe('Location');
++  });
++
++  it('keeps a healthy manifest active and disables its failed alternate', () => {
++    const { open, fail, tabs, changed } = setup();
++    open(manifest);
++    fail(single);
++    expect(changed).not.toHaveBeenCalled();
++    expect(tabs[1].disabled).toBe(true);
++    expect(tabs[1].setAttribute).toHaveBeenCalledWith('title', 'Preview unavailable');
++    open(single);
++    expect(tabs[1].disabled).toBe(false);
++  });
++
++  it.each([true, false])('recovers an initial failure only after the other image opens (loaded first: %s)', loadedFirst => {
++    const { open, fail, changed, tabs, emit } = setup();
++    if (loadedFirst) open(single);
++    fail(manifest);
++    if (!loadedFirst) {
++      expect(changed).not.toHaveBeenCalled();
++      open(single);
++    }
++    expect(changed).toHaveBeenCalledExactlyOnceWith('single');
++    expect(emit.mock.lastCall?.[0].previewId).toBe('single');
++    expect(tabs[0].disabled).toBe(true);
++  });
++
++  it('does not abandon an opened book on a later page error or switch when both sources fail', () => {
++    const book = setup();
++    book.open(manifest);
++    book.open(single);
++    book.fail(manifest);
++    expect(book.changed).not.toHaveBeenCalled();
++    const unavailable = setup();
++    unavailable.fail(manifest);
++    unavailable.fail(single);
++    expect(unavailable.changed).not.toHaveBeenCalled();
++    expect(unavailable.tabs[0].disabled).toBe(false);
++  });
++
++  it('ignores previous records, respects a chosen non-image preview, and cleans up listeners', () => {
++    const { element, observer, open, fail, changed } = setup([manifest, single, { ...single, ...map }]);
++    fail({ ...manifest, resourceId: 'old' });
++    open(single);
++    expect(changed).not.toHaveBeenCalled();
++    element.dispatchEvent(new CustomEvent('wa-tab-show', { detail: { name: map.previewId } }));
++    fail(manifest);
++    expect(changed).not.toHaveBeenCalled();
++    observer.disconnect();
++    element.dispatchEvent(new CustomEvent('wa-tab-show', { detail: { name: manifest.previewId } }));
++    fail(manifest);
++    expect(changed).not.toHaveBeenCalled();
++  });
++});
 diff --git a/src/lib/preview-events.ts b/src/lib/preview-events.ts
 new file mode 100644
-index 0000000..44ae6e2
+index 0000000..b143650
 --- /dev/null
 +++ b/src/lib/preview-events.ts
-@@ -0,0 +1,170 @@
+@@ -0,0 +1,243 @@
 +/** Public selection events shared by the image and preview components. */
 +export interface PreviewSelection {
 +  previewId: string;
@@ -385,10 +520,23 @@ index 0000000..44ae6e2
 +}
 +
 +interface Preview {
++  kind?: string;
 +  previewId: string;
 +  resourceId: string;
 +  url: string;
 +  renderer: 'image' | 'map';
++}
++
++/** A manifest represents the complete object, so offer it before a standalone scan. */
++export function preferManifest<T extends Preview>(previews: T[]): T[] {
++  const primary = previews.filter(preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image');
++  return [...primary, ...previews.filter(preview => !primary.includes(preview))];
++}
++
++export function previewLabel(preview: Preview & { label(): string }): string {
++  if (preview.renderer === 'image' && preview.kind === 'iiif-manifest') return 'Images';
++  if (preview.renderer === 'image' && preview.kind === 'iiif-image') return 'Single image';
++  return preview.label();
 +}
 +
 +interface ImageViewer {
@@ -487,6 +635,25 @@ index 0000000..44ae6e2
 +  let signature: string | undefined;
 +  let activeId: string | undefined;
 +  let last: string | undefined;
++  const opened = new Set<string>();
++  const failed = new Set<string>();
++  const isIiifImage = (preview: Preview) => preview.renderer === 'image' && (preview.kind === 'iiif-manifest' || preview.kind === 'iiif-image');
++  const refreshAvailability = () => {
++    host.shadowRoot?.querySelectorAll('wa-tab').forEach(tab => {
++      const unavailable = failed.has(tab.getAttribute('panel') ?? '');
++      // Keep the active error readable when every alternative has failed.
++      (tab as HTMLElement & { disabled: boolean }).disabled = unavailable && tab.getAttribute('panel') !== activeId;
++      if (unavailable) tab.setAttribute('title', 'Preview unavailable');
++      else tab.removeAttribute('title');
++    });
++  };
++  const recover = () => {
++    if (!activeId || !failed.has(activeId) || opened.has(activeId)) return;
++    const fallback = getPreviews().find(preview => isIiifImage(preview) && opened.has(preview.previewId) && !failed.has(preview.previewId));
++    if (!fallback) return;
++    const group = host.shadowRoot?.querySelector('wa-tab-group') as (HTMLElement & { active: string }) | null;
++    if (group) group.active = fallback.previewId;
++  };
 +  const publish = (preview?: Preview) => {
 +    const detail = preview ? selection(preview) : null;
 +    const serialized = JSON.stringify(detail);
@@ -501,8 +668,11 @@ index 0000000..44ae6e2
 +    if (next !== signature) {
 +      signature = next;
 +      activeId = previews[0]?.previewId;
++      opened.clear();
++      failed.clear();
 +    }
 +    publish(previews.find(preview => preview.previewId === activeId));
++    refreshAvailability();
 +  };
 +  const shown = (event: Event) => {
 +    const id = (event as CustomEvent<{ name?: string }>).detail?.name;
@@ -512,6 +682,8 @@ index 0000000..44ae6e2
 +    signature = JSON.stringify(getPreviews().map(selection));
 +    activeId = id;
 +    publish(preview);
++    refreshAvailability();
++    recover();
 +  };
 +  const loaded = () => {
 +    // Reloading the same record can preserve preview IDs and the active tab.
@@ -519,11 +691,47 @@ index 0000000..44ae6e2
 +    last = undefined;
 +    update();
 +  };
++  const imageOpened = (event: Event) => {
++    const detail = (event as CustomEvent<ImageSelection>).detail;
++    if (!detail?.image) return;
++    const preview = getPreviews().find(preview => preview.previewId === detail.previewId && preview.resourceId === detail.resourceId && preview.url === detail.resourceUrl);
++    if (!preview || !isIiifImage(preview)) return;
++    update();
++    opened.add(preview.previewId);
++    failed.delete(preview.previewId);
++    refreshAvailability();
++    recover();
++  };
++  const previewFailed = (event: Event) => {
++    // Capture before ogm-preview stops propagation. The public previewer property
++    // identifies the failed image even when a manifest also has a map preview.
++    const origin = event.composedPath().find(node => (node as HTMLElement).tagName === 'OGM-IMAGE') as (HTMLElement & { previewer?: Preview }) | undefined;
++    const source = origin?.previewer;
++    const preview = source && getPreviews().find(preview => preview.previewId === source.previewId && preview.resourceId === source.resourceId && preview.url === source.url);
++    if (!preview || !isIiifImage(preview)) return;
++    update();
++    // Never abandon a book because a later sheet cannot load.
++    if (opened.has(preview.previewId)) return;
++    failed.add(preview.previewId);
++    refreshAvailability();
++    recover();
++  };
++  const loading = () => {
++    opened.clear();
++    failed.clear();
++    refreshAvailability();
++  };
++  host.addEventListener('previewsLoading', loading);
++  host.addEventListener('imageChange', imageOpened);
++  host.addEventListener('previewError', previewFailed, true);
 +  host.addEventListener('wa-tab-show', shown);
 +  host.addEventListener('previewsLoaded', loaded);
 +  return {
 +    update,
 +    disconnect: () => {
++      host.removeEventListener('previewsLoading', loading);
++      host.removeEventListener('imageChange', imageOpened);
++      host.removeEventListener('previewError', previewFailed, true);
 +      host.removeEventListener('wa-tab-show', shown);
 +      host.removeEventListener('previewsLoaded', loaded);
 +    },

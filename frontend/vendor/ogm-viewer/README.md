@@ -36,6 +36,17 @@ The Downloads picker uses the reported sequence and requests navigation through
 this public event contract. Viewer events remain authoritative for the picker
 and download links, including loading/failure states. No matches means no image links; it never guesses the first canvas.
 
+## Initial preview and recovery
+
+Record-derived previews prefer the IIIF manifest image viewer, labeled **Images**,
+before a standalone Image API reference, labeled **Single image**. Explicit
+custom previewer order is preserved. Failed inactive IIIF image tabs are disabled
+with a **Preview unavailable** tooltip. If the initial active IIIF preview fails,
+the viewer switches to another IIIF image preview only after it has opened
+successfully. It never abandons an already-opened book because a later page fails,
+and it respects a user's choice of a map preview. Availability resets on reload
+or record changes.
+
 ## Installation and removal
 
 `npm ci --legacy-peer-deps` runs `scripts/patch-ogm-viewer-events.mjs`. It checks
@@ -65,5 +76,6 @@ npx tsc --noEmit
 
 The focused tests cover initial image selection, forward/backward page indices,
 clear/failure states, unknown tile sources, preview switching, new records, and
-listener cleanup. Application regression tests additionally cover hidden-image
+listener cleanup. They also cover manifest preference, unavailable tabs, fallback
+load ordering, later-page failures, and preservation of map selection. Application regression tests additionally cover hidden-image
 loads, multiple images on one canvas, unmatched sources, and record navigation.
