@@ -41,6 +41,13 @@ Common overrides:
 | `TIMEOUT_GRACE_SECONDS` | `20` | Grace period after SIGINT before escalation. |
 | `TIMEOUT_DUMP_STACKS` | `0` | Set `1` to print large stack dumps on timeout. |
 
+Parallel backend tests use `--dist=loadgroup` so tests marked with the same
+`xdist_group` share a worker. Bridge sync tests and Elasticsearch client tests
+depend on this grouping because they reset shared test state. Keep pytest below
+9.2 while using pytest-xdist 3.8: that combination silently loses group suffixes
+after pytest's internal node ID change. Revisit the upper bound when upgrading
+pytest-xdist and verify grouped tests still run on one worker.
+
 ## Frontend And CLI
 
 Frontend lint, format, and tests are npm scripts run from `frontend/`; see

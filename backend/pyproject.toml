@@ -72,7 +72,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.3",
+    # pytest-xdist 3.8 uses _nodeid for groups; pytest 9.2 switched to _id.
+    "pytest>=9.0.3,<9.2",
     "pytest-cov==4.1.0",
     "pytest-asyncio==1.4.0",
     "pytest-xdist>=3.5.0",
