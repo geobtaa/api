@@ -118,34 +118,9 @@ class IIIFDownloadService:
         if not self.image_api_endpoint:
             return []
 
-        # Remove /info.json from endpoint if present
-        base_url = self.image_api_endpoint.replace("/info.json", "")
+        from app.services.iiif_downloads import image_downloads
 
-        downloads = []
-
-        # Add standard size options
-        for size_name, dimensions in self.SIZES.items():
-            downloads.append(
-                {
-                    "label": f"{size_name.title()} Image",
-                    "url": (
-                        f"{base_url}/full/{dimensions['width']},"
-                        f"{dimensions['height']}/0/default.jpg"
-                    ),
-                    "type": "image/jpeg",
-                }
-            )
-
-        # Add full size option
-        downloads.append(
-            {
-                "label": "Full Resolution Image",
-                "url": f"{base_url}/full/full/0/default.jpg",
-                "type": "image/jpeg",
-            }
-        )
-
-        return downloads
+        return image_downloads(self.image_api_endpoint)
 
 
 class DownloadService:
@@ -359,7 +334,7 @@ class DownloadService:
         downloads = []
 
         # Check for IIIF image API
-        iiif_image_url = self._first_url("http://iiif.io/api/image")
+        iiif_image_url = self._iiif_url("image")
         if iiif_image_url:
             iiif_service = IIIFDownloadService(iiif_image_url)
             downloads.extend(iiif_service.get_download_options())
@@ -369,6 +344,42 @@ class DownloadService:
         downloads.extend(self.get_generated_download_options())
 
         return downloads
+
+    def _iiif_url(self, kind: str) -> Optional[str]:
+        return self._first_url(f"http://iiif.io/api/{kind}") or self._first_url(
+            f"https://iiif.io/api/{kind}"
+        )
+
+    async def resolve_iiif_downloads(self) -> List[Dict]:
+        """Resolve remote IIIF only on the downloads endpoint, outside hot resource/search paths."""
+        from urllib.parse import urlsplit, urlunsplit
+
+        from app.services.iiif_downloads import (
+            http_url,
+            image_downloads,
+            manifest_downloads,
+            service_base,
+        )
+        from app.services.image_service import ImageService
+
+        manifest_url = self._iiif_url("presentation#manifest")
+        image_url = self._iiif_url("image")
+        if not manifest_url and not image_url:
+            return []
+        image_service = ImageService(self.document, distribution_context=self.distribution_context)
+        if http_url(manifest_url):
+            manifest = await asyncio.to_thread(image_service._get_manifest, manifest_url)
+            if isinstance(manifest, dict):
+                downloads = manifest_downloads(manifest, manifest_url)
+                if downloads or not image_url:
+                    return downloads
+        if http_url(image_url):
+            base = urlsplit(service_base(image_url))
+            info_url = urlunsplit(base._replace(path=f"{base.path}/info.json"))
+            info = await asyncio.to_thread(image_service._get_manifest, info_url)
+            if isinstance(info, dict):
+                return image_downloads(image_url, info)
+        raise ValueError("IIIF downloads are currently unavailable")
 
     def get_generated_download_options(self) -> List[Dict]:
         """

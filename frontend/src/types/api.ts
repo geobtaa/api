@@ -98,6 +98,9 @@ export interface GeoDocument {
         generated?: boolean;
         generation_path?: string;
         download_type?: string;
+        source?: string;
+        canvas_id?: string;
+        canvas_label?: string;
       }>;
       licensed_accesses?: Array<{
         institution_code: string;

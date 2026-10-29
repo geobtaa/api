@@ -1,6 +1,6 @@
 import React from 'react';
 import { Download, Image } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { getApiBasePath } from '../../services/api';
 import { scheduleAnalyticsBatch } from '../../services/analytics';
 
@@ -12,31 +12,93 @@ interface DownloadItem {
   generated?: boolean;
   generation_path?: string;
   download_type?: string;
+  source?: string;
+  canvas_id?: string;
+  canvas_label?: string;
 }
 
 interface DownloadsTableProps {
   downloads: DownloadItem[];
   resourceId?: string;
   searchId?: string;
+  resolveIiif?: boolean;
 }
 
 export function DownloadsTable({
   downloads,
   resourceId,
   searchId,
+  resolveIiif = false,
 }: DownloadsTableProps) {
   const [preparing, setPreparing] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
 
-  if (!downloads || downloads.length === 0) return null;
+  const [resolved, setResolved] = useState<DownloadItem[] | null>(null);
+  const [loading, setLoading] = useState(resolveIiif);
+  const [iiifError, setIiifError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [selectedCanvas, setSelectedCanvas] = useState('');
+  const selectId = useId();
 
-  // Separate IIIF image downloads from other downloads
-  const iiifDownloads = downloads.filter(
-    (d) => d.type === 'image/jpeg' && d.label.includes('Image')
+  useEffect(() => {
+    setResolved(null);
+    setSelectedCanvas('');
+    setIiifError(false);
+    if (!resolveIiif || !resourceId) {
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    const base = getApiBasePath().replace(/\/$/, '');
+    fetch(`${base}/resources/${encodeURIComponent(resourceId)}/downloads`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Unable to load IIIF downloads');
+        const payload = (await response.json()) as {
+          downloads: DownloadItem[];
+          iiif_error?: boolean;
+        };
+        if (!Array.isArray(payload.downloads))
+          throw new Error('Invalid downloads');
+        if (!controller.signal.aborted) {
+          setResolved(payload.downloads);
+          setIiifError(Boolean(payload.iiif_error));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setIiifError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [resolveIiif, resourceId, attempt]);
+
+  const allDownloads = resolved ?? downloads ?? [];
+  const isIiif = (d: DownloadItem) =>
+    (d.source === 'iiif' && (d.canvas_id || d.type?.startsWith('image/'))) ||
+    (!d.source && d.type === 'image/jpeg' && d.label.includes('Image'));
+  const iiifDownloads = allDownloads.filter(isIiif);
+  const otherDownloads = allDownloads.filter((d) => !isIiif(d));
+  const canvases = Array.from(
+    new Map(
+      iiifDownloads.map((d) => [
+        d.canvas_id || 'image',
+        d.canvas_label || 'Image',
+      ])
+    )
   );
-  const otherDownloads = downloads.filter(
-    (d) => !(d.type === 'image/jpeg' && d.label.includes('Image'))
+  const activeCanvas = canvases.some(([id]) => id === selectedCanvas)
+    ? selectedCanvas
+    : canvases[0]?.[0];
+  const visibleImages = iiifDownloads.filter(
+    (d) => (d.canvas_id || 'image') === activeCanvas
   );
+
+  if (!allDownloads.length && !resolveIiif) return null;
 
   const resolveDownloadLabel = (download: DownloadItem): string => {
     if (!download.generated) return download.label;
@@ -199,44 +261,73 @@ export function DownloadsTable({
         <h2 className="text-lg font-semibold text-gray-900">Downloads</h2>
       </div>
       <div className="divide-y divide-gray-200">
-        {/* IIIF Image Downloads - Horizontal */}
+        {loading && (
+          <p role="status" className="px-6 py-4 text-sm text-gray-600">
+            Loading image downloads…
+          </p>
+        )}
+        {iiifError && (
+          <div className="px-6 py-4 text-sm text-gray-600" role="status">
+            Image downloads could not be loaded.{' '}
+            <button
+              type="button"
+              className="text-blue-600 hover:underline"
+              onClick={() => setAttempt((value) => value + 1)}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !iiifError && resolveIiif && !iiifDownloads.length && (
+          <p className="px-6 py-4 text-sm text-gray-600">
+            No downloadable images were found in this IIIF item.
+          </p>
+        )}
         {iiifDownloads.length > 0 && (
           <div className="px-6 py-4">
             <div className="flex items-center gap-2 mb-2">
               <Image className="w-5 h-5 text-gray-400" />
               <span className="text-sm font-medium text-gray-900">
-                Download Image
+                {canvases.length > 1 ? 'Download Images' : 'Download Image'}
               </span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {iiifDownloads.map((download, index) => (
+            {canvases.length > 1 && (
+              <div className="mb-3">
+                <label
+                  htmlFor={selectId}
+                  className="block text-sm text-gray-700 mb-1"
+                >
+                  Page or sheet ({canvases.length})
+                </label>
+                <select
+                  id={selectId}
+                  value={activeCanvas}
+                  onChange={(event) => setSelectedCanvas(event.target.value)}
+                  className="w-full min-w-0 rounded border border-gray-300 p-2 text-sm"
+                >
+                  {canvases.map(([id, name], index) => (
+                    <option key={id} value={id}>
+                      {index + 1}. {name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Downloads apply to the selected page or sheet. Images are
+                  downloaded individually.
+                </p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {visibleImages.map((download) => (
                 <a
-                  key={index}
+                  key={download.url}
                   href={download.url}
                   className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() =>
-                    scheduleAnalyticsBatch({
-                      events: [
-                        {
-                          event_type: 'download_click',
-                          search_id: searchId,
-                          resource_id: resourceId,
-                          label: download.label,
-                          destination_url: download.url,
-                          source_component: 'DownloadsTable',
-                          properties: {
-                            generated: false,
-                            download_type: download.download_type,
-                            format: download.format,
-                          },
-                        },
-                      ],
-                    })
-                  }
+                  onClick={(event) => handleGeneratedDownload(event, download)}
                 >
-                  {download.label.replace(' Image', '')}
+                  {download.label.replace(/ Image$/, '')}
                 </a>
               ))}
             </div>

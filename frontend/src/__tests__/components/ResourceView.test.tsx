@@ -28,6 +28,7 @@ vi.mock('../../components/resource/ResourceViewer', () => ({
 
 // Mock the API functions to return real fixture data
 vi.mock('../../services/api', () => ({
+  getApiBasePath: vi.fn(() => '/api/v1'),
   fetchResourceDetails: vi.fn(),
   fetchSearchResults: vi.fn(),
   ApiError: class ApiError extends Error {
@@ -395,7 +396,13 @@ describe('ResourceView Component', () => {
   let fetchResourceDetails: Mock;
   let fetchSearchResults: Mock;
 
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ downloads: [], items: [] }),
+    } as Response);
     vi.clearAllMocks();
     const apiModule = await import('../../services/api');
     fetchResourceDetails = vi.mocked(apiModule.fetchResourceDetails);
@@ -1174,6 +1181,44 @@ describe('ResourceView Component', () => {
       // The component should be in the sidebar
       const sidebar = document.querySelector('.lg\\:col-span-4');
       expect(sidebar).toBeInTheDocument();
+    });
+
+    it('loads DownloadsTable for manifest-only items with no initial downloads', async () => {
+      fetchResourceDetails.mockResolvedValue({
+        ...realFixtureData[0],
+        meta: {
+          ui: {
+            downloads: [],
+            viewer: {
+              protocol: 'iiif_manifest',
+              endpoint: 'https://example.org/manifest',
+            },
+          },
+        },
+      });
+      vi.mocked(globalThis.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          downloads: [
+            {
+              label: 'Small Image',
+              url: 'https://example.org/map.jpg',
+              type: 'image/jpeg',
+              source: 'iiif',
+              canvas_id: 'page-1',
+              canvas_label: 'Map',
+            },
+          ],
+        }),
+      } as Response);
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+      expect(
+        await screen.findByRole('link', { name: 'Small' })
+      ).toHaveAttribute('href', 'https://example.org/map.jpg');
     });
 
     it('renders DownloadsTable when downloads are available', async () => {
