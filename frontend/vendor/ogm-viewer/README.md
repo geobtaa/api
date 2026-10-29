@@ -41,8 +41,9 @@ and download links, including loading/failure states. No matches means no image 
 Record-derived previews prefer the IIIF manifest image viewer, labeled **Images**,
 before a standalone Image API reference, labeled **Single image**. Explicit
 custom previewer order is preserved. Failed inactive IIIF image tabs are disabled
-with a **Preview unavailable** tooltip. Once a manifest opens successfully,
-**Single image** tabs are hidden entirely, including healthy ones. An active
+with a **Preview unavailable** tooltip. **Single image** tabs are hidden from the first render while a manifest is
+loading and remain hidden after it succeeds. An initial manifest failure reveals
+the fallback. An active
 single image switches to the working manifest. If the initial active IIIF preview fails,
 the viewer switches to another IIIF image preview only after it has opened
 successfully. It never abandons an already-opened book because a later page fails,
@@ -89,3 +90,9 @@ metadata-only Location preview. Real map layers are preserved. The default
 viewer behavior and explicitly supplied custom previewers are unchanged.
 BTAA resource pages use this option because their sidebar already shows Location,
 and skip mounting the viewer when the record has no supported content references.
+
+When only one preview is visible, its canvas is shown without a tab bar. Tab and
+navigation visibility are included in the initial render, so a successful
+manifest load does not briefly show extra tabs. The preview panels stay mounted
+when fallback availability changes, preserving canvas state. Multiple distinct
+previews retain tab navigation.

@@ -111,13 +111,24 @@ export function observePreviewSelection(host, getPreviews, emit) {
     const opened = new Set();
     const failed = new Set();
     const isIiifImage = (preview) => preview.renderer === 'image' && (preview.kind === 'iiif-manifest' || preview.kind === 'iiif-image');
+    const hiddenPreview = (preview) => {
+        const previews = getPreviews();
+        const active = activeId ?? previews[0]?.previewId;
+        return (preview.kind === 'iiif-image' &&
+            preview.previewId !== active &&
+            previews.some(candidate => candidate.kind === 'iiif-manifest' && candidate.renderer === 'image' && !failed.has(candidate.previewId)));
+    };
+    // Used by render itself, before the custom tabs upgrade or any image opens.
+    const tabAttributes = (preview) => ({ hidden: hiddenPreview(preview), style: { display: hiddenPreview(preview) ? 'none' : '' } });
+    const singlePreview = () => getPreviews().filter(preview => !hiddenPreview(preview)).length <= 1;
     const refreshAvailability = () => {
         const previews = getPreviews();
-        const manifestOpened = previews.some(preview => preview.kind === 'iiif-manifest' && preview.renderer === 'image' && opened.has(preview.previewId) && !failed.has(preview.previewId));
+        host.shadowRoot?.querySelector('wa-tab-group')?.toggleAttribute('data-single-preview', singlePreview());
         host.shadowRoot?.querySelectorAll('wa-tab').forEach(tab => {
             const id = tab.getAttribute('panel') ?? '';
             const unavailable = failed.has(id);
-            const hide = id !== activeId && manifestOpened && previews.some(preview => preview.previewId === id && preview.kind === 'iiif-image');
+            const preview = previews.find(preview => preview.previewId === id);
+            const hide = !!preview && hiddenPreview(preview);
             tab.hidden = hide;
             // The custom tab's display rule can override the browser's hidden style.
             tab.style.display = hide ? 'none' : '';
@@ -226,6 +237,8 @@ export function observePreviewSelection(host, getPreviews, emit) {
     host.addEventListener('wa-tab-show', shown);
     host.addEventListener('previewsLoaded', loaded);
     return {
+        tabAttributes,
+        singlePreview,
         update,
         disconnect: () => {
             host.removeEventListener('previewsLoading', loading);
