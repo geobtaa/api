@@ -92,5 +92,5 @@ Reference specifications: [Image API 2](https://iiif.io/api/image/2.1/),
 [Presentation 3 multi-page recipe](https://iiif.io/api/cookbook/recipe/0009-book-1/).
 
 
-See [the OGM selection-event backport](../../frontend/vendor/ogm-viewer/README.md)
-for the event contract, upstream patch, and upgrade/removal instructions.
+See [the OGM Viewer source fork](../frontend/ogm-viewer.md)
+for the event contract, browser checks, and upgrade/removal instructions.

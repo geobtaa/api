@@ -158,11 +158,10 @@ Services, Metadata, and Open in ArcGIS retain their selection dialogs.
 
 ### OGM Viewer basemaps
 
-The resource viewer uses pinned `ogm-viewer` 1.6.0 with explicit OpenFreeMap Liberty
+The resource viewer uses a pinned source build of the [BTAA OGM Viewer fork](ogm-viewer.md), based on upstream 1.6.0, with explicit OpenFreeMap Liberty
 and Dark styles. Version 1.x bundles its theme and icons; the application no longer
 copies viewer assets or imports private hashed asset-loader modules. Vite retains
-ES module worker output for COG decoding. The standalone backend viewer pins the
-same package version and basemap styles. Application geographic maps use the
+ES module worker output for COG decoding. The legacy standalone backend viewer separately pins upstream 1.6.0 and the same basemap styles. Application geographic maps use the
 shared MapLibre primitives in `frontend/src/mapping`. The resource-page Allmaps
 viewer remains the official embedded viewer; specialist IIIF viewers are retained.
 They preserve the existing latitude/longitude and legacy 256-pixel zoom contracts
@@ -171,9 +170,7 @@ at the application boundary, converting once to MapLibre longitude/latitude and
 Homepage protocol previews use OGM Viewer previewers and Allmaps MapLibre layers.
 
 The frontend Docker image and the combined application image use Node 22 and installs the committed lockfile with
-`npm ci --legacy-peer-deps`, matching the MapLibre dependency runtime requirements. Both copy the OGM patch
-installer and vendor files before dependency installation, including production
-dependencies, so postinstall applies the same viewer changes in each image.
+`npm ci --legacy-peer-deps`, matching the MapLibre dependency runtime requirements. The lockfile pins the fork tarball and its integrity in both images. No OGM postinstall patch, compiled-source substitution, or custom worker alias is needed.
 
 Search map controls:
 

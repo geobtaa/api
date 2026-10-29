@@ -6,10 +6,13 @@ const selection: ImageSelection = {
   resourceId: 'record',
   resourceUrl: 'https://example.org/collection',
   renderer: 'image',
+  sequence: [],
+  pageIndex: 0,
   image: {
     url: 'https://example.org/image/info.json',
     index: 0,
     count: 2,
+    occurrence: 0,
     service: {
       id: 'https://example.org/image',
       version: 2,

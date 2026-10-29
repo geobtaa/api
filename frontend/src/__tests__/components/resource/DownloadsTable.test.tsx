@@ -285,10 +285,13 @@ it('matches current image source rather than canvas position and hides stale lin
     previewId: 'preview',
     resourceUrl: manifest,
     renderer: 'image' as const,
+    sequence: [],
+    pageIndex: 0,
     image: {
       url: 'https://example.org/iiif/two/info.json',
       index: 4,
       count: 7,
+      occurrence: 0,
     },
   };
   const { rerender } = render(
@@ -414,6 +417,8 @@ it('distinguishes repeated scans on different canvases using source occurrence',
     resourceId: 'record',
     resourceUrl: common.iiif_resource_url,
     renderer: 'image' as const,
+    sequence: [],
+    pageIndex: 0,
     image: {
       url: common.image_source + '/info.json',
       index: 7,
@@ -558,6 +563,7 @@ it('downloads the opened collection image without fetching derived manifest down
       url: 'https://example.org/one/info.json',
       index: 0,
       count: 2,
+      occurrence: 0,
       service: {
         id: 'https://example.org/one',
         version: 2,
