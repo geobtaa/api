@@ -34,10 +34,10 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
       if (!mapRef.current) {
         if (cancelled || !mapContainer.current) return;
         try {
-          mapRef.current = L.map(
-            mapContainer.current,
-            mapInteractionOptions
-          ).setView([0, 0], 2);
+          mapRef.current = L.map(mapContainer.current, {
+            ...mapInteractionOptions,
+            collapsedAttribution: true,
+          }).setView([0, 0], 2);
         } catch {
           L.showMapError(mapContainer.current);
           return;
