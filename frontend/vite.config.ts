@@ -1,56 +1,12 @@
 import { reactRouter } from '@react-router/dev/vite';
-import { existsSync, readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import path from 'node:path';
-import { BASEMAP_STYLES } from './src/config/mapStyles';
-
-// A vendor backport changes without a package-lock update. Include its content
-// in Vite's plugin identity so browser dependency URLs get a fresh cache key.
-const viewerBackportHash = createHash('sha256')
-  .update(
-    readFileSync(
-      new URL('./vendor/ogm-viewer/preview-events.js', import.meta.url)
-    )
-  )
-  .update(
-    readFileSync(
-      new URL('./scripts/patch-ogm-viewer-events.mjs', import.meta.url)
-    )
-  )
-  .digest('hex')
-  .slice(0, 12);
 
 // https://vitejs.dev/config/
 // Force restart: 1
 export default defineConfig({
   plugins: [
-    {
-      name: `ogm-viewer-assets-and-basemaps-${viewerBackportHash}`,
-      enforce: 'pre',
-      transform(source, id) {
-        if (!id.includes('/ogm-viewer/dist/components/')) return;
-        source = source
-          .replaceAll(
-            'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-            BASEMAP_STYLES.liberty
-          )
-          .replaceAll(
-            'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-            BASEMAP_STYLES.dark
-          );
-        if (!source.includes('"lerc-wasm.wasm"')) return source;
-        const require = createRequire(import.meta.url);
-        const viewerDirectory = path.dirname(
-          require.resolve('ogm-viewer/package.json')
-        );
-        const wasm = require.resolve('lerc/lerc-wasm.wasm', {
-          paths: [viewerDirectory],
-        });
-        return source.replaceAll('"lerc-wasm.wasm"', JSON.stringify(wasm));
-      },
-    },
     {
       name: 'private-analytics-data',
       enforce: 'pre',
@@ -85,16 +41,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // ogm-viewer's COG bundle inlines @developmentseed/geotiff's worker URL,
-      // leaving it relative to the ogm-viewer chunk instead of the dependency
-      // that ships the worker. Point Vite at the packaged worker explicitly.
-      [path.resolve(
-        __dirname,
-        'node_modules/ogm-viewer/dist/components/worker.js'
-      )]: path.resolve(
-        __dirname,
-        'node_modules/@developmentseed/geotiff/dist/pool/worker.js'
-      ),
       // Some dependencies (e.g. html-parse-stringify) expect `void-elements` to have a default export.
       // The upstream package is CommonJS; this shim provides a stable ESM default export for Vite.
       'void-elements': path.resolve(__dirname, 'src/shims/void-elements.ts'),

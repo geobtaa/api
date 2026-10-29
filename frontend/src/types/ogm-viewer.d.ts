@@ -9,6 +9,8 @@ declare module 'react' {
       > & {
         theme?: 'light' | 'dark';
         'omit-location'?: string;
+        'prefer-manifest'?: string;
+        'hide-single-tab'?: string;
         'hide-menubar'?: string;
       };
     }

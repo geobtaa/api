@@ -28,7 +28,9 @@
     "test:a11y:pa11y:item": "pa11y-ci http://localhost:3000/resources/p16022coll583:2574",
     "test:a11y:pa11y:ci": "npm run build && start-server-and-test 'vite preview --port 4173' http://localhost:4173 pa11y-ci",
     "generate-pwa-icons": "pwa-assets-generator",
-    "postinstall": "node scripts/patch-ogm-viewer-events.mjs"
+    "test:viewer:browser": "playwright test -c playwright.viewer.config.ts",
+    "test:viewer:browser:dev": "playwright test -c playwright.viewer.config.ts --project=development",
+    "test:viewer:browser:build": "playwright test -c playwright.viewer.config.ts --project=production"
   },
   "dependencies": {
     "@allmaps/maplibre": "^1.0.0-beta.44",
@@ -48,7 +50,7 @@
     "js-yaml": "^4.2.0",
     "lucide-react": "^0.544.0",
     "maplibre-gl": "6.16.0",
-    "ogm-viewer": "1.6.0",
+    "ogm-viewer": "https://github.com/geobtaa/ogm-viewer/releases/download/v1.6.0-btaa.1/geobtaa-ogm-viewer-1.6.0-btaa.1.tgz",
     "opentelemetry-instrumentation-remix": "^0.8.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
@@ -98,6 +100,7 @@
   "devDependencies": {
     "@axe-core/react": "^4.11.1",
     "@eslint/js": "^9.9.1",
+    "@playwright/test": "1.60.0",
     "@react-router/dev": "^7.18.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.3",

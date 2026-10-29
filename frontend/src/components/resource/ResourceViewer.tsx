@@ -70,6 +70,8 @@ function ContentViewer({
         activePreview?.renderer === 'image'
           ? (images.get(activePreview.previewId) ?? {
               ...activePreview,
+              sequence: [],
+              pageIndex: 0,
               image: null,
             })
           : null;
@@ -202,6 +204,8 @@ function ContentViewer({
         className={error ? 'hidden' : `block ${height} w-full`}
         theme="light"
         omit-location=""
+        prefer-manifest=""
+        hide-single-tab=""
         hide-menubar={standalone ? undefined : ''}
       />
     </div>

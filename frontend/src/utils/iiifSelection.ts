@@ -1,40 +1,9 @@
-/** Public event payload supplied by the temporary OGM Viewer event backport. */
-export interface PreviewSelection {
-  previewId: string;
-  resourceId: string;
-  resourceUrl: string;
-  renderer: 'image' | 'map';
-}
-export interface ImageSequenceEntry {
-  url: string;
-  index: number;
-  occurrence: number;
-}
-export interface ImageNavigation extends PreviewSelection {
-  index: number;
-  url: string;
-}
-export interface ImageSelection extends PreviewSelection {
-  sequence?: ImageSequenceEntry[];
-  pageIndex?: number;
-  image: {
-    url: string;
-    index: number;
-    count: number;
-    occurrence?: number;
-    service?: {
-      id: string;
-      version: number;
-      width: number;
-      height: number;
-      profile?: unknown;
-      sizes?: { width: number; height: number }[];
-      maxWidth?: number;
-      maxHeight?: number;
-      maxArea?: number;
-    };
-  } | null;
-}
+/** The fork owns the viewer event contract; application code imports its generated types. */
+export type {
+  PreviewSelection,
+  ImageSelection,
+  ImageNavigation,
+} from 'ogm-viewer/lib';
 
 /** Normalize info documents without confusing encoded identifiers or image requests. */
 export function imageSourceKey(value?: string): string | undefined {

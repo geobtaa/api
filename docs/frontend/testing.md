@@ -593,3 +593,19 @@ Exhaustive full-report WCAG audits have a bounded 120-second per-report budget
 because all-time tables can exceed 60 seconds under coverage on shared CPUs.
 Interaction tests retain their 30-second budget. These time limits do not exclude
 records, periods, nodes, or WCAG rules from evaluation.
+
+## OGM Viewer browser contracts
+
+Run `npx playwright install chromium` once, then `npm run test:viewer:browser`
+from `frontend/`. This runs the actual installed viewer with our React
+`ResourceViewer` and `DownloadsTable` in both Vite development and production
+builds, using local IIIF and ArcGIS fixtures. It needs no API server, database,
+external image service, or basemap. The dedicated fixture entry is outside the
+application route tree and is never included in the deployed application.
+
+Coverage includes v2/v3 manifests, multiple images per canvas, repeated image
+URLs, bidirectional paging, download clearing during loading/failure, initial
+fallback, record replacement, map selection, feature inspection, publisher
+download preservation, and location-only records. Unexpected API or external
+requests fail the suite. Failed CI runs retain Playwright traces and screenshots.
+See [the viewer integration](ogm-viewer.md) for dependency and upgrade policy.

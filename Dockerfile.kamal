@@ -14,9 +14,6 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     g++ \
     && rm -rf /var/lib/apt/lists/*
 COPY frontend/package.json frontend/package-lock.json* ./
-# The pinned viewer backport runs during postinstall in both dependency stages.
-COPY frontend/scripts/patch-ogm-viewer-events.mjs ./scripts/patch-ogm-viewer-events.mjs
-COPY frontend/vendor/ogm-viewer ./vendor/ogm-viewer
 
 FROM frontend_npm_base AS frontend_deps
 RUN npm ci --legacy-peer-deps

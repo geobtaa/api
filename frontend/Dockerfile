@@ -7,8 +7,6 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
-COPY scripts/patch-ogm-viewer-events.mjs ./scripts/
-COPY vendor/ogm-viewer ./vendor/ogm-viewer
 
 # Install the same dependency graph verified locally and in CI.
 RUN npm ci --legacy-peer-deps
