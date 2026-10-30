@@ -25,10 +25,11 @@ Resource classes are mapped to Schema.org:
 - Collections → `Collection`
 - Other classes (including services alone) → `CreativeWork`
 
-The same graph is embedded as `meta.jsonld` in JSON API resources. It uses an
-inline context, absolute identifiers and explicit reference objects. See
-[Consuming linked data](linked_data.md) for extraction, field semantics,
-limitations and the migration from the former metadata markers.
+JSON API resources link to this endpoint through `links.alternate`, including
+its `application/ld+json` type. They do not embed a duplicate graph. The dedicated
+representation uses an inline context, absolute identifiers and explicit
+reference objects. See [Consuming linked data](linked_data.md) for discovery,
+field semantics, limitations and migration from the former metadata markers.
 
 The dedicated JSON-LD endpoint can be consumed directly by RDF tooling.
 

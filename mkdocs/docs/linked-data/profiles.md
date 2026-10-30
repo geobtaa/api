@@ -15,11 +15,12 @@ Aardvark metadata and `attributes.b1g` holds local extensions. Fields can be
 absent in sparse or lightweight results. This profile does not assert that all
 search results meet the full ingest JSON Schema.
 
-`meta.jsonld` is the normalized, standalone linked-data document. Extract it
-before processing. It is also available from
-`/api/v1/resources/{id}/citation/json-ld` with `application/ld+json`. Search
-responses remain `application/json`, including when a JSON-LD Accept header is
-sent. The envelope itself is not RDF.
+`links.alternate` points to the standalone linked-data document at
+`/api/v1/resources/{id}/citation/json-ld` and advertises `application/ld+json`.
+Resolve its origin-relative `href` against the API response URL and fetch it
+only when linked data is needed. Source values are not duplicated in `meta`.
+Search responses remain `application/json`, including when a JSON-LD Accept
+header is sent. The envelope itself is not RDF.
 
 The projection provides:
 
@@ -54,20 +55,20 @@ reference maps and local extensions remain available in the source attributes.
 `meta.ui` contains optional presentation hints, including thumbnail URLs,
 formatted citations, downloads, links and viewer configuration. It is ordinary
 JSON. A viewer endpoint does not by itself establish a downloadable dataset.
-Scores, facets, pagination and other UI data are also outside `meta.jsonld`.
+Scores, facets, pagination and other UI data are also outside the standalone graph.
 
 ## Migration
 
-The former `meta.@context` and `meta.@type` markers have been removed. Use
-`meta.jsonld`. The earlier context had the wrong URL and scope, and its record
-type was undefined. Profiles are no longer presented as context files or
+The former `meta.@context` and `meta.@type` markers have been removed. Follow
+`links.alternate` to retrieve JSON-LD. The earlier context had the wrong URL and
+scope, and its record type was undefined. Profiles are no longer presented as context files or
 linked to nonexistent external validation artifacts.
 
-Citation exports now use the same inline context and graph builder. Publishers
+Citation exports now use an inline context and a dedicated graph builder. Publishers
 and licenses are arrays of nodes; keywords are separate values; multilingual
 and multi-description records can have arrays. Clients must not assume that
-all values are scalar. `meta=false` intentionally omits JSON-LD with the other
-resource metadata. Version 2 describes this changed semantic contract; releases
+all values are scalar. `meta=false` omits UI metadata but retains the alternate
+link. Version 2 describes this changed semantic contract; releases
 must coordinate migration for consumers of the previous markers and shapes.
 
 ## Standards

@@ -1,32 +1,56 @@
 # Consuming linked data
 
 Search and resource responses use an `application/json` envelope with
-JSON:API-style `data`, `attributes`, `meta`, and `included` members. The envelope
-is **not** a JSON-LD document. Each resource's `meta.jsonld` is a standalone
-JSON-LD 1.1 document. Extract that object before expansion or RDF conversion.
-UI hints, scores, facets, timelines and pagination are outside the RDF graph.
-`meta=false` omits resource metadata, including JSON-LD.
+JSON:API-style `data`, `attributes`, `meta`, and `included` members. Source
+metadata appears once in `attributes.ogm` and `attributes.b1g`. These responses
+contain no embedded JSON-LD graph and are not JSON-LD documents.
+
+Each resource advertises a small typed link to its standalone representation:
+
+```json
+{
+  "links": {
+    "alternate": {
+      "href": "/api/v1/resources/example-id/citation/json-ld",
+      "type": "application/ld+json"
+    }
+  }
+}
+```
+
+Resolve the origin-relative `href` against the API response URL. Follow it only
+when linked data is needed. `GET /api/v1/resources/{id}/citation/json-ld` returns
+a JSON-LD 1.1 document with `Content-Type: application/ld+json`. The endpoint
+reads the complete resource independently of sparse search fields. Search's
+`meta=false` omits UI metadata but retains the link. Sending
+`Accept: application/ld+json` to `/search` does not transform its envelope.
+
+For a small batch, retrieve the linked documents and convert them together:
 
 ```python
+from urllib.parse import urljoin
+
 import requests
 from pyld import jsonld
 
-response = requests.get("http://localhost:8000/api/v1/search", timeout=30)
-response.raise_for_status()
-graphs = [
-    resource["meta"]["jsonld"]
-    for resource in response.json()["data"]
-    if resource.get("meta", {}).get("jsonld")
-]
+with requests.Session() as session:
+    response = session.get("http://localhost:8000/api/v1/search", timeout=30)
+    response.raise_for_status()
+    graphs = []
+    for resource in response.json()["data"]:
+        url = urljoin(response.url, resource["links"]["alternate"]["href"])
+        document = session.get(url, headers={"Accept": "application/ld+json"}, timeout=30)
+        document.raise_for_status()
+        graphs.append(document.json())
+
 expanded = jsonld.expand(graphs)
 nquads = jsonld.to_rdf(graphs, {"format": "application/n-quads"})
 ```
 
-For one resource, `GET /api/v1/resources/{id}/citation/json-ld` returns the same
-projection as an independent `application/ld+json` document. The two paths share
-one builder. Differences in source metadata available to lightweight response
-profiles may produce fewer properties. Sending `Accept: application/ld+json`
-to `/search` does not transform its envelope into a graph.
+This makes one additional request per resource when exporting linked data;
+ordinary search and detail clients do not download or parse a second copy of
+metadata. UI hints, scores, facets, timelines and pagination remain outside RDF.
+The frontend fetches the standalone endpoint for its structured-data script.
 
 ## Identity and context
 
@@ -40,9 +64,9 @@ identifier encoded as one path segment. The ordinary `data.id` and
 `attributes.ogm.id` remain local identifiers.
 
 Local development uses `GEOPORTAL_BASE_URL` when set, otherwise
-`APPLICATION_URL` with a trailing `/api/v1` removed. The embedded and standalone
-projections use the same base. Configure these local settings consistently;
-changing the base changes graph identities.
+`APPLICATION_URL` with a trailing `/api/v1` removed. Citation exports use this
+base. Configure these local settings consistently; changing the base changes
+graph identities.
 
 Nodes without `@id`, including agents described only by name, are RDF blank
 nodes. Matching names do not assert that two agents are identical. Blank-node
@@ -99,7 +123,9 @@ URLs. Their original source values remain available in attributes.
 The former sibling `meta.@context` and `meta.@type` have been removed. They did
 not apply a context to `attributes.ogm` or `attributes.b1g`; the context URL also
 used an unavailable path, and `BtaaAardvarkRecord` lacked a term definition.
-Read `meta.jsonld` instead. Its context and properties are in the same object.
+Follow `links.alternate` to the dedicated JSON-LD endpoint instead. Its context
+and properties are in the same document; no duplicate graph is embedded in
+ordinary API responses.
 The old raw-field contexts remain legacy draft artifacts, not the context of
 the normalized graph. Do not apply those drafts to the entire API envelope.
 
@@ -125,6 +151,7 @@ BTAA_SKIP_TEST_DB=1 backend/.venv/bin/python -m pytest \
 make lint-check
 ```
 
-Tests expand real serializer output with PyLD and assert RDF subjects,
-predicates, object IRIs, geometry ordering and download semantics. The document
+Tests follow the advertised link and expand real citation output with PyLD.
+They assert RDF subjects, predicates, object IRIs, geometry ordering and download
+semantics. The document
 loader rejects remote fetches, keeping this check deterministic and offline.

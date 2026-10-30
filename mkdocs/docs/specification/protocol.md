@@ -8,7 +8,7 @@
     * Projected custom domain: https://api.geo.btaa.org
 * Content types:
     * `application/json` (default)
-    * `application/ld+json` on `/resources/{id}/citation/json-ld`; search responses remain JSON envelopes and expose extractable `meta.jsonld` objects
+    * `application/ld+json` on `/resources/{id}/citation/json-ld`; search responses remain JSON envelopes and expose typed `links.alternate` links to the standalone representation
     * `text/csv` (when `Accept` header includes CSV)
 * HTTP 1.1 or HTTP/2 over TLS 1.2+
 * Minor revisions to this spec will increment the *patch* version (e.g., `1.0.1`) and **MUST NOT** introduce breaking changes.

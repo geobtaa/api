@@ -107,12 +107,15 @@ async def test_resource_presenter_full_profile_contract_snapshot():
         )
 
     get_thumb.assert_not_awaited()
-    graph = resource["meta"].pop("jsonld")
-    assert graph["@id"].endswith("/resources/res-1")
-    assert graph["name"] == resource["attributes"]["ogm"]["dct_title_s"]
     assert resource == {
         "type": "resource",
         "id": "res-1",
+        "links": {
+            "alternate": {
+                "href": "/api/v1/resources/res-1/citation/json-ld",
+                "type": "application/ld+json",
+            },
+        },
         "attributes": {
             "ogm": {
                 "id": "res-1",
@@ -211,12 +214,15 @@ async def test_resource_presenter_search_profile_contract_snapshot():
     get_thumb.assert_not_awaited()
     relationship_service.assert_not_awaited()
     downloads.assert_awaited_once_with(bridge_download_rows)
-    graph = resource["meta"].pop("jsonld")
-    assert graph["@id"].endswith("/resources/res-1")
-    assert graph["name"] == resource["attributes"]["ogm"]["dct_title_s"]
     assert resource == {
         "type": "resource",
         "id": "res-1",
+        "links": {
+            "alternate": {
+                "href": "/api/v1/resources/res-1/citation/json-ld",
+                "type": "application/ld+json",
+            },
+        },
         "attributes": {
             "ogm": {
                 "id": "res-1",
@@ -270,12 +276,15 @@ async def test_resource_presenter_homepage_profile_contract_snapshot():
         )
 
     get_thumb.assert_not_awaited()
-    graph = resource["meta"].pop("jsonld")
-    assert graph["@id"].endswith("/resources/res-1")
-    assert graph["name"] == resource["attributes"]["ogm"]["dct_title_s"]
     assert resource == {
         "type": "resource",
         "id": "res-1",
+        "links": {
+            "alternate": {
+                "href": "/api/v1/resources/res-1/citation/json-ld",
+                "type": "application/ld+json",
+            },
+        },
         "attributes": {
             "ogm": {
                 "id": "res-1",

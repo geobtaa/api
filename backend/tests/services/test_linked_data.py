@@ -50,13 +50,14 @@ def record():
     }
 
 
-def test_embedded_graph_is_extractable_and_rdf_has_expected_identities(record, monkeypatch):
+def test_standalone_graph_has_expected_rdf_identities(record, monkeypatch):
     monkeypatch.setenv("GEOPORTAL_BASE_URL", "https://example.org")
     response = ResourcePresenter.serialize_jsonapi_resource(record)
     assert "@context" not in response["meta"]
     assert "@type" not in response["meta"]
     assert response["attributes"]["ogm"]["id"] == "address-points"
-    graph = response["meta"]["jsonld"]
+    assert "jsonld" not in response["meta"]
+    graph = CitationFormatsService(record).to_json_ld(record["id"])
     expanded = expand(graph)
     assert expanded["@id"] == "https://example.org/resources/address-points"
     assert expanded["@type"] == [SCHEMA + "Dataset"]
@@ -261,16 +262,36 @@ def test_citation_http_response_is_processable_jsonld(record, monkeypatch):
     ]["content"]
     assert set(content) == {"application/ld+json"}
     assert content["application/ld+json"]["schema"]["$ref"].endswith("SchemaOrgCitationResponse")
-    response = TestClient(app).get("/api/v1/resources/address-points/citation/json-ld")
+    resource = ResourcePresenter.serialize_jsonapi_resource(record)
+    link = resource["links"]["alternate"]
+    assert link["type"] == "application/ld+json"
+    response = TestClient(app).get(link["href"])
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/ld+json"
     assert expand(response.json())["@type"] == [SCHEMA + "Dataset"]
-    assert response.json() == ResourcePresenter.serialize_jsonapi_resource(record)["meta"]["jsonld"]
+    assert response.json() == resource_jsonld(record, record["id"])
+    assert "jsonld" not in resource["meta"]
 
 
 def test_database_field_aliases_have_the_same_graph(record):
     lowercase = {field.lower(): value for field, value in record.items()}
     assert resource_jsonld(lowercase, record["id"]) == resource_jsonld(record, record["id"])
+
+
+def test_resource_links_to_jsonld_without_building_a_duplicate_graph(record, monkeypatch):
+    def unexpected_projection(*args, **kwargs):
+        raise AssertionError("Ordinary resources must not build JSON-LD")
+
+    monkeypatch.setattr("app.services.linked_data.resource_jsonld", unexpected_projection)
+    record["id"] = "a b#c?"
+    resource = ResourcePresenter.serialize_jsonapi_resource(record)
+
+    assert resource["meta"] == {"ui": {}}
+    assert resource["attributes"]["ogm"]["dct_title_s"] == "Address points"
+    assert resource["links"]["alternate"] == {
+        "href": "/api/v1/resources/a%20b%23c%3F/citation/json-ld",
+        "type": "application/ld+json",
+    }
 
 
 def test_all_provenance_fields_are_retained_without_duplicate_statements(record):

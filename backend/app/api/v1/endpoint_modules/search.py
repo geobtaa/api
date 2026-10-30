@@ -82,7 +82,7 @@ def _search_error_response(
 
 SEARCH_RESULT_CACHE_TTL = int(os.getenv("SEARCH_RESULT_CACHE_TTL", str(SEARCH_CACHE_TTL)))
 # Bump when search query semantics change so stale cached totals do not survive deploys.
-SEARCH_RESULT_CACHE_VERSION = os.getenv("SEARCH_RESULT_CACHE_VERSION", "v3")
+SEARCH_RESULT_CACHE_VERSION = os.getenv("SEARCH_RESULT_CACHE_VERSION", "v4")
 SEARCH_RESULT_CACHE_NAMESPACE = "search.results"
 SEARCH_RESULT_CACHE_ENABLED = os.getenv("SEARCH_RESULT_CACHE", "true").lower() == "true"
 SEARCH_RESULT_CACHE_LOCK_WAIT_SECONDS = float(
@@ -770,7 +770,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
 
 
 @router.get("/search", response_model=SearchResponse, responses=COMMON_ERROR_RESPONSES)
-@cached_endpoint(ttl=SEARCH_CACHE_TTL)
+@cached_endpoint(ttl=SEARCH_CACHE_TTL, version="linked-data-links-v1")
 async def search(
     request: Request,
     q: Optional[str] = Query(None, description="Search query"),
@@ -893,7 +893,7 @@ async def search(
 
 
 @router.post("/search", response_model=SearchResponse, responses=COMMON_ERROR_RESPONSES)
-@cached_endpoint(ttl=SEARCH_CACHE_TTL)
+@cached_endpoint(ttl=SEARCH_CACHE_TTL, version="linked-data-links-v1")
 async def search_post(
     request: Request,
     payload: Annotated[

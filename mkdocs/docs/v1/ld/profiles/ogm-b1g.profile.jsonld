@@ -24,8 +24,8 @@
   },
   "id": "https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld",
   "@type": "prof:Profile",
-  "title": "BTAA resource metadata and embedded JSON-LD profile",
-  "description": "Resource attributes.ogm contains source Aardvark fields; attributes.b1g contains local extensions. meta.jsonld is an independently extractable JSON-LD 1.1 document with an inline context and absolute resource identity. The surrounding JSON API response is not a JSON-LD document. Sparse fields and meta=false may omit metadata. This profile does not assert that every resource conforms to the full ingest JSON Schema.",
+  "title": "BTAA resource metadata and linked-data discovery profile",
+  "description": "Resource attributes.ogm contains source Aardvark fields; attributes.b1g contains local extensions. links.alternate advertises a separate application/ld+json representation with an inline context and absolute resource identity. Source metadata is not duplicated in meta. The surrounding JSON API response is not a JSON-LD document. Sparse fields and meta=false may omit metadata. This profile does not assert that every resource conforms to the full ingest JSON Schema.",
   "version": "2.0.0",
   "hasResource": [
     {

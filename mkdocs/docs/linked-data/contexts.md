@@ -1,22 +1,31 @@
-# JSON-LD contexts and extraction
+# JSON-LD contexts and discovery
 
-The public JSON API is an envelope, not a JSON-LD document. Extract a resource's
-`meta.jsonld` object before passing it to a JSON-LD 1.1 processor. Its inline
-context and absolute `@id` make it independently processable without fetching
-remote context files. The dedicated `/api/v1/resources/{id}/citation/json-ld`
-endpoint serves the same projection as `application/ld+json`.
+The public JSON API keeps source metadata in `attributes` without embedding a
+second representation. Follow a resource's `links.alternate.href` to retrieve
+its JSON-LD 1.1 document. The link advertises `type: application/ld+json` and its
+origin-relative URL resolves against the API response URL. The dedicated
+`/api/v1/resources/{id}/citation/json-ld` endpoint supplies an inline context
+and absolute `@id`, so RDF processing needs no remote context files.
 
 ```python
+from urllib.parse import urljoin
+
+import requests
 from pyld import jsonld
 
-# response is a decoded JSON search response
-graphs = [
-    resource["meta"]["jsonld"]
-    for resource in response["data"]
-    if resource.get("meta", {}).get("jsonld")
-]
+response = requests.get("http://localhost:8000/api/v1/search?per_page=2", timeout=30)
+response.raise_for_status()
+graphs = []
+for resource in response.json()["data"]:
+    url = urljoin(response.url, resource["links"]["alternate"]["href"])
+    document = requests.get(url, headers={"Accept": "application/ld+json"}, timeout=30)
+    document.raise_for_status()
+    graphs.append(document.json())
 triples = jsonld.to_rdf(graphs, {"format": "application/n-quads"})
 ```
+
+The extra request per resource is needed only by linked-data consumers.
+Ordinary clients use the source attributes without receiving duplicate values.
 
 The inline context defaults to `https://schema.org/`. `url` and `contentUrl`
 are IRI-valued properties. Licenses and resource relationships use explicit
@@ -36,19 +45,20 @@ negative statements about a resource.
 
 `attributes.ogm` and `attributes.b1g` preserve source metadata. `meta.ui`, scores,
 facets and timelines are ordinary JSON and are not members of the graph.
-`meta=false` removes the resource's metadata, including the graph.
+`meta=false` removes the resource's UI metadata but retains the alternate link.
 
 ## Legacy draft contexts
 
 The files under `v1/ld/contexts/` are retained as legacy draft artifacts for
-existing integrations. They are **not** used by the current embedded graph and
+existing integrations. They are **not** used by the standalone graph and
 must not be applied to the whole JSON API response. They do not transform the
 nested envelope, resolve local relationship identifiers, normalize ENVELOPE or
 comma-separated bounds to WKT, or parse JSON-encoded reference strings.
-Consumers needing RDF should use the normalized `meta.jsonld` projection.
+Consumers needing RDF should use the dedicated JSON-LD endpoint.
 
 The previous `meta.@context` URL returned 404, and a context inside `meta`
 could not describe sibling `attributes` even with the URL corrected. Both that
-marker and the undefined `meta.@type` marker have been replaced by `meta.jsonld`.
+marker and the undefined `meta.@type` marker have been removed. A typed
+alternate link now makes the separate JSON-LD representation discoverable.
 
 See [Profiles](profiles.md) for the response contract and migration details.

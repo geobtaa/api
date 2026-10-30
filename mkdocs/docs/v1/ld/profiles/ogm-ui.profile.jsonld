@@ -25,7 +25,7 @@
   "id": "https://gin.btaa.org/api/v1/ld/profiles/ogm-ui.profile.jsonld",
   "@type": "prof:Profile",
   "title": "BTAA resource UI hints profile",
-  "description": "Resource meta.ui contains optional presentation hints such as citations, thumbnails, downloads and viewers. These are ordinary JSON, outside the meta.jsonld graph. Their presence does not assert RDF types or predicates.",
+  "description": "Resource meta.ui contains optional presentation hints such as citations, thumbnails, downloads and viewers. These are ordinary JSON, separate from the standalone JSON-LD representation. Their presence does not assert RDF types or predicates.",
   "version": "2.0.0",
   "hasResource": [
     {

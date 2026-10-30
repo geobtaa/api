@@ -6,9 +6,9 @@ import json
 import logging
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 from app.services.distribution_repository import DistributionContext
-from app.services.linked_data import resource_jsonld
 from app.services.ogm_field_mapper import OGMFieldMapper
 
 logger = logging.getLogger(__name__)
@@ -140,12 +140,18 @@ class ResourcePresenter:
         if viewer_fields:
             restructured_ui["viewer"] = viewer_fields
 
+        encoded_id = quote(str(resource_id), safe="")
         return {
             "type": "resource",
             "id": str(resource_id),
             "attributes": nested_attributes if nested_attributes else {},
+            "links": {
+                "alternate": {
+                    "href": f"/api/v1/resources/{encoded_id}/citation/json-ld",
+                    "type": "application/ld+json",
+                },
+            },
             "meta": {
-                "jsonld": resource_jsonld(core_attributes, resource_id),
                 "ui": restructured_ui,
             },
         }

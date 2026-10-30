@@ -22,7 +22,7 @@ class JSONLDResponse(JSONResponse):
 
 
 def _geoportal_base_url() -> str:
-    """Use the same canonical identity as embedded JSON-LD."""
+    """Use the canonical resource-page identity for citation exports."""
     return geoportal_base_url()
 
 

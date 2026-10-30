@@ -1,16 +1,16 @@
 # BTAA Geospatial Linked Data
 
-The JSON API provides an independently extractable JSON-LD document in each
-resource's `meta.jsonld`. For a single resource, the dedicated
-`/api/v1/resources/{id}/citation/json-ld` endpoint serves that projection with
-`application/ld+json`. The surrounding search envelope remains ordinary JSON.
+The JSON API keeps source metadata in resource attributes and provides a typed
+`links.alternate` link to `/api/v1/resources/{id}/citation/json-ld`. This dedicated
+endpoint serves JSON-LD with `application/ld+json` when requested. Search and
+resource envelopes remain ordinary JSON without an embedded duplicate graph.
 
-Start with [JSON-LD extraction](contexts.md) for processor examples and
+Start with [JSON-LD discovery](contexts.md) for processor examples and
 [response profiles](profiles.md) for field semantics and migration details.
 
 ## Available documentation
 
-- [Contexts and extraction](contexts.md): inline context, graph boundaries and
+- [Contexts and discovery](contexts.md): inline context, graph boundaries and
   the status of the legacy raw-field context drafts.
 - [Response profiles](profiles.md): source metadata, normalized graph and UI
   hints; these profiles do not guarantee full ingest-schema conformance.

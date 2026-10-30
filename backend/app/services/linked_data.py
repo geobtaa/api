@@ -1,7 +1,7 @@
 """Conservative, standalone JSON-LD projection of public Aardvark metadata.
 
-The JSON API envelope and UI hints are not RDF. Only this extracted document
-is a JSON-LD graph; source metadata remains available in attributes.ogm/b1g.
+The citation endpoint serves this document on demand. The JSON API envelope
+keeps source metadata in attributes.ogm/b1g without embedding a second copy.
 """
 
 from __future__ import annotations
