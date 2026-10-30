@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 from fastapi import HTTPException, Query, Request
@@ -10,21 +9,21 @@ from app.api.v1.utils import create_response, sanitize_for_json
 from app.services.citation_formats_service import CitationFormatsService
 from app.services.citation_service import CitationService
 from app.services.distribution_repository import fetch_distribution_context
+from app.services.linked_data import geoportal_base_url
 from db.models import resources
 
-from . import async_session, base_url, logger, router
+from . import async_session, logger, router
+
+
+class JSONLDResponse(JSONResponse):
+    """Advertise the JSON-LD media type in both HTTP and OpenAPI."""
+
+    media_type = "application/ld+json"
 
 
 def _geoportal_base_url() -> str:
-    """Base URL for the Geoportal (resource pages). Strips /api/v1 from APPLICATION_URL."""
-    url = os.getenv("GEOPORTAL_BASE_URL")
-    if url:
-        return url.rstrip("/")
-    app_url = base_url.rstrip("/")
-    for suffix in ("/api/v1", "/api/v1/"):
-        if app_url.endswith(suffix):
-            return app_url[: -len(suffix)].rstrip("/")
-    return app_url
+    """Use the canonical resource-page identity for citation exports."""
+    return geoportal_base_url()
 
 
 @router.get("/resources/{id}/citation", response_model=ResourceCitationResponse)
@@ -65,7 +64,11 @@ async def get_resource_citation(
         raise HTTPException(status_code=500, detail="Failed to get citation") from None
 
 
-@router.get("/resources/{id}/citation/json-ld", response_model=SchemaOrgCitationResponse)
+@router.get(
+    "/resources/{id}/citation/json-ld",
+    response_model=SchemaOrgCitationResponse,
+    response_class=JSONLDResponse,
+)
 async def get_resource_citation_json_ld(id: str):
     """Get Schema.org JSON-LD metadata for citation tools (Zotero, Google Dataset Search)."""
     try:
@@ -83,7 +86,7 @@ async def get_resource_citation_json_ld(id: str):
             base_url=_geoportal_base_url(),
         )
         ld = service.to_json_ld(id)
-        return JSONResponse(content=ld, media_type="application/ld+json")
+        return JSONLDResponse(content=ld)
     except HTTPException:
         raise
     except Exception:

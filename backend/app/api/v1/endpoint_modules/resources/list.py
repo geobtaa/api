@@ -13,7 +13,7 @@ from . import LIST_CACHE_TTL, filter_resource_fields, get_async_session, logger,
 
 
 @router.get("/resources/", response_model=ResourceCollectionResponse)
-@cached_endpoint(ttl=LIST_CACHE_TTL)
+@cached_endpoint(ttl=LIST_CACHE_TTL, version="linked-data-links-v1")
 async def list_resources(
     request: Request,
     skip: int = 0,

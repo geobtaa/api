@@ -110,6 +110,12 @@ async def test_resource_presenter_full_profile_contract_snapshot():
     assert resource == {
         "type": "resource",
         "id": "res-1",
+        "links": {
+            "alternate": {
+                "href": "/api/v1/resources/res-1/citation/json-ld",
+                "type": "application/ld+json",
+            },
+        },
         "attributes": {
             "ogm": {
                 "id": "res-1",
@@ -129,8 +135,6 @@ async def test_resource_presenter_full_profile_contract_snapshot():
             },
         },
         "meta": {
-            "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
-            "@type": "BtaaAardvarkRecord",
             "ui": {
                 "thumbnail_url": immutable_thumbnail_url,
                 "citation": "APA",
@@ -213,6 +217,12 @@ async def test_resource_presenter_search_profile_contract_snapshot():
     assert resource == {
         "type": "resource",
         "id": "res-1",
+        "links": {
+            "alternate": {
+                "href": "/api/v1/resources/res-1/citation/json-ld",
+                "type": "application/ld+json",
+            },
+        },
         "attributes": {
             "ogm": {
                 "id": "res-1",
@@ -222,8 +232,6 @@ async def test_resource_presenter_search_profile_contract_snapshot():
             },
         },
         "meta": {
-            "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
-            "@type": "BtaaAardvarkRecord",
             "ui": {
                 "thumbnail_url": "https://images.example.edu/res-1-thumb.jpg",
                 "citation": "APA",
@@ -271,6 +279,12 @@ async def test_resource_presenter_homepage_profile_contract_snapshot():
     assert resource == {
         "type": "resource",
         "id": "res-1",
+        "links": {
+            "alternate": {
+                "href": "/api/v1/resources/res-1/citation/json-ld",
+                "type": "application/ld+json",
+            },
+        },
         "attributes": {
             "ogm": {
                 "id": "res-1",
@@ -280,8 +294,6 @@ async def test_resource_presenter_homepage_profile_contract_snapshot():
             "b1g": {"b1g_code_s": "B1G-001"},
         },
         "meta": {
-            "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
-            "@type": "BtaaAardvarkRecord",
             "ui": {
                 "thumbnail_url": "https://images.example.edu/res-1-thumb.jpg",
                 "viewer": {
