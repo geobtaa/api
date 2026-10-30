@@ -53,7 +53,7 @@ export function HexLayerToggleControl({
     });
 
     const control = new CustomControl({
-      position: 'topleft' as MapTypes.ControlPosition,
+      position: 'topright' as MapTypes.ControlPosition,
     });
     control.addTo(map);
     const controlContainer = control.getContainer();

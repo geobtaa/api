@@ -44,7 +44,7 @@ function fitMapToPlace(map: MapTypes.Map, place: GazetteerPlace) {
 
 export function MapGeosearchControl({
   mapInstance,
-  position = 'topleft',
+  position = 'topright',
   placeholder = 'Search places',
   maxResults = 8,
   onPlaceSelect,
@@ -79,11 +79,11 @@ export function MapGeosearchControl({
     control.addTo(map);
 
     const controlContainer = control.getContainer();
-    if (position === 'topleft' && controlContainer?.parentElement) {
+    if (position === 'topright' && controlContainer?.parentElement) {
       const cornerContainer = controlContainer.parentElement;
-      const zoomControl = cornerContainer.querySelector(
-        '.maplibregl-ctrl-group'
-      );
+      const zoomControl = cornerContainer
+        .querySelector('.maplibregl-ctrl-zoom-in, .geo-map-zoom-button')
+        ?.closest('.maplibregl-ctrl-group');
 
       if (zoomControl?.nextSibling) {
         cornerContainer.insertBefore(controlContainer, zoomControl.nextSibling);
@@ -227,7 +227,7 @@ export function MapGeosearchControl({
       </button>
 
       {isExpanded && (
-        <div className="absolute left-[calc(100%+0.5rem)] top-1/2 w-[220px] -translate-y-1/2 sm:w-[240px]">
+        <div className="absolute right-[calc(100%+0.5rem)] top-1/2 w-[220px] -translate-y-1/2 sm:w-[240px]">
           <div className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-2.5 py-2 shadow-sm">
             <Search
               {...MAP_CONTROL_ICON_PROPS}

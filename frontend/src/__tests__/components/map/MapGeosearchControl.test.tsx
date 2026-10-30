@@ -49,8 +49,12 @@ describe('MapGeosearchControl', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     controlCorner.innerHTML = '';
-    controlCorner.className = 'leaflet-top leaflet-left';
+    controlCorner.className = 'maplibregl-ctrl-top-right';
     zoomControl.className = 'maplibregl-ctrl-group';
+    zoomControl.innerHTML = '<button class="geo-map-zoom-button">+</button>';
+    const fullscreenControl = document.createElement('div');
+    fullscreenControl.className = 'maplibregl-ctrl-group';
+    controlCorner.appendChild(fullscreenControl);
     controlCorner.appendChild(zoomControl);
     document.body.appendChild(controlCorner);
 
@@ -111,8 +115,8 @@ describe('MapGeosearchControl', () => {
     });
     const controlContainer = toggleButton.closest('.maplibregl-ctrl');
 
-    expect(controlCorner.children[0]).toBe(zoomControl);
-    expect(controlCorner.children[1]).toBe(controlContainer);
+    expect(controlCorner.children[1]).toBe(zoomControl);
+    expect(controlCorner.children[2]).toBe(controlContainer);
 
     fireEvent.click(toggleButton);
 

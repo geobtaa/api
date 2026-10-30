@@ -92,7 +92,7 @@ export function Rectangle({ bounds, pathOptions }: any) {
   return null;
 }
 export function ZoomControl({
-  position = 'topleft',
+  position = 'topright',
 }: {
   position?: M.ControlPosition;
 }) {

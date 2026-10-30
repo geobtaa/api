@@ -805,7 +805,7 @@ export function GeospatialFilterMap({
               <button
                 type="button"
                 onClick={handleSearchHere}
-                className="absolute top-2 right-2 z-[1000] flex items-center rounded-lg bg-[#ff7a00] px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_8px_1px_rgba(0,166,255,0.22),0_3px_8px_rgba(0,80,150,0.1)] transition-colors hover:bg-[#ff8f1f] focus:outline-none focus:ring-2 focus:ring-[#003c5b] focus:ring-offset-2"
+                className="absolute top-2 right-16 z-[1000] flex items-center rounded-lg bg-[#ff7a00] px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_8px_1px_rgba(0,166,255,0.22),0_3px_8px_rgba(0,80,150,0.1)] transition-colors hover:bg-[#ff8f1f] focus:outline-none focus:ring-2 focus:ring-[#003c5b] focus:ring-offset-2"
                 aria-label="Search in this area"
               >
                 <span>Search here</span>
