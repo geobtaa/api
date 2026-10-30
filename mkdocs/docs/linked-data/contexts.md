@@ -10,16 +10,29 @@ endpoint serves the same projection as `application/ld+json`.
 from pyld import jsonld
 
 # response is a decoded JSON search response
-for resource in response["data"]:
-    graph = resource.get("meta", {}).get("jsonld")
-    if graph:
-        triples = jsonld.to_rdf(graph, {"format": "application/n-quads"})
+graphs = [
+    resource["meta"]["jsonld"]
+    for resource in response["data"]
+    if resource.get("meta", {}).get("jsonld")
+]
+triples = jsonld.to_rdf(graphs, {"format": "application/n-quads"})
 ```
 
 The inline context defaults to `https://schema.org/`. `url` and `contentUrl`
 are IRI-valued properties. Licenses and resource relationships use explicit
 `@id` objects. Dublin Core and PCDM predicates use full IRIs. No arbitrary
 resource label is interpreted as an external vocabulary term.
+
+Nodes without `@id` are RDF blank nodes. Agent names are labels, not stable
+identities, and matching names do not establish that two agents are the same.
+The batch example lets the processor allocate distinct blank-node labels.
+For separately converted responses, use an RDF merge that standardizes blank
+nodes apart; concatenating N-Quads may accidentally merge unrelated nodes whose
+generated labels overlap. See [RDF blank nodes](https://www.w3.org/TR/rdf11-concepts/#section-blank-nodes).
+
+Arrays represent unordered RDF values, not ordered RDF lists. They do not assert
+author order or download preference. Missing properties are unasserted, not
+negative statements about a resource.
 
 `attributes.ogm` and `attributes.b1g` preserve source metadata. `meta.ui`, scores,
 facets and timelines are ordinary JSON and are not members of the graph.
