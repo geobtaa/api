@@ -18,12 +18,19 @@ The JSON-LD endpoint returns Schema.org structured data suitable for:
 - **Future Zotero support** – when native JSON-LD import is added
 - **Semantic web** – machine-readable metadata for aggregation and linking
 
-Resource types are mapped to Schema.org:
-- Datasets / Web services → `Dataset`
-- Maps / Imagery → `Map`
-- Other → `CreativeWork`
+Resource classes are mapped to Schema.org:
 
-The JSON-LD is also embedded in the `<head>` of each resource page via a `<script type="application/ld+json">` tag for crawlers and tools that parse page HTML.
+- Datasets → `Dataset`
+- Maps → `Map`
+- Collections → `Collection`
+- Other classes (including services alone) → `CreativeWork`
+
+The same graph is embedded as `meta.jsonld` in JSON API resources. It uses an
+inline context, absolute identifiers and explicit reference objects. See
+[Consuming linked data](linked_data.md) for extraction, field semantics,
+limitations and the migration from the former metadata markers.
+
+The dedicated JSON-LD endpoint can be consumed directly by RDF tooling.
 
 ## RIS Format
 

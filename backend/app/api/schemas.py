@@ -155,7 +155,7 @@ class ResourceCitationResponse(PublicAPIModel):
 
 
 class SchemaOrgEntity(PublicAPIModel):
-    context: str | None = Field(default=None, alias="@context")
+    context: str | dict[str, Any] | None = Field(default=None, alias="@context")
     type: str | None = Field(default=None, alias="@type")
     id: str | None = Field(default=None, alias="@id")
 
@@ -163,18 +163,20 @@ class SchemaOrgEntity(PublicAPIModel):
 class SchemaOrgCitationResponse(SchemaOrgEntity):
     url: str | list[str] | None = None
     name: str | None = None
-    description: str | None = None
+    description: str | list[str] | None = None
     datePublished: str | None = None
-    keywords: str | None = None
+    alternateName: str | list[str] | None = None
+    keywords: list[str] | None = None
     spatialCoverage: list[dict[str, Any]] | None = None
-    temporalCoverage: str | None = None
-    inLanguage: str | None = None
-    license: str | None = None
+    temporalCoverage: str | list[str] | None = None
+    inLanguage: str | list[str] | None = None
+    license: list[dict[str, Any]] | None = None
     identifier: str | list[str] | None = None
     author: list[dict[str, Any]] | None = None
-    publisher: dict[str, Any] | None = None
-    encodingFormat: str | None = None
-    accessMode: str | None = None
+    publisher: list[dict[str, Any]] | None = None
+    provider: list[dict[str, Any]] | None = None
+    conditionsOfAccess: str | list[str] | None = None
+    encoding: list[dict[str, Any]] | None = None
     includedInDataCatalog: dict[str, Any] | None = None
     distribution: list[dict[str, Any]] | None = None
 

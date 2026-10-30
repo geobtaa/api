@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.services.distribution_repository import DistributionContext
+from app.services.linked_data import resource_jsonld
 from app.services.ogm_field_mapper import OGMFieldMapper
 
 logger = logging.getLogger(__name__)
@@ -144,8 +145,7 @@ class ResourcePresenter:
             "id": str(resource_id),
             "attributes": nested_attributes if nested_attributes else {},
             "meta": {
-                "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
-                "@type": "BtaaAardvarkRecord",
+                "jsonld": resource_jsonld(core_attributes, resource_id),
                 "ui": restructured_ui,
             },
         }

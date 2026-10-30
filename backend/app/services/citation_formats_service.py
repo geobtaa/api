@@ -11,6 +11,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from app.services.distribution_repository import DistributionContext
+from app.services.linked_data import resource_jsonld
 
 
 def _ensure_list(val: Any) -> List[str]:
@@ -106,16 +107,6 @@ class CitationFormatsService:
                 raw = None
         return raw if isinstance(raw, dict) else {}
 
-    def _resource_type_for_schema(self) -> str:
-        """Schema.org type: Dataset for data/services, Map for maps, else CreativeWork."""
-        types = _ensure_list(self.document.get("gbl_resourceType_sm"))
-        types_lower = [t.lower() for t in types]
-        if any(t in types_lower for t in ("datasets", "dataset", "web services")):
-            return "Dataset"
-        if any(t in types_lower for t in ("maps", "map", "imagery", "imagery and other")):
-            return "Map"
-        return "CreativeWork"
-
     def _resource_type_for_ris(self) -> str:
         """RIS TY code: DATA for datasets, MAP for maps, GEN for generic."""
         types = _ensure_list(self.document.get("gbl_resourceType_sm"))
@@ -131,93 +122,13 @@ class CitationFormatsService:
         return "misc"
 
     def to_json_ld(self, resource_id: str) -> Dict[str, Any]:
-        """Produce Schema.org JSON-LD for the resource."""
-        url = self._resource_url(resource_id)
-        schema_type = self._resource_type_for_schema()
-        title = _first(self.document.get("dct_title_s")) or "Untitled"
-        desc_list = _ensure_list(self.document.get("dct_description_sm"))
-        description = desc_list[0] if desc_list else None
-        date = _first(self.document.get("dct_issued_s"))
-        keywords = _ensure_list(self.document.get("dcat_keyword_sm")) + _ensure_list(
-            self.document.get("dct_subject_sm")
+        """Produce the same standalone graph embedded in public resource responses."""
+        return resource_jsonld(
+            self.document,
+            resource_id,
+            base_url=self.base_url,
+            distribution_context=self.distribution_context,
         )
-        spatial = _ensure_list(self.document.get("dct_spatial_sm"))
-        temporal = _ensure_list(self.document.get("dct_temporal_sm"))
-        languages = _ensure_list(self.document.get("dct_language_sm"))
-        licenses = _ensure_list(self.document.get("dct_license_sm"))
-        identifiers = _ensure_list(self.document.get("dct_identifier_sm"))
-        creators = _ensure_list(self.document.get("dct_creator_sm"))
-        publishers = _ensure_list(self.document.get("dct_publisher_sm"))
-        provider = _first(self.document.get("schema_provider_s"))
-        format_str = _first(self.document.get("dct_format_s"))
-        access_rights = _first(self.document.get("dct_accessRights_s"))
-
-        obj: Dict[str, Any] = {
-            "@context": "https://schema.org",
-            "@type": schema_type,
-            "@id": url,
-            "url": url,
-            "name": title,
-        }
-        if description:
-            obj["description"] = description
-        if date:
-            obj["datePublished"] = date
-        if keywords:
-            obj["keywords"] = ", ".join(keywords[:20])  # Limit for readability
-        if spatial:
-            obj["spatialCoverage"] = [{"@type": "Place", "name": p} for p in spatial[:5]]
-        if temporal:
-            obj["temporalCoverage"] = temporal[0] if temporal else None
-        if languages:
-            obj["inLanguage"] = languages[0] if languages else None
-        if licenses:
-            obj["license"] = licenses[0] if licenses else None
-        if identifiers:
-            obj["identifier"] = identifiers[0] if len(identifiers) == 1 else identifiers
-        if creators:
-            obj["author"] = [
-                {"@type": "Organization" if " " in c or "," in c else "Person", "name": c}
-                for c in creators[:10]
-            ]
-        if publishers:
-            obj["publisher"] = {
-                "@type": "Organization",
-                "name": publishers[0] if len(publishers) == 1 else ", ".join(publishers),
-            }
-        elif provider:
-            obj["publisher"] = {"@type": "Organization", "name": provider}
-        if format_str:
-            obj["encodingFormat"] = format_str
-        if access_rights:
-            obj["accessMode"] = access_rights
-        # Included in DataCatalog (Geoportal)
-        obj["includedInDataCatalog"] = {
-            "@type": "DataCatalog",
-            "name": "Big Ten Academic Alliance Geoportal",
-            "url": self.base_url,
-        }
-        # Distribution (download/view links)
-        by_uri = self.distribution_context.by_uri
-        distributions = []
-        for _uri, records in by_uri.items():
-            for r in records:
-                distributions.append(
-                    {
-                        "@type": "DataDownload",
-                        "contentUrl": r.url,
-                        "encodingFormat": format_str or "application/octet-stream",
-                    }
-                )
-        if distributions:
-            obj["distribution"] = distributions[:5]
-        # Primary link if no distribution
-        if not distributions:
-            prim = self._get_url()
-            if prim:
-                obj["url"] = [url, prim]
-
-        return obj
 
     def to_ris(self, resource_id: str) -> str:
         """Produce RIS format text for the resource."""

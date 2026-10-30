@@ -52,7 +52,9 @@ JSON Schema file for OGM resources is maintained at: [https://opengeometadata.or
 
 ## JSON-LD Context
 
-JSON-LD context for OGM+BTAA Aardvark records: [DRAFT PR](https://raw.githubusercontent.com/OpenGeoMetadata/opengeometadata.github.io/18896025536dae80b632aa5b059fb001d3d42c56/docs/context/aardvark.json)
+The API provides an independently extractable `meta.jsonld` projection with an inline context; see [JSON-LD consumption](../linked-data/contexts.md). A context alone does not transform nested source fields into this graph.
+
+Historical context work for raw OGM+BTAA Aardvark records (not used by the normalized graph): [DRAFT PR](https://raw.githubusercontent.com/OpenGeoMetadata/opengeometadata.github.io/18896025536dae80b632aa5b059fb001d3d42c56/docs/context/aardvark.json)
 
 ## CSV
 

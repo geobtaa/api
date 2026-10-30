@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 from fastapi import HTTPException, Query, Request
@@ -10,21 +9,15 @@ from app.api.v1.utils import create_response, sanitize_for_json
 from app.services.citation_formats_service import CitationFormatsService
 from app.services.citation_service import CitationService
 from app.services.distribution_repository import fetch_distribution_context
+from app.services.linked_data import geoportal_base_url
 from db.models import resources
 
-from . import async_session, base_url, logger, router
+from . import async_session, logger, router
 
 
 def _geoportal_base_url() -> str:
-    """Base URL for the Geoportal (resource pages). Strips /api/v1 from APPLICATION_URL."""
-    url = os.getenv("GEOPORTAL_BASE_URL")
-    if url:
-        return url.rstrip("/")
-    app_url = base_url.rstrip("/")
-    for suffix in ("/api/v1", "/api/v1/"):
-        if app_url.endswith(suffix):
-            return app_url[: -len(suffix)].rstrip("/")
-    return app_url
+    """Use the same canonical identity as embedded JSON-LD."""
+    return geoportal_base_url()
 
 
 @router.get("/resources/{id}/citation", response_model=ResourceCitationResponse)
