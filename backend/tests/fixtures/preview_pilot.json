@@ -1,0 +1,961 @@
+[
+  {
+    "family": "index",
+    "record": {
+      "id": "7a608be1-14b1-453f-9029-a5def4ea11e7",
+      "dct_title_s": "Aerial Imagery for Dunn County, WI 2023",
+      "dct_description_sm": [
+        "This project established digital, 4-band orthoimagery for Dunn County, Wisconsin as part of the Wisconsin Regional Orthoimagery Consortium (WROC). Ayres Associates provided Dunn County, Wisconsin with digital, 4-band orthoimagery services in 2023 as part of WROC. The aerial imagery was collected on April 18th and 26nd using a Microsoft Vexcel UltraCam Eagle M3 sensor mounted in a fixed-wing aircraft. Aerial imagery was collected to support 0.5 foot ground sample distance (GSD) orthoimagery to meet ASPRS Class II horizontal accuracy specifications at 1 inch = 100 feet map scale. The 6-inch pixel orthoimagery was produced to meet or exceed a horizontal accuracy of 1.4 feet RMSE according to ASPRS Positional Accuracy Standards for Digital Geospatial Data. Resultant orthoimagery was rectified to a DEM created from LiDAR data acquired in 2019. Orthoimagery was delivered in PLSS section GeoTiff and MrSID tiles and a project wide MrSID mosaic. The orthoimagery was delivered according to a section tile schematic. The project area covers approximately 864 square miles. Supplemental Information: The Wisconsin Regional Orthoimagery Consortium (WROC) is a multi-entity group of county members and partners led by regional planning commissions (RPCs) and WROC representatives from Ayres Associates. The goal of the consortium is to build and sustain a multi-participant program to acquire digital orthoimagery and elevation data throughout Wisconsin. Orthoimagery was collected for Dunn County in 2023 to provide consistent deliverable products and accuracy standards for each of the participating entities. Note to users: The spring of 2023 was unusually wet in the region, therefore these images show more flooding in Dunn County than is expected in a typical year."
+      ],
+      "dct_language_sm": [
+        "eng"
+      ],
+      "gbl_displayNote_sm": [
+        "The map below represents the boundaries of each image. Click on the index map for more information, including a download link."
+      ],
+      "dct_creator_sm": [
+        "Wisconsin--Dunn County"
+      ],
+      "dct_publisher_sm": [
+        "WisconsinView"
+      ],
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_resourceType_sm": [
+        "Raster data"
+      ],
+      "dct_subject_sm": [
+        "Imagery and Base Maps"
+      ],
+      "dcat_theme_sm": [
+        "Imagery"
+      ],
+      "dct_temporal_sm": [
+        "2023"
+      ],
+      "gbl_dateRange_drsim": [
+        "2023-2023"
+      ],
+      "dct_spatial_sm": [
+        "Wisconsin"
+      ],
+      "locn_geometry": "MultiPolygon (((-92.16 45.12, -92.16 45.21, -91.67 45.21, -91.67 45.12, -91.65 45.12, -91.65 44.68, -92.14 44.68, -92.14 45.12, -92.16 45.12)))",
+      "dcat_bbox": "-92.157,44.684,-91.650,45.209",
+      "dcat_centroid": "44.9465,-91.90350000000001",
+      "pcdm_memberOf_sm": [
+        "dc8c18df-7d64-4ff4-a754-d18d0891187d"
+      ],
+      "dct_isPartOf_sm": [
+        "10d-03"
+      ],
+      "dct_accessRights_s": "Public",
+      "dct_format_s": "GeoTIFF",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://dunncountywi.gov/landinfo\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Dunn_WI_Imagery_2023.xml\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/Dunn_WI_Imagery_2023.geojson\"}",
+      "dct_identifier_sm": [
+        "https://geodata.wisc.edu/catalog/7a608be1-14b1-453f-9029-a5def4ea11e7"
+      ],
+      "gbl_mdVersion_s": "Aardvark",
+      "gbl_georeferenced_b": true,
+      "b1g_code_s": "10d_00",
+      "b1g_dct_accrualMethod_s": "Mediated deposit",
+      "b1g_geonames_sm": [
+        "http://sws.geonames.org/5251040"
+      ],
+      "b1g_publication_state_s": "published",
+      "b1g_language_sm": [
+        "English"
+      ],
+      "b1g_dateAccessioned_dt": "2026-06-30T00:00:00",
+      "b1g_harvestWorkflow_s": "py_ogm_wisc_commit_delta",
+      "b1g_websitePlatform_s": "GeoBlacklight",
+      "b1g_dcat_endpointDescription_s": "GitHub",
+      "b1g_dcat_endpointURL_s": "https://github.com/opengeometadata/edu.wisc",
+      "b1g_localCollectionLabel_sm": [
+        "Aerial Imagery"
+      ],
+      "date_created_dtsi": "2026-06-30T15:31:16.381000",
+      "date_modified_dtsi": "2026-06-30T15:31:16.641000",
+      "geomg_id_s": "7a608be1-14b1-453f-9029-a5def4ea11e7",
+      "publication_state": "published",
+      "import_id": "801"
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "7b4b8c00-78fd-4807-9b37-c97309951fce",
+      "dct_title_s": "NAIP Aerial Imagery DOQQs (UTM), WI 2013",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://naip-usdaonline.hub.arcgis.com/\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/WI_NAIP_2013.xml\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/WI_NAIP_2013_Tiles_UTM.geojson\"}",
+      "locn_geometry": "POLYGON((-93.026 47.155, -86.599 47.155, -86.599 42.321, -93.026 42.321, -93.026 47.155))",
+      "dcat_bbox": "-93.026,42.321,-86.599,47.155",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "012a4b30-e2a9-4e85-98db-554e044c66e8",
+      "dct_title_s": "LiDAR-Derived 2-foot Contours for Douglas County, WI 2016",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://www.sco.wisc.edu/data/elevationlidar/\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Douglas_LIDAR_County_2016.xml\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/Douglas_contours2ft_county_2016.geojson\"}",
+      "locn_geometry": "MultiPolygon (((-91.55 46.33, -91.55 46.16, -92.29 46.16, -92.29 46.67, -92.27 46.65, -92.21 46.65, -92.18 46.69, -92.2 46.7, -92.19 46.72, -92.15 46.72, -92.14 46.73, -92.12 46.75, -92.09 46.75, -92.02 46.7, -91.55 46.89, -91.55 46.33)))",
+      "dcat_bbox": "-92.293,46.157,-91.551,46.757",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "03d-01-01",
+      "dct_title_s": "Index Map of Iowa Historical County Atlases",
+      "schema_provider_s": "University of Iowa",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://digital.lib.uiowa.edu/islandora/object/ui%3Aatlases\", \"https://openindexmaps.org\": \"https://raw.githubusercontent.com/geobtaa/openindexmaps/main/03d-01.geojson\"}",
+      "locn_geometry": "POLYGON((-96.640 43.501, -90.140 43.501, -90.140 40.376, -96.640 40.376, -96.640 43.501))",
+      "dcat_bbox": "-96.640,40.376,-90.140,43.501",
+      "gbl_resourceClass_sm": [
+        "Other"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "05a-03",
+      "dct_title_s": "General Land Office Township Plats: Minnesota",
+      "schema_provider_s": null,
+      "dct_references_s": "{\"http://schema.org/url\": \"http://www.mngeo.state.mn.us/glo/Index.htm\", \"http://www.w3.org/1999/xhtml\": \"https://resources.gisdata.mn.gov/pub/gdrs/data/pub/us_mn_state_mngeo/plan_glo_plat_maps_georef/metadata/metadata.html\", \"https://openindexmaps.org\": \"https://raw.githubusercontent.com/geobtaa/openindexmaps/main/0c55d18a-c6a6-425a-9d7b-7efe3e03df3e.geojson\"}",
+      "locn_geometry": "POLYGON((-97.24 49.38, -89.48 49.38, -89.48 43.5, -97.24 43.5, -97.24 49.38))",
+      "dcat_bbox": "-97.24,43.5,-89.48,49.38",
+      "gbl_resourceClass_sm": [
+        "Websites"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "09a-03",
+      "dct_title_s": "Indiana Statewide LiDAR: 2016-2020",
+      "schema_provider_s": "Purdue University",
+      "dct_references_s": "{\"http://lccn.loc.gov/sh85035852\": \"https://lidar.digitalforestry.org/outbox/Indiana_2016_2020_LiDAR_Metadata.zip\", \"http://schema.org/url\": \"https://lidar.digitalforestry.org\", \"https://openindexmaps.org\": \"https://raw.githubusercontent.com/geobtaa/openindexmaps/main/09a-03.geojson\"}",
+      "locn_geometry": "POLYGON((-88.098 41.761, -84.785 41.761, -84.785 37.772, -88.098 37.772, -88.098 41.761))",
+      "dcat_bbox": "-88.098,37.772,-84.785,41.761",
+      "gbl_resourceClass_sm": [
+        "Websites"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "0ca8b37d-8fa9-41b1-9de8-ad3069227981",
+      "dct_title_s": "LiDAR-Derived Tiled DEM for Eau Claire County, WI 2020",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://www.sco.wisc.edu/data/elevationlidar/\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/EauClaire_LIDAR_USGS_2020.xml\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/Eau_Claire_DEM_tiled_USGS_2020.geojson\"}",
+      "locn_geometry": "POLYGON((-91.650 44.858, -90.921 44.858, -90.921 44.596, -91.650 44.596, -91.650 44.858))",
+      "dcat_bbox": "-91.650,44.596,-90.921,44.858",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "05a0e665-523e-4c13-89d5-c48a6c0a4648",
+      "dct_title_s": "LiDAR-Derived Tiled DSM for Burnett County, WI 2015",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://www.sco.wisc.edu/data/elevationlidar/\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Burnett_LIDAR_County_2015.xml\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/burnett-2015-DSMRaster.geojson\"}",
+      "locn_geometry": "MultiPolygon (((-92.46 45.98, -92.42 46.03, -92.35 46.02, -92.33 46.06, -92.29 46.07, -92.29 46.16, -92.05 46.16, -92.05 45.98, -92.03 45.98, -92.03 45.64, -92.15 45.64, -92.15 45.73, -92.53 45.73, -92.53 45.64, -92.89 45.64, -92.87 45.72, -92.78 45.76, -92.76 45.81, -92.77 45.83, -92.71 45.89, -92.64 45.93, -92.55 45.95, -92.53 45.98, -92.47 45.97, -92.46 45.98)))",
+      "dcat_bbox": "-92.887,45.640,-92.031,46.158",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "1bf4cec0-d06b-11eb-b8bc-0242ac130003",
+      "dct_title_s": "NAIP Aerial Imagery DOQQs (UTM), WI 2020",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://naip-usdaonline.hub.arcgis.com/\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/WI_NAIP_2020.xml\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/WI_NAIP_2020_Tiles_UTM.geojson\"}",
+      "locn_geometry": "POLYGON((-93.026 47.155, -86.599 47.155, -86.599 42.321, -93.026 42.321, -93.026 47.155))",
+      "dcat_bbox": "-93.026,42.321,-86.599,47.155",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "index",
+    "record": {
+      "id": "11e81f99-871a-4d80-af12-fe80f252b0ef",
+      "dct_title_s": "Aerial Photography, Columbia County, WI 1937",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://maps.sco.wisc.edu/WHAIFinder/\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/1930sAerials_Columbia.geojson\"}",
+      "locn_geometry": "POLYGON((-89.785 43.644, -89.005 43.644, -89.005 43.281, -89.785 43.281, -89.785 43.644))",
+      "dcat_bbox": "-89.785,43.281,-89.005,43.644",
+      "gbl_resourceClass_sm": [
+        "Imagery"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "d0a6b41ab67c4eed942f3cf2d6ccbc90",
+      "dct_title_s": "GAP Land Cover - Raster [Minnesota]",
+      "dct_alternative_sm": [
+        "GAP Land Cover - Raster"
+      ],
+      "dct_description_sm": [
+        "This raster dataset is a detailed (1-acre minimum), hierarchically organized vegetation cover map produced by computer classification of combined two-season pairs of early-1990s Landsat 4/5 Thematic Mapper (TM) satellite imagery, as part of the Upper Midwest Gap Analysis Program (UMGAP)(http://www.umesc.usgs.gov/umgaphome.html) of the U.S. Geological Survey. Units of analysis were Minnesota Ecological Classification System (ECS)(http://www.dnr.state.mn.us/ecs/index.html) subsections subdivided by TM scenes. GAP typology and classification protocols are closely comparable across Minnesota, Wisconsin and Michigan."
+      ],
+      "dct_language_sm": [
+        "eng"
+      ],
+      "gbl_displayNote_sm": [
+        "Tip: Check \u201cVisit Source\u201d link for download options."
+      ],
+      "dct_creator_sm": [
+        "DNR-Forestry, Resource Assessment"
+      ],
+      "dct_publisher_sm": [
+        "Minnesota Geospatial Commons"
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dcat_theme_sm": [
+        "Biology",
+        "Land Cover"
+      ],
+      "dcat_keyword_sm": [
+        "LandUse,LandCover,Forest,Vegetation,GAP,ECSProvinces,Sections,Subsections,biota",
+        "Minnesota"
+      ],
+      "dct_temporal_sm": [
+        "Last Modified: 2026-09-15"
+      ],
+      "dct_issued_s": "2026-03-27",
+      "gbl_indexYear_im": [
+        2026
+      ],
+      "gbl_dateRange_drsim": [
+        "2026-2026"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota"
+      ],
+      "locn_geometry": "ENVELOPE(-96.868,-89.353,49.371,43.408)",
+      "dcat_bbox": "-96.868,43.408,-89.353,49.371",
+      "dcat_centroid": "46.3895,-93.1105",
+      "pcdm_memberOf_sm": [
+        "ba5cc745-21c5-4ae9-954b-72dd8db6815a"
+      ],
+      "dct_isPartOf_sm": [
+        "05a-01"
+      ],
+      "dct_rights_sm": [
+        "Data are unrestricted."
+      ],
+      "dct_accessRights_s": "Public",
+      "dct_format_s": "ArcGIS ImageMapLayer",
+      "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#ImageMapLayer\": \"https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/biota_landcover_gap/ImageServer\", \"http://schema.org/url\": \"https://gis.data.mn.gov/datasets/minnesota::gap-land-cover-raster-1\"}",
+      "dct_identifier_sm": [
+        "https://hub.arcgis.com/datasets/d0a6b41ab67c4eed942f3cf2d6ccbc90"
+      ],
+      "gbl_mdVersion_s": "Aardvark",
+      "b1g_code_s": "05a-01",
+      "b1g_dct_accrualMethod_s": "Automated retrieval",
+      "b1g_dct_accrualPeriodicity_s": "Weekly",
+      "b1g_publication_state_s": "published",
+      "b1g_language_sm": [
+        "English"
+      ],
+      "b1g_dateAccessioned_dt": "2026-10-29T00:00:00",
+      "b1g_harvestWorkflow_s": "py_arcgis_hub",
+      "b1g_dct_provenance_sm": [
+        "The metadata for this resource was last retrieved from Minnesota Geospatial Commons ArcGIS Hub on 2026-10-29."
+      ],
+      "b1g_websitePlatform_s": "ArcGIS Hub",
+      "b1g_dcat_endpointDescription_s": "DCAT API",
+      "b1g_dcat_endpointURL_s": "https://gis.data.mn.gov/api/feed/dcat-us/1.1.json",
+      "date_created_dtsi": "2026-07-14T00:50:21.960000",
+      "date_modified_dtsi": "2026-10-30T00:45:50.689000",
+      "geomg_id_s": "d0a6b41ab67c4eed942f3cf2d6ccbc90",
+      "publication_state": "published",
+      "import_id": "1037"
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "00343406b1164a4690f23c307c25d679_3",
+      "dct_title_s": "OC Parcel History [Michigan--Oakland County]",
+      "schema_provider_s": null,
+      "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#DynamicMapLayer\": \"https://gisservices.oakgov.com/arcgis/rest/services/Enterprise/EnterpriseOpenParcelDataMapService/MapServer/3\", \"http://schema.org/url\": \"https://accessoakland.oakgov.com/datasets/oakgov::oc-parcel-history\"}",
+      "locn_geometry": "POLYGON((-83.694 42.894, -83.075 42.894, -83.075 42.426, -83.694 42.426, -83.694 42.894))",
+      "dcat_bbox": "-83.694,42.426,-83.075,42.894",
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "003475ca8cc645829cc35768fa5588dc_228",
+      "dct_title_s": "Scenic Resource Protection [Oregon--Portland]",
+      "schema_provider_s": null,
+      "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#DynamicMapLayer\": \"https://www.portlandmaps.com/od/rest/services/COP_OpenData_ZoningCode/MapServer/228\", \"http://schema.org/url\": \"https://gis-pdx.opendata.arcgis.com/datasets/PDX::scenic-resource-protection\"}",
+      "locn_geometry": "POLYGON((-122.784 45.612, -122.472 45.612, -122.472 45.436, -122.784 45.436, -122.784 45.612))",
+      "dcat_bbox": "-122.784,45.436,-122.472,45.612",
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "003cbda35ac042b4a019a950ed244fb0_0",
+      "dct_title_s": "Annual Precipitation 2010 [Indiana]",
+      "schema_provider_s": null,
+      "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#DynamicMapLayer\": \"https://gisdata.in.gov/server/rest/services/Annual_Precipitation_2010/MapServer/0\", \"http://schema.org/url\": \"https://www.indianamap.org/maps/INMap::annual-precipitation-2010\"}",
+      "locn_geometry": "POLYGON((-88.101 41.766, -84.690 41.766, -84.690 37.766, -88.101 37.766, -88.101 41.766))",
+      "dcat_bbox": "-88.101,37.766,-84.690,41.766",
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "004489beedce436ca96d423afe682cf1_1",
+      "dct_title_s": "Moving Violations Issued in February 2012 [District of Columbia--Washington]",
+      "schema_provider_s": null,
+      "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#DynamicMapLayer\": \"https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Violations_Moving_2012/MapServer/1\", \"http://schema.org/url\": \"https://opendata.dc.gov/datasets/DCGIS::moving-violations-issued-in-february-2012\"}",
+      "locn_geometry": "POLYGON((-77.120 38.996, -76.909 38.996, -76.909 38.791, -77.120 38.791, -77.120 38.996))",
+      "dcat_bbox": "-77.120,38.791,-76.909,38.996",
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "006dc854774c4f9cb9c013ff5b6b136e_6",
+      "dct_title_s": "Fire Hydrants [Ohio--Lorain County]",
+      "schema_provider_s": null,
+      "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#DynamicMapLayer\": \"https://loraincountyauditor.com/arcgis/rest/services/LBRS_Data/MapServer/6\", \"http://schema.org/url\": \"https://data-loraingis.opendata.arcgis.com/datasets/LorainGIS::fire-hydrants\"}",
+      "locn_geometry": "POLYGON((-82.379 41.515, -81.875 41.515, -81.875 41.071, -82.379 41.071, -82.379 41.515))",
+      "dcat_bbox": "-82.379,41.071,-81.875,41.515",
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "007ba19409004effab261b2de75f5144_3",
+      "dct_title_s": "Landmarks List [Maryland--Baltimore County]",
+      "schema_provider_s": null,
+      "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#DynamicMapLayer\": \"https://bcgisdata.baltimorecountymd.gov/arcgis/rest/services/Historic/Historic/MapServer/3\", \"http://schema.org/url\": \"https://opendata.baltimorecountymd.gov/datasets/BC-GIS::landmarks-list\"}",
+      "locn_geometry": "POLYGON((-76.859 39.700, -76.342 39.700, -76.342 39.200, -76.859 39.200, -76.859 39.700))",
+      "dcat_bbox": "-76.859,39.200,-76.342,39.700",
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "bathymetry_gebco_2014_grid",
+      "dct_title_s": "Bathymetry: The General Bathymetric Chart of the Oceans (GEBCO_2014) Grid",
+      "schema_provider_s": "Rutgers University-New Brunswick",
+      "dct_references_s": "{\"http://lccn.loc.gov/sh85035852\": \"https://hfr.marine.rutgers.edu/erddap/info/bathymetry_gebco_2014_grid/index.html\", \"http://schema.org/url\": \"https://hfr.marine.rutgers.edu/erddap/griddap/bathymetry_gebco_2014_grid.html\", \"http://www.opengis.net/cat/csw/csdgm\": \"https://hfr.marine.rutgers.edu/erddap/metadata/fgdc/xml/bathymetry_gebco_2014_grid_fgdc.xml\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://hfr.marine.rutgers.edu/erddap/metadata/iso19115/xml/bathymetry_gebco_2014_grid_iso19115.xml\", \"http://www.opengis.net/def/serviceType/ogc/wms\": \"https://hfr.marine.rutgers.edu/erddap/wms/\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://hfr.marine.rutgers.edu/erddap/griddap/bathymetry_gebco_2014_grid.html\", \"label\": \"Files\"}]}",
+      "locn_geometry": "POLYGON((-99.996 50.004, -9.996 50.004, -9.996 -0.004, -99.996 -0.004, -99.996 50.004))",
+      "dcat_bbox": "-99.996,-0.004,-9.996,50.004",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": "bathymetry_gebco_2014_grid",
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "cugir-000055",
+      "dct_title_s": "Bridges, Tompkins County NY, 1998",
+      "schema_provider_s": "Cornell",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://cugir.library.cornell.edu/catalog/cugir-000055\", \"http://www.opengis.net/cat/csw/csdgm\": \"https://cugir-data.s3.amazonaws.com/00/00/55/fgdc.xml\", \"http://www.w3.org/1999/xhtml\": \"https://cugir-data.s3.amazonaws.com/00/00/55/fgdc.html\", \"http://www.opengis.net/def/serviceType/ogc/wfs\": \"https://cugir.library.cornell.edu/geoserver/cugir/wfs\", \"http://www.opengis.net/def/serviceType/ogc/wms\": \"https://cugir.library.cornell.edu/geoserver/cugir/wms\"}",
+      "locn_geometry": "POLYGON((-76.694 42.627, -76.247 42.627, -76.247 42.272, -76.694 42.272, -76.694 42.627))",
+      "dcat_bbox": "-76.694,42.272,-76.247,42.627",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": "cugir000055",
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "service",
+    "record": {
+      "id": "cugir-000059",
+      "dct_title_s": "Land Use and Land Cover, Tompkins County NY, 1995",
+      "schema_provider_s": "Cornell",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://cugir.library.cornell.edu/catalog/cugir-000059\", \"http://www.opengis.net/cat/csw/csdgm\": \"https://cugir-data.s3.amazonaws.com/00/00/59/fgdc.xml\", \"http://www.w3.org/1999/xhtml\": \"https://cugir-data.s3.amazonaws.com/00/00/59/fgdc.html\", \"http://www.opengis.net/def/serviceType/ogc/wfs\": \"https://cugir.library.cornell.edu/geoserver/cugir/wfs\", \"http://www.opengis.net/def/serviceType/ogc/wms\": \"https://cugir.library.cornell.edu/geoserver/cugir/wms\"}",
+      "locn_geometry": "POLYGON((-76.708 42.629, -76.234 42.629, -76.234 42.253, -76.708 42.253, -76.708 42.629))",
+      "dcat_bbox": "-76.708,42.253,-76.234,42.629",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": "cugir000059",
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "7C4B088E-A8D2-4D65-A049-80D4AD6E4214",
+      "dct_title_s": "Roads Dane County, WI 2011",
+      "schema_provider_s": "UW-Madison Robinson Map Library",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://lio.countyofdane.com/\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://web.s3.wisc.edu/rml-gisdata/Dane_Roads_2011.zip\", \"label\": \"Shapefile\"}], \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Dane_Roads_2011.xml\"}",
+      "locn_geometry": "MultiPolygon (((-89.01 43.01, -89.01 42.85, -89.84 42.86, -89.84 43.21, -89.81 43.24, -89.73 43.25, -89.72 43.29, -89.01 43.28, -89.01 43.01)))",
+      "dcat_bbox": "-89.841,42.844,-88.989,43.310",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "00FDB5B4-E75D-4A16-94D4-21FAE283135E",
+      "dct_title_s": "Psychiatric Hospitals, Wisconsin 2024",
+      "schema_provider_s": "UW-Madison Robinson Map Library",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://data.dhsgis.wi.gov/datasets/wi-dhs::wisconsin-psychiatric-hospitals/about\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://web.s3.wisc.edu/rml-gisdata/WI_PsychiatricHospitals_2024.zip\", \"label\": \"Shapefile\"}], \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/WI_PsychiatricHospitals_2024.xml\"}",
+      "locn_geometry": "POLYGON((-87.927 43.051, 87.927 43.051, 87.927 -43.051, -87.927 -43.051, -87.927 43.051))",
+      "dcat_bbox": "-87.927,-43.051,87.927,43.051",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "0253AD91-DE97-4371-A957-DCB8534C10B5",
+      "dct_title_s": "Parks City of Madison, WI 2023",
+      "schema_provider_s": "UW-Madison Robinson Map Library",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://data-cityofmadison.opendata.arcgis.com/\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://web.s3.wisc.edu/rml-gisdata/Madison_City_Parks_2023.zip\", \"label\": \"Shapefile\"}], \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Madison_City_Parks_2023.xml\"}",
+      "locn_geometry": "POLYGON((-89.567 43.174, -89.247 43.174, -89.247 42.998, -89.567 42.998, -89.567 43.174))",
+      "dcat_bbox": "-89.567,42.998,-89.247,43.174",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "01635C59-981C-4C81-BDC9-22AAEC68B7CF",
+      "dct_title_s": "Fire Department Response Districts Oneida County, WI 2020",
+      "schema_provider_s": "UW-Madison Robinson Map Library",
+      "dct_references_s": "{\"http://schema.org/downloadUrl\": [{\"url\": \"https://web.s3.wisc.edu/rml-gisdata/Oneida_Fire_2020.zip\", \"label\": \"Shapefile\"}, {\"url\": \"https://gisdata.wisc.edu/public/Oneida_Fire_2020.zip\", \"label\": \"Shapefile\"}], \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Oneida_Fire_2020.xml\"}",
+      "locn_geometry": "MultiPolygon (((-89.43 45.9, -89.3 45.9, -89.3 45.86, -89.18 45.86, -89.18 45.9, -89.05 45.9, -89.05 45.46, -89.42 45.47, -89.43 45.56, -90.04 45.56, -90.04 45.9, -89.43 45.9)))",
+      "dcat_bbox": "-90.047,45.464,-89.043,45.902",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "b1g_0JEHgONQuL60",
+      "dct_title_s": "School District Office Locations [United States] {2016-2017}",
+      "schema_provider_s": "BTAA-GIN",
+      "dct_references_s": "{\"http://lccn.loc.gov/sh85035852\": [{\"url\": \"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/b1g_30g-01/EDGE_GEOCODE_PUBLIC_TECHDOC.pdf\", \"label\": \"PDF/A\"}], \"http://schema.org/downloadUrl\": [{\"url\": \"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/b1g_30g-01/edge_school_district_office_locations_2016.gpkg.zip\", \"label\": \"GeoPackage (1.9 MB)\"}]}",
+      "locn_geometry": "POLYGON((-170.6828 71.2912, 144.802 71.2912, 144.802 -14.278, -170.6828 -14.278, -170.6828 71.2912))",
+      "dcat_bbox": "-170.6828,-14.278,144.802,71.2912",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "b1g_2dDRkAKQN27v",
+      "dct_title_s": "Postsecondary School Locations [United States] {2025}",
+      "schema_provider_s": "BTAA-GIN",
+      "dct_references_s": "{\"http://lccn.loc.gov/sh85035852\": [{\"url\": \"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/b1g_30g-01/EDGE_GEOCODE_POSTSEC_TECHDOC.pdf\", \"label\": \"PDF/A\"}], \"http://schema.org/downloadUrl\": [{\"url\": \"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/b1g_30g-01/edge_postsecondary_school_locations_2025.gpkg.zip\", \"label\": \"GeoPackage (793.0 KB)\"}]}",
+      "locn_geometry": "POLYGON((-170.7428 71.3247, 171.3781 71.3247, 171.3781 -14.3226, -170.7428 -14.3226, -170.7428 71.3247))",
+      "dcat_bbox": "-170.7428,-14.3226,171.3781,71.3247",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "b1g_2iCUbz4XbiPm",
+      "dct_title_s": "Private School Locations [United States] {2017-2018}",
+      "schema_provider_s": "BTAA-GIN",
+      "dct_references_s": "{\"http://lccn.loc.gov/sh85035852\": [{\"url\": \"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/b1g_30g-01/EDGE_GEOCODE_PRIVATESCH_FILEDOC.pdf\", \"label\": \"PDF/A\"}], \"http://schema.org/downloadUrl\": [{\"url\": \"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/b1g_30g-01/edge_private_school_locations_2017.gpkg.zip\", \"label\": \"GeoPackage (2.1 MB)\"}]}",
+      "locn_geometry": "POLYGON((-162.5853 66.8972, -67.3887 66.8972, -67.3887 19.4908, -162.5853 19.4908, -162.5853 66.8972))",
+      "dcat_bbox": "-162.5853,19.4908,-67.3887,66.8972",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "008b35d8-d227-43aa-86d3-f3236019af87",
+      "dct_title_s": "Purdue Campus: West Lafayette, Indiana, 1895",
+      "schema_provider_s": "Purdue University",
+      "dct_references_s": "{\"http://schema.org/url\": \"http://collections.lib.purdue.edu/campus\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://mapsweb.lib.purdue.edu/datasets/HistoricCampus/1895.tif.zip\", \"label\": \"GeoTIFF\"}]}",
+      "locn_geometry": "POLYGON((-86.920 40.429, -86.903 40.429, -86.903 40.420, -86.920 40.420, -86.920 40.429))",
+      "dcat_bbox": "-86.920,40.420,-86.903,40.429",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "1314aa3f-c093-4dea-b8a9-4888f2f515d0",
+      "dct_title_s": "Wabash Aerial (27): Indiana, 1929",
+      "schema_provider_s": "Purdue University",
+      "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#ImageMapLayer\": \"https://mapsweb.lib.purdue.edu/arcgis/rest/services/Purdue/wabashaerial/ImageServer\", \"http://schema.org/url\": \"https://mapsweb.lib.purdue.edu/wabashriver/\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://mapsweb.lib.purdue.edu/datasets/Wabash1929/wabashAerial_27.tif.zip\", \"label\": \"GeoTIFF\"}]}",
+      "locn_geometry": "POLYGON((-87.325 40.308, -87.176 40.308, -87.176 40.235, -87.325 40.235, -87.325 40.308))",
+      "dcat_bbox": "-87.325,40.235,-87.176,40.308",
+      "gbl_resourceClass_sm": [
+        "Imagery"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "00537492-3f66-4332-b5a8-abfc99565769",
+      "dct_title_s": "LiDAR-Derived Countywide 1-m DEM (m) for Florence County, WI 2015",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://www.sco.wisc.edu/data/elevationlidar/\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://web.s3.wisc.edu/wsco-wisconsinview/lidar/Florence/Florence_2015_WVP_Derivatives/Raster_WTM_EPSG3071/Florence_2015_beDEM1m_ELm_WTM.zip\", \"label\": \"GeoTIFF\"}, {\"url\": \"https://bin.ssec.wisc.edu/pub/wisconsinview/lidar/Florence/Florence_2015_WVP_Derivatives/Raster_WTM_EPSG3071/Florence_2015_beDEM1m_ELm_WTM.zip\", \"label\": \"GeoTIFF\"}], \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Florence_LIDAR_County_2015.xml\"}",
+      "locn_geometry": "POLYGON((-88.684 46.021, -88.058 46.021, -88.058 45.713, -88.684 45.713, -88.684 46.021))",
+      "dcat_bbox": "-88.684,45.713,-88.058,46.021",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "02a-01_land-cover-illinois-gap-analysis-program-land-cover-classification",
+      "dct_title_s": "Illinois Gap Analysis Program: Land Cover Classification, 1999-2000 [Illinois]",
+      "schema_provider_s": null,
+      "dct_references_s": "{\"http://schema.org/url\": \"https://clearinghouse.isgs.illinois.edu/data/land-cover/illinois-gap-analysis-program-land-cover-classification\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://clearinghouse.isgs.illinois.edu/sites/clearinghouse.isgs/files/Clearinghouse/data/ISGS/Land/zips/gap_geotiff.zip\", \"label\": \"File\"}], \"http://www.w3.org/1999/xhtml\": \"https://clearinghouse.isgs.illinois.edu/sites/clearinghouse.isgs/files/clearinghouse/data/metadata/ISGS/ILgapveg_b_metadata.htm\"}",
+      "locn_geometry": "POLYGON((-91.510 42.510, -87.020 42.510, -87.020 36.970, -91.510 36.970, -91.510 42.510))",
+      "dcat_bbox": "-91.510,36.970,-87.020,42.510",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "0fc569f0-2d29-40fd-82c0-ad68a1840f1e",
+      "dct_title_s": "Minnesota Land Cover Classification and Impervious Surface Area by Landsat and Lidar: 2013 update - Version 2 [Minnesota]",
+      "schema_provider_s": "Minnesota Geospatial Commons",
+      "dct_references_s": "{\"http://schema.org/url\": [{\"url\": \"https://gisdata.mn.gov/dataset/0fc569f0-2d29-40fd-82c0-ad68a1840f1e\", \"label\": \"Landing Page\"}], \"http://schema.org/downloadUrl\": [{\"url\": \"https://resources.gisdata.mn.gov/pub/gdrs/data/pub/edu_umn/base_landcover_minnesota/tif_base_landcover_minnesota.zip\", \"label\": \"TIF\"}], \"http://schema.org/image\": [{\"url\": \"https://resources.gisdata.mn.gov/pub/gdrs/data/pub/edu_umn/base_landcover_minnesota/metadata/preview.jpg\", \"label\": \"Static Preview - Sample Image\"}], \"http://www.w3.org/1999/xhtml\": [{\"url\": \"https://resources.gisdata.mn.gov/pub/gdrs/data/pub/edu_umn/base_landcover_minnesota/metadata/metadata.html\", \"label\": \"Full Metadata Record\"}]}",
+      "locn_geometry": "POLYGON((-97.23 49.37, -89.53 49.37, -89.53 43.5, -97.23 43.5, -97.23 49.37))",
+      "dcat_bbox": "-97.23,43.5,-89.53,49.37",
+      "gbl_resourceClass_sm": [
+        "Other"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "ark:-77981-gmgsn00zs94",
+      "dct_title_s": "Land Cover Portland Metro, Oregon 1998",
+      "schema_provider_s": "American Geographical Society Library \u2013 UWM Libraries",
+      "dct_references_s": "{\"http://schema.org/url\": [\"https://digilib.uwm.edu/ark:/77981/gmgsn00zs94\", \"https://geodiscovery.uwm.edu/catalog/ark:-77981-gmgsn00zs94\"], \"http://schema.org/downloadUrl\": [{\"url\": \"https://geodata.uwm.edu/public/gmgsn00zs94/PortlandMetro_LandCover_1998.zip\", \"label\": \"Raster Dataset\"}], \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://raw.githubusercontent.com/OpenGeoMetadata/edu.uwm/main/metadata-iso/gmgsn00zs94_ISO.xml\"}",
+      "locn_geometry": "POLYGON((-123.355103 45.760934, -122.037184 45.760934, -122.037184 45.117518, -123.355103 45.117518, -123.355103 45.760934))",
+      "dcat_bbox": "-123.355,45.118,-122.037,45.761",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": "",
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "download",
+    "record": {
+      "id": "ark:-77981-gmgsqn5zb09",
+      "dct_title_s": "Vegetation Coverage Portland Metro, Oregon 1991",
+      "schema_provider_s": "American Geographical Society Library \u2013 UWM Libraries",
+      "dct_references_s": "{\"http://schema.org/url\": [\"https://digilib.uwm.edu/ark:/77981/gmgsqn5zb09\", \"https://geodiscovery.uwm.edu/catalog/ark:-77981-gmgsqn5zb09\"], \"http://schema.org/downloadUrl\": [{\"url\": \"https://geodata.uwm.edu/public/gmgsqn5zb09/PortlandMetro_VegetationCoverage_1991.zip\", \"label\": \"Shapefile\"}], \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://raw.githubusercontent.com/OpenGeoMetadata/edu.uwm/main/metadata-iso/gmgsqn5zb09_ISO.xml\"}",
+      "locn_geometry": "POLYGON((-123.509318 45.893371, -122.101637 45.893371, -122.101637 45.095614, -123.509318 45.095614, -123.509318 45.893371))",
+      "dcat_bbox": "-123.509,45.096,-122.102,45.893",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": "",
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "control",
+    "record": {
+      "id": "stanford-kx950rj9361",
+      "dct_title_s": "Sardinia : [roads]",
+      "dct_description_sm": [
+        "compiled and drawn in the Branch of Research and Analysis, OSS.",
+        "\"8 June 1943.\"",
+        "Relief shown by shading."
+      ],
+      "dct_language_sm": [
+        "eng"
+      ],
+      "dct_publisher_sm": [
+        "Printed in Reproduction Branch, OSS"
+      ],
+      "schema_provider_s": "Stanford",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_subject_sm": [
+        "Roads",
+        "Roads."
+      ],
+      "dcat_theme_sm": [
+        "Transportation"
+      ],
+      "dct_issued_s": "1943",
+      "dct_spatial_sm": [
+        "Italy",
+        "Sardinia",
+        "Sardinia."
+      ],
+      "locn_geometry": "POLYGON((8.000000 41.500000, 10.000000 41.500000, 10.000000 38.750000, 8.000000 38.750000, 8.000000 41.500000))",
+      "dcat_bbox": "8.000000,38.750000,10.000000,41.500000",
+      "dcat_centroid": "40.125,9.0",
+      "pcdm_memberOf_sm": [
+        "dc8c18df-7d64-4ff4-a754-d18d0891187d"
+      ],
+      "dct_rights_sm": [
+        "Image from the Map Collections courtesy Stanford University Libraries. This item is in the public domain. There are no restrictions on use. If you have questions, please contact Branner Earth Sciences Library & Map Collections at brannerlibrary@stanford.edu."
+      ],
+      "dct_rightsHolder_sm": [
+        "This work has been identified as being free of known restrictions under copyright law, including all related and neighboring rights. You can copy, modify, distribute and perform the work, even for commercial purposes, all without asking permission."
+      ],
+      "dct_license_sm": [
+        "https://creativecommons.org/publicdomain/mark/1.0/"
+      ],
+      "dct_accessRights_s": "Public",
+      "dct_format_s": "JPEG2000",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://purl.stanford.edu/kx950rj9361\", \"http://schema.org/downloadUrl\": [{\"url\": \"https://stacks.stanford.edu/object/kx950rj9361\", \"label\": \"Zipped object\"}], \"http://iiif.io/api/presentation#manifest\": \"https://purl.stanford.edu/kx950rj9361/iiif3/manifest\", \"https://oembed.com\": \"https://purl.stanford.edu/embed.json?hide_title=true&url=https%3A%2F%2Fpurl.stanford.edu%2Fkx950rj9361\", \"http://schema.org/thumbnailUrl\": \"https://stacks.stanford.edu/image/iiif/kx950rj9361%2Fkx950rj9361_00_0001/full/!400,400/0/default.jpg\"}",
+      "dct_identifier_sm": [
+        "https://purl.stanford.edu/kx950rj9361"
+      ],
+      "gbl_mdVersion_s": "Aardvark",
+      "b1g_code_s": "20d-0003",
+      "b1g_dct_accrualMethod_s": "Automated retrieval",
+      "b1g_publication_state_s": "published",
+      "b1g_language_sm": [
+        "English"
+      ],
+      "b1g_dateAccessioned_dt": "2026-08-14T00:00:00",
+      "b1g_harvestWorkflow_s": "py_ogm_aardvark",
+      "b1g_dct_provenance_sm": [
+        "The metadata for this resource was harvested from GitHub at https://github.com/OpenGeoMetadata/edu.stanford.purl on 2026-08-14."
+      ],
+      "b1g_websitePlatform_s": "GeoBlacklight",
+      "b1g_dcat_endpointDescription_s": "GitHub",
+      "b1g_dcat_endpointURL_s": "https://github.com/OpenGeoMetadata/edu.stanford.purl",
+      "date_created_dtsi": "2026-08-15T01:28:21.813000",
+      "date_modified_dtsi": "2026-08-15T01:28:22.090000",
+      "geomg_id_s": "stanford-kx950rj9361",
+      "publication_state": "published",
+      "import_id": "916"
+    }
+  },
+  {
+    "family": "control",
+    "record": {
+      "id": "18a-01",
+      "dct_title_s": "California State Geoportal",
+      "dct_description_sm": [
+        "ArcGIS Hub for finding and accessing open data provided by the state of California."
+      ],
+      "dct_language_sm": [
+        "eng"
+      ],
+      "dct_publisher_sm": [
+        "California Department of Technology"
+      ],
+      "gbl_resourceClass_sm": [
+        "Websites"
+      ],
+      "dct_subject_sm": [
+        "State government records"
+      ],
+      "dct_temporal_sm": [
+        "Continually updated resource"
+      ],
+      "dct_spatial_sm": [
+        "California"
+      ],
+      "locn_geometry": "ENVELOPE(-124.48,-114.13,42.01,32.53)",
+      "dcat_bbox": "-124.48,32.53,-114.13,42.01",
+      "dcat_centroid": "37.269999999999996,-119.305",
+      "pcdm_memberOf_sm": [
+        "ba5cc745-21c5-4ae9-954b-72dd8db6815a"
+      ],
+      "dct_accessRights_s": "Public",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://gis.data.ca.gov\"}",
+      "dct_identifier_sm": [
+        "https://gis.data.ca.gov"
+      ],
+      "gbl_mdVersion_s": "Aardvark",
+      "b1g_code_s": "18a-01",
+      "b1g_dct_accrualMethod_s": "Automated retrieval",
+      "b1g_dct_accrualPeriodicity_s": "Weekly",
+      "b1g_dct_mediator_sm": [
+        "University of California"
+      ],
+      "b1g_publication_state_s": "published",
+      "b1g_language_sm": [
+        "English"
+      ],
+      "b1g_adminTags_sm": [
+        "source-convert"
+      ],
+      "b1g_dateAccessioned_dt": "2026-10-29T00:00:00",
+      "b1g_harvestWorkflow_s": "py_arcgis_hub_ca",
+      "b1g_isHarvested_b": true,
+      "b1g_websitePlatform_s": "ArcGIS Hub",
+      "b1g_dcat_endpointDescription_s": "DCAT API",
+      "b1g_dcat_endpointURL_s": "https://gis.data.ca.gov/api/feed/dcat-us/1.1.json",
+      "date_created_dtsi": "2026-10-29T22:37:50",
+      "date_modified_dtsi": "2026-10-29T22:44:51.414000",
+      "geomg_id_s": "18a-01",
+      "publication_state": "published",
+      "import_id": "1034"
+    }
+  },
+  {
+    "family": "control",
+    "record": {
+      "id": "9cdbade9-fca2-4d23-99ab-9f3a396ae929",
+      "dct_title_s": "Central Nepal Digital Elevation Model (DEM)",
+      "schema_provider_s": "",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://data.humdata.org/dataset/9cdbade9-fca2-4d23-99ab-9f3a396ae929\"}",
+      "locn_geometry": "POLYGON((80.090 30.420, 88.170 30.420, 88.170 26.400, 80.090 26.400, 80.090 30.420))",
+      "dcat_bbox": "80.090,26.400,88.170,30.420",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": "",
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "control",
+    "record": {
+      "id": "016a7953-63f1-4ec1-ae6e-ea1cb016e636",
+      "dct_title_s": "LiDAR-Derived Classified LAS (USGS) for Forest County, WI 2017",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://www.sco.wisc.edu/data/elevationlidar/\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Forest_LIDAR_USGS_2017.xml\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/forest-2017-ClassifiedPointsUSGS.geojson\"}",
+      "locn_geometry": "POLYGON((-89.048 46.074, -88.425 46.074, -88.425 45.377, -89.048 45.377, -89.048 46.074))",
+      "dcat_bbox": "-89.048,45.377,-88.425,46.074",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "control",
+    "record": {
+      "id": "01a609f8-fd61-4c88-853c-b972e3cca445",
+      "dct_title_s": "LiDAR-Derived Classified LAS (USGS 3DEP) for Dodge County, WI 2017",
+      "schema_provider_s": "University of Wisconsin-Madison",
+      "dct_references_s": "{\"http://schema.org/url\": \"https://www.sco.wisc.edu/data/elevationlidar/\", \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/Dodge_LIDAR_USGS_2017.xml\", \"https://openindexmaps.org\": \"https://web.s3.wisc.edu/rml-gisdata/indexes/dodge-2017-PointsClassifiedLAS.geojson\"}",
+      "locn_geometry": "POLYGON((-89.009 43.634, -88.400 43.634, -88.400 43.195, -89.009 43.195, -89.009 43.634))",
+      "dcat_bbox": "-89.009,43.195,-88.400,43.634",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  },
+  {
+    "family": "control",
+    "record": {
+      "id": "0035AC02-816A-456F-8CC4-D92851DB52AC",
+      "dct_title_s": "Parks Chippewa County, WI 2026",
+      "schema_provider_s": "UW-Madison Robinson Map Library",
+      "dct_references_s": "{\"http://schema.org/downloadUrl\": [{\"url\": \"https://web.s3.wisc.edu/rml-gisdata/CHIPPEWA_PARKS_2026.zip\", \"label\": \"Geodatabase\"}], \"http://www.isotc211.org/schemas/2005/gmd/\": \"https://web.s3.wisc.edu/rml-gisdata/metadata/CHIPPEWA_PARKS_2026.xml\"}",
+      "locn_geometry": "MultiPolygon (((-91.35 44.86, -91.65 44.86, -91.65 45.12, -91.67 45.12, -91.67 45.21, -91.54 45.21, -91.54 45.29, -90.93 45.29, -90.92 44.86, -91.35 44.86)))",
+      "dcat_bbox": "-91.617,44.862,-90.920,45.296",
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "gbl_wxsIdentifier_s": null,
+      "dct_accessRights_s": "Public",
+      "publication_state": "published",
+      "gbl_suppressed_b": null
+    }
+  }
+]

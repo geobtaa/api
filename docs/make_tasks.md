@@ -332,3 +332,11 @@ uv sync --project backend --locked --extra dev --python 3.12
 uv run --project backend --extra dev --locked make lint-check
 uv run --project backend --extra dev --locked make test
 ```
+
+### Experimental shared previews
+
+`make preview-assets-init` creates local manifest storage; `make preview-assets-prepare
+IDS="record-id"` queues explicitly selected records; `make preview-assets-test` runs
+isolated tests with pinned GDAL and Tippecanoe. See
+[shared preview assets](backend/shared_preview_assets.md) for feature flags, supported
+formats, limits, and the separate viewer-package release gate.

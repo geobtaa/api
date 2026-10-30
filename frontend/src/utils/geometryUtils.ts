@@ -762,6 +762,7 @@ interface ResultLike {
   };
   meta?: {
     ui?: {
+      coverage?: { geometry: object | null };
       viewer?: {
         geometry?: string | object;
       };
@@ -782,7 +783,10 @@ export function getHoverGeometryForResult(result: ResultLike): string | null {
     ogm?.locn_geometry_original ?? ogm?.locn_geometry ?? undefined;
 
   // Same priority and normalizer as resource page LocationMap
-  const raw = viewerGeom ?? locnGeom ?? undefined;
+  const coverage = result?.meta?.ui?.coverage;
+  const raw = coverage
+    ? coverage.geometry
+    : (viewerGeom ?? locnGeom ?? undefined);
   if (raw === undefined) return null;
 
   const normalized = normalizeGeometry(

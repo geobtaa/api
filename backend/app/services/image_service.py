@@ -558,7 +558,7 @@ class ImageService:
         return get_durable_visual_asset(image_hash) is not None
 
     def _get_bbox_for_wms(self) -> Optional[str]:
-        """Parse dcat_bbox to WMS 1.3.0 BBOX string (minx,miny,maxx,maxy) for EPSG:4326."""
+        """Parse dcat_bbox as longitude/latitude bounds; caller applies WMS axis order."""
         bbox_raw = self.metadata.get("dcat_bbox")
         if not bbox_raw or not isinstance(bbox_raw, str):
             return None
@@ -700,6 +700,12 @@ class ImageService:
             if not bbox_param:
                 # Fallback without BBOX (server may use full extent)
                 bbox_param = "-180,-90,180,90"
+            # WMS 1.3 EPSG:4326 uses latitude,longitude axis order.
+            west, south, east, north = bbox_param.split(",")
+            bbox_param = f"{south},{west},{north},{east}"
+            from urllib.parse import quote
+
+            layers = quote(layers, safe="")
             width, height = 400, 300
             base = wms_endpoint.rstrip("/")
             sep = "&" if "?" in base else "?"

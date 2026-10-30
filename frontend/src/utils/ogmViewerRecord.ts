@@ -1,3 +1,4 @@
+import { readyPreparedLayers, type PreviewHost } from './preparedPreview';
 import type { GeoBlacklightSchemaAardvark } from 'ogm-viewer/lib';
 export function toAardvarkRecord(data: {
   id?: string;
@@ -22,9 +23,12 @@ export function toAardvarkRecord(data: {
 }
 
 /** Content references supported by pinned OGM Viewer 1.7; geometry alone is not a preview. */
-export function hasOgmContentPreview(data: {
-  attributes: { ogm?: object };
-}): boolean {
+export function hasOgmContentPreview(
+  data: PreviewHost & {
+    attributes: { ogm?: object };
+  }
+): boolean {
+  if (readyPreparedLayers(data).length) return true;
   const ogm = (data.attributes.ogm ?? {}) as Record<string, unknown>;
   let references = ogm.dct_references_s;
   if (typeof references === 'string') {

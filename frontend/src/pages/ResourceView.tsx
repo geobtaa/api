@@ -508,15 +508,16 @@ export function ResourceView({
 
   // Extract data from the new structure
   const viewerProtocol = hasOgmContentPreview(data)
-    ? data?.meta?.ui?.viewer?.protocol
+    ? (data?.meta?.ui?.viewer?.protocol ?? 'prepared')
     : undefined;
   const dataDictionaries = data?.attributes?.b1g?.data_dictionaries || [];
   const hasAllmapsViewer = Boolean(getAllmapsViewerUrl(allmapsAttributes));
-  const resourceGeometry =
-    data?.meta?.ui?.viewer?.geometry ||
-    data?.attributes?.ogm?.locn_geometry_original ||
-    data?.attributes?.ogm?.locn_geometry ||
-    null;
+  const resourceGeometry = data?.meta?.ui?.coverage
+    ? data.meta.ui.coverage.geometry
+    : data?.meta?.ui?.viewer?.geometry ||
+      data?.attributes?.ogm?.locn_geometry_original ||
+      data?.attributes?.ogm?.locn_geometry ||
+      null;
   const showViewerTabs = Boolean(viewerProtocol && hasAllmapsViewer);
   const showItemViewer =
     Boolean(viewerProtocol) && (!showViewerTabs || activeViewerTab === 'item');
@@ -751,6 +752,17 @@ export function ResourceView({
                 <div className="lg:col-span-4">
                   <div className="lg:sticky lg:top-[88px] space-y-6">
                     {/* Location Map - using geometry from viewer, original geometry, or locn_geometry */}
+                    {data.meta?.ui?.preview?.scope === 'sample' && (
+                      <p className="text-sm text-gray-600">
+                        Preview shows a representative item from this
+                        collection.
+                      </p>
+                    )}
+                    {data.meta?.ui?.coverage && (
+                      <p className="text-sm text-gray-600">
+                        {data.meta.ui.coverage.label}
+                      </p>
+                    )}
                     {resourceGeometry && (
                       <LocationMap
                         geometry={

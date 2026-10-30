@@ -1,3 +1,7 @@
+import {
+  attachPreparedPreview,
+  type PreviewHost,
+} from '../../utils/preparedPreview';
 import { frameViewerRecord } from '../../utils/mapFraming';
 import {
   toAardvarkRecord,
@@ -17,7 +21,7 @@ interface ResourceViewerProps {
   standalone?: boolean;
   imageNavigation?: ImageNavigation | null;
   onImageSelectionChange?: (selection: ImageSelection | null) => void;
-  data: {
+  data: PreviewHost & {
     id?: string;
     attributes: {
       ogm?: Record<string, unknown> & {
@@ -138,7 +142,10 @@ function ContentViewer({
         };
         viewerElement.setAttribute('light-basemap', BASEMAP_STYLES.liberty);
         viewerElement.setAttribute('dark-basemap', BASEMAP_STYLES.dark);
-        const record = new OgmRecord(toAardvarkRecord(data));
+        const record = attachPreparedPreview(
+          new OgmRecord(toAardvarkRecord(data)),
+          data
+        );
         const framed = await frameViewerRecord(record, resourcesFor(record));
         if (cancelled) return;
         await viewerElement.loadRecord(framed);

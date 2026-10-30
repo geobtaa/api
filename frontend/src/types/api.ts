@@ -1,3 +1,4 @@
+import type { PreviewDescription } from '../utils/preparedPreview';
 export interface DataDictionaryEntry {
   id: number;
   resource_data_dictionary_id: number;
@@ -85,6 +86,13 @@ export interface GeoDocument {
   };
   meta?: {
     ui?: {
+      preview?: PreviewDescription;
+      coverage?: {
+        geometry: GeoJSON.Geometry | null;
+        kind: string;
+        label: string;
+        provenance: string;
+      };
       thumbnail_url?: string | null;
       resource_class_icon_url?: string | null;
       citation?: string;

@@ -3,7 +3,7 @@
 The application consumes a source-built prerelease of
 [geobtaa/ogm-viewer](https://github.com/geobtaa/ogm-viewer/tree/feature/viewer-integration),
 based on upstream v1.7.0. The dependency key remains `ogm-viewer`; the tarball
-contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1`. `package.json` names an
+contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.3`. `package.json` names an
 exact release asset URL and `package-lock.json` pins its integrity.
 `fork-build.json` inside the installed package identifies its source commit,
 upstream baseline, build Node version, and lockfile hash. No upstream PRs have
@@ -75,3 +75,21 @@ When an upstream release supplies equivalent contracts, replace the dependency,
 adjust the thin adapter if necessary, and retain the browser tests. Review
 `hasOgmContentPreview` at each upgrade because its supported-reference list
 currently mirrors the pinned viewer's capabilities.
+
+## Prepared preview recipes (experimental)
+
+The optional version-1 `meta.ui.preview` contract is adapted to the runtime
+`OgmRecord.preparedPreviews` property. It does not modify the record's harvested
+references. Ready COG and vector PMTiles layers retain distinct names, bounds, and
+preview identities. RGB band selection, scalar ranges/palettes, NoData, categorical
+colors, and vector styling come from the same recipe used for backend thumbnails.
+
+The companion viewer branch is `feature/shared-preview-recipes`. The application
+pins the published `v1.7.0-btaa.3` release archive and its integrity hash. The archive
+includes build provenance for commit `e080d9f`. Local tests must not commit a
+machine-specific file dependency.
+
+Coverage geometry is independent of content-layer bounds. A representative index
+member must never replace the collection's location-map geometry. The UI labels
+sample content and displays the coverage provenance label. Missing geography has no
+world-map fallback. See [shared preview assets](../backend/shared_preview_assets.md).

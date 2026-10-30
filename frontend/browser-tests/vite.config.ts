@@ -10,6 +10,14 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 4180,
     strictPort: true,
+    proxy: process.env.PREVIEW_PILOT_SERVER
+      ? {
+          '/pilot': {
+            target: process.env.PREVIEW_PILOT_SERVER,
+            rewrite: (url) => url.replace(/^\/pilot/, ''),
+          },
+        }
+      : undefined,
     fs: { allow: [path.resolve(root, '..')] },
   },
   preview: { host: '127.0.0.1', port: 4181, strictPort: true },
