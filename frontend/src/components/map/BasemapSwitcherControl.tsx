@@ -9,7 +9,7 @@ interface BasemapSwitcherControlProps {
 }
 
 export function BasemapSwitcherControl({
-  position = 'topleft',
+  position = 'topright',
 }: BasemapSwitcherControlProps) {
   const map = useMap();
 

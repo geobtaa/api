@@ -267,7 +267,7 @@ function SearchHereControl() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-[4px] z-[998] border-2 border-[#ff7a00] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7),0_0_10px_rgba(255,122,0,0.32)]"
       />
-      <div className="absolute top-2 right-2 z-[1000]">
+      <div className="absolute top-2 right-16 z-[1000]">
         <button
           type="button"
           onClick={handleSearchHere}
@@ -508,10 +508,10 @@ export function HomePageHexMapBackground() {
   return (
     <div className="absolute inset-0 z-0">
       <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }
-.homepage-map .maplibregl-ctrl-top-left { top: 1rem; }`}</style>
+.homepage-map .maplibregl-ctrl-top-right { top: 1rem; }`}</style>
       <p className="sr-only">
-        For a list of hex data, use the hex table button in the bottom-left
-        corner of the map.
+        For a list of hex data, use the hex table button in the top-right corner
+        of the map.
       </p>
       <div
         className="relative h-full w-full"
@@ -530,7 +530,7 @@ export function HomePageHexMapBackground() {
           attributionControl={true}
           {...mapInteractionOptions}
         >
-          <ZoomControl position="topleft" />
+          <ZoomControl position="topright" />
           <MapGeosearchControl />
           <BasemapSwitcherControl />
           <HexLayerToggleControl

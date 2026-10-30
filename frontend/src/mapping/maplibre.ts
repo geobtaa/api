@@ -156,7 +156,7 @@ export class Map {
       throw new Error('WebGL2 is unavailable');
     }
     if (options.zoomControl !== false)
-      this.native.addControl(new ml.NavigationControl(), 'top-left');
+      this.native.addControl(new ml.NavigationControl(), 'top-right');
     this.native.addControl(new ml.FullscreenControl(), 'top-right');
     this.native.on('error', () => {
       if (!this.removed && !this.native.getStyle())
@@ -810,7 +810,7 @@ export class Control {
           bottomleft: 'bottom-left',
           bottomright: 'bottom-right',
         } as const
-      )[this.options.position ?? 'topleft']
+      )[this.options.position ?? 'topright']
     );
     return this;
   }

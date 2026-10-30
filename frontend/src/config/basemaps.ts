@@ -15,7 +15,7 @@ export function getSavedBasemapKey(): BasemapKey {
 export function attachBasemapSwitcher(
   map: Map,
   _namespace: unknown,
-  position: ControlPosition = 'topleft'
+  position: ControlPosition = 'topright'
 ) {
   const control = new Control({ position });
   let disposed = false;

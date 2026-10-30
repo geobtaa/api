@@ -14,7 +14,7 @@ export interface HexTableControlProps {
   searchQuery?: string;
   queryString?: string;
   loading?: boolean;
-  /** Optional class for the wrapper div (overlay mode only). Default: top-[86px] left-2 */
+  /** Optional class for the wrapper div (overlay mode only). Default: top-[86px] right-2 */
   wrapperClassName?: string;
   /** When true, match Leaflet zoom control size, border, and border-radius exactly */
   compact?: boolean;
@@ -68,7 +68,7 @@ function HexTableButton({
 }
 
 /**
- * Renders the hex table button inside Leaflet's control container (div.maplibregl-ctrl-top-left).
+ * Renders the hex table button inside Leaflet's control container (div.maplibregl-ctrl-top-right).
  * Uses map.addControl() so it appears alongside the zoom control in the proper layout.
  */
 function HexTableControlInLeaflet(props: HexTableControlProps) {
@@ -90,7 +90,7 @@ function HexTableControlInLeaflet(props: HexTableControlProps) {
     });
 
     const control = new CustomControl({
-      position: 'topleft' as MapTypes.ControlPosition,
+      position: 'topright' as MapTypes.ControlPosition,
     });
     control.addTo(map);
     setContainer(control.getContainer());
@@ -125,7 +125,7 @@ function HexTableControlInLeaflet(props: HexTableControlProps) {
  */
 function HexTableControlOverlay(props: HexTableControlProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { wrapperClassName = 'top-[86px] left-2' } = props;
+  const { wrapperClassName = 'top-[86px] right-2' } = props;
 
   return (
     <>
@@ -146,11 +146,11 @@ function HexTableControlOverlay(props: HexTableControlProps) {
 }
 
 /**
- * Leaflet-style control: button with table+hex icon in top-left corner.
+ * Leaflet-style control: button with table+hex icon in top-right corner.
  * Opens the H3 hex data table in a full lightbox modal (same as facet "More").
  *
  * When used as a child of MapContainer, renders inside Leaflet's control layout
- * (div.leaflet-control-container > div.maplibregl-ctrl-top-left).
+ * (div.leaflet-control-container > div.maplibregl-ctrl-top-right).
  * When used outside MapContainer (e.g. GeospatialFilterMap), uses absolute positioning.
  */
 export function HexTableControl(props: HexTableControlProps) {
