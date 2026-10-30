@@ -30,7 +30,7 @@
   "hasResource": [
     {
       "@type": "prof:ResourceDescriptor",
-      "hasArtifact": "https://geobtaa.github.io/data-api/linked-data/profiles/",
+      "hasArtifact": "https://gin.btaa.org/api/linked-data/profiles/",
       "hasRole": "http://www.w3.org/ns/dx/prof/role/specification",
       "format": "https://www.iana.org/assignments/media-types/text/html"
     }

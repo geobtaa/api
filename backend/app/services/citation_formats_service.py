@@ -11,7 +11,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from app.services.distribution_repository import DistributionContext
-from app.services.linked_data import resource_jsonld
+from app.services.linked_data import geoportal_base_url, resource_jsonld, resource_uri
 
 
 def _ensure_list(val: Any) -> List[str]:
@@ -63,7 +63,7 @@ class CitationFormatsService:
         self,
         document: Dict[str, Any],
         distribution_context: Optional[DistributionContext] = None,
-        base_url: str = "https://geoportal.btaa.org",
+        base_url: Optional[str] = None,
     ):
         self.document = document
         self.distribution_context = distribution_context or DistributionContext(
@@ -75,12 +75,12 @@ class CitationFormatsService:
             legacy_reference_payload={},
         )
         self.base_url = _strip_suffix(
-            _strip_suffix(base_url.rstrip("/"), "/api/v1"), "/api/v1/"
+            _strip_suffix((base_url or geoportal_base_url()).rstrip("/"), "/api/v1"), "/api/v1/"
         ).rstrip("/")
 
     def _resource_url(self, resource_id: str) -> str:
         """Canonical URL for the resource (Geoportal page)."""
-        return f"{self.base_url}/resources/{resource_id}"
+        return resource_uri(resource_id, self.base_url)
 
     def _get_url(self) -> Optional[str]:
         """Primary URL for the document."""

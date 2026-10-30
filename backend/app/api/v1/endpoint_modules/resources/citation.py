@@ -15,6 +15,12 @@ from db.models import resources
 from . import async_session, logger, router
 
 
+class JSONLDResponse(JSONResponse):
+    """Advertise the JSON-LD media type in both HTTP and OpenAPI."""
+
+    media_type = "application/ld+json"
+
+
 def _geoportal_base_url() -> str:
     """Use the same canonical identity as embedded JSON-LD."""
     return geoportal_base_url()
@@ -58,7 +64,11 @@ async def get_resource_citation(
         raise HTTPException(status_code=500, detail="Failed to get citation") from None
 
 
-@router.get("/resources/{id}/citation/json-ld", response_model=SchemaOrgCitationResponse)
+@router.get(
+    "/resources/{id}/citation/json-ld",
+    response_model=SchemaOrgCitationResponse,
+    response_class=JSONLDResponse,
+)
 async def get_resource_citation_json_ld(id: str):
     """Get Schema.org JSON-LD metadata for citation tools (Zotero, Google Dataset Search)."""
     try:
@@ -76,7 +86,7 @@ async def get_resource_citation_json_ld(id: str):
             base_url=_geoportal_base_url(),
         )
         ld = service.to_json_ld(id)
-        return JSONResponse(content=ld, media_type="application/ld+json")
+        return JSONLDResponse(content=ld)
     except HTTPException:
         raise
     except Exception:

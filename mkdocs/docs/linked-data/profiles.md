@@ -25,7 +25,8 @@ The projection provides:
 
 - Absolute resource identities, URL and license references, and collection and
   version relationships. Local relationship IDs resolve to canonical resource
-  pages; existing absolute IRIs are retained.
+  pages; existing absolute IRIs are retained. Malformed URL-like values are omitted from the graph
+  instead of being turned into invented local identifiers.
 - Schema.org `Dataset`, `Map`, `Collection` or `CreativeWork`, based on the
   Aardvark resource class. A `Point data` resource type does not hide its dataset
   class. Web services alone do not establish a Dataset type.
@@ -40,7 +41,8 @@ The projection provides:
   Resource-level format strings are not assigned to individual files.
 - Access conditions as `conditionsOfAccess`, not the accessibility property
   `accessMode`. Valid full publication dates use `datePublished`; free-text or
-  imprecise values use Dublin Core `issued`.
+  imprecise values use Dublin Core `issued`. Calendar dates are normalized and
+  exported as `xsd:date` literals. Both source provenance fields are preserved.
 
 The inline context requires no remote document retrieval. The projection is
 curated discovery metadata, not a lossless RDF conversion of every source field

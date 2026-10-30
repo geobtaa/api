@@ -28,6 +28,9 @@ to `/search` does not transform its envelope into a graph.
 
 ## Identity and context
 
+The citation endpoint also advertises `application/ld+json` in OpenAPI, so generated
+clients can discover its actual response media type.
+
 The inline context uses Schema.org IRIs (`https://schema.org/`) and JSON-LD 1.1.
 It requires no remote context fetch. Dublin Core and PCDM predicates appear as
 absolute IRIs. Resource `@id` is its canonical resource-page URL, with the local
@@ -48,7 +51,7 @@ changing the base changes graph identities.
 | Creators, publishers, provider | Separate named nodes; names do not establish whether an agent is a person or organization; a provider is not substituted for a publisher |
 | Subjects and keywords | Separate keyword values, without truncation |
 | Language and temporal coverage | Original text values, without invented language tags or dates |
-| Issued date | ISO calendar dates use `schema:datePublished`; imprecise/free-text dates use `dct:issued` |
+| Issued date | ISO calendar dates use `schema:datePublished` with an `xsd:date` literal; imprecise/free-text dates use `dct:issued` |
 | License | Absolute IRIs become node references; textual licenses become creative-work nodes with `text` |
 | Access rights | `schema:conditionsOfAccess`; never sensory-accessibility `schema:accessMode` |
 | Spatial labels | `schema:Place` nodes |
@@ -69,6 +72,12 @@ every database or Aardvark field. Source metadata remains in `attributes.ogm`
 and `attributes.b1g`, including raw geometries, reference protocols, local
 administrative extensions and data dictionaries. The projection does not claim
 DCAT application-profile or SHACL conformance.
+
+Database field aliases are normalized before projection. Both provenance fields
+are combined without dropping distinct statements. Valid absolute identifiers,
+including DOI and tag schemes, keep their identity; malformed URL-like relationship
+values are omitted from the graph instead of becoming invented local resource
+URLs. Their original source values remain available in attributes.
 
 ## Migration from the earlier response
 

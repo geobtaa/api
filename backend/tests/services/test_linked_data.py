@@ -256,8 +256,86 @@ def test_citation_http_response_is_processable_jsonld(record, monkeypatch):
     monkeypatch.setattr(citation, "fetch_distribution_context", AsyncMock(return_value=None))
     app = FastAPI()
     app.include_router(citation.router, prefix="/api/v1")
+    content = app.openapi()["paths"]["/api/v1/resources/{id}/citation/json-ld"]["get"]["responses"][
+        "200"
+    ]["content"]
+    assert set(content) == {"application/ld+json"}
+    assert content["application/ld+json"]["schema"]["$ref"].endswith("SchemaOrgCitationResponse")
     response = TestClient(app).get("/api/v1/resources/address-points/citation/json-ld")
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/ld+json"
     assert expand(response.json())["@type"] == [SCHEMA + "Dataset"]
     assert response.json() == ResourcePresenter.serialize_jsonapi_resource(record)["meta"]["jsonld"]
+
+
+def test_database_field_aliases_have_the_same_graph(record):
+    lowercase = {field.lower(): value for field, value in record.items()}
+    assert resource_jsonld(lowercase, record["id"]) == resource_jsonld(record, record["id"])
+
+
+def test_all_provenance_fields_are_retained_without_duplicate_statements(record):
+    record["b1g_dct_provenance_sm"] = ["Original source", "https://example.org/provenance"]
+    record["b1g_dct_provenanceStatement_sm"] = ["Exported to GeoPackage", "Original source"]
+    graph = expand(resource_jsonld(record, record["id"]))
+    assert graph[DCT + "provenance"] == [
+        {SCHEMA + "description": [{"@value": "Original source"}]},
+        {"@id": "https://example.org/provenance"},
+        {SCHEMA + "description": [{"@value": "Exported to GeoPackage"}]},
+    ]
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "https://[invalid",
+        "https:///missing-host",
+        "https://example.org:bad/id",
+        "https://example.org/%GG",
+        "https://example.org/a\x00b",
+        "https://example.org:99999/id",
+        "//example.org/collection",
+        "../collection",
+        "#collection",
+    ],
+)
+def test_malformed_relationship_references_never_invent_local_identities(record, target):
+    record["pcdm_memberOf_sm"] = [target]
+    graph = expand(resource_jsonld(record, record["id"]))
+    assert PCDM + "memberOf" not in graph
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "https://example.org/caf\u00e9",
+        "urn:uuid:12345678-1234-1234-1234-123456789012",
+        "doi:10.1234/example",
+        "tag:example.org,2026:collection",
+    ],
+)
+def test_absolute_identifier_schemes_are_preserved(record, target):
+    record["pcdm_memberOf_sm"] = [target, target]
+    graph = resource_jsonld(record, record["id"])
+    assert graph[PCDM + "memberOf"] == [{"@id": target}]
+    assert expand(graph)[PCDM + "memberOf"] == [{"@id": target}]
+    rdf = jsonld.to_rdf(graph, options={"format": "application/n-quads"})
+    assert f"<{target}>" in rdf
+
+
+def test_dates_are_canonical_typed_rdf_literals(record):
+    record["dct_issued_s"] = "20250703"
+    graph = resource_jsonld(record, record["id"])
+    assert graph["datePublished"] == "2025-07-03"
+    assert expand(graph)[SCHEMA + "datePublished"] == [
+        {
+            "@value": "2025-07-03",
+            "@type": "http://www.w3.org/2001/XMLSchema#date",
+        }
+    ]
+
+
+def test_default_citation_identity_matches_embedded_graph(record, monkeypatch):
+    monkeypatch.setenv("GEOPORTAL_BASE_URL", "https://example.org")
+    service = CitationFormatsService(record)
+    assert service.to_json_ld(record["id"]) == resource_jsonld(record, record["id"])
+    assert "https://example.org/resources/a%20b%23c" in service.to_ris("a b#c")

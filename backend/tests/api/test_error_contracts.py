@@ -252,9 +252,12 @@ def test_openapi_documents_public_success_and_error_schemas():
         ("/api/v1/mcp", "get"): "#/components/schemas/MCPInfoResponse",
     }
     for (path, method), ref in expected_success_schemas.items():
-        assert schema["paths"][path][method]["responses"]["200"]["content"]["application/json"][
-            "schema"
-        ] == {"$ref": ref}
+        media_type = (
+            "application/ld+json" if path.endswith("/citation/json-ld") else "application/json"
+        )
+        content = schema["paths"][path][method]["responses"]["200"]["content"]
+        assert set(content) == {media_type}
+        assert content[media_type]["schema"] == {"$ref": ref}
 
     for path, operations in schema["paths"].items():
         if not path.startswith("/api/v1"):

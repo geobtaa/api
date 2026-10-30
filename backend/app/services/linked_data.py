@@ -14,6 +14,8 @@ from copy import deepcopy
 from datetime import date
 from urllib.parse import quote, urlsplit
 
+from app.services.ogm_field_mapper import OGMFieldMapper
+
 SCHEMA = "https://schema.org/"
 DCT = "http://purl.org/dc/terms/"
 PCDM = "http://pcdm.org/models#"
@@ -24,6 +26,10 @@ CONTEXT = {
     "@vocab": SCHEMA,
     "url": {"@id": SCHEMA + "url", "@type": "@id"},
     "contentUrl": {"@id": SCHEMA + "contentUrl", "@type": "@id"},
+    "datePublished": {
+        "@id": SCHEMA + "datePublished",
+        "@type": "http://www.w3.org/2001/XMLSchema#date",
+    },
 }
 
 
@@ -34,15 +40,30 @@ def values(value):
 
 
 def is_absolute_iri(value):
-    if not isinstance(value, str) or re.search(r'[\s<>"{}|\\^`]', value):
+    """Check generic IRI syntax and HTTP authority before asserting a node identity."""
+    if not isinstance(value, str) or re.search(r'[\s\x00-\x1f\x7f<>"{}|\\^`\ud800-\udfff]', value):
+        return False
+    if not re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", value):
+        return False
+    if re.search(r"%(?![0-9A-Fa-f]{2})", value) or value.count("#") > 1:
         return False
     try:
         parts = urlsplit(value)
+        if parts.scheme in {"http", "https"}:
+            # urlsplit alone accepts missing hosts and invalid ports.
+            return bool(parts.hostname) and (parts.port is None or 0 <= parts.port <= 65535)
     except ValueError:
         return False
-    return parts.scheme in {"http", "https", "urn"} and bool(
-        parts.netloc if parts.scheme in {"http", "https"} else parts.path
-    )
+    return bool(parts.netloc or parts.path)
+
+
+def _relationship_uri(value, base):
+    if is_absolute_iri(value):
+        return value
+    # Do not turn malformed URLs or relative URL references into catalogue identities.
+    if ":" in value or value.startswith(("/", "#", "?", "./", "../")):
+        return None
+    return resource_uri(value, base)
 
 
 def geoportal_base_url():
@@ -110,13 +131,14 @@ def _links(value):
         if (
             isinstance(item, dict)
             and is_absolute_iri(item.get("url"))
-            and item["url"].startswith(("https://", "http://"))
+            and urlsplit(item["url"]).scheme in {"http", "https"}
         ):
             yield item
 
 
 def resource_jsonld(document, resource_id, *, base_url=None, distribution_context=None):
     """Project supported metadata without inventing agents, formats or identities."""
+    document = OGMFieldMapper.map_resource_fields(document)
     base = (base_url or geoportal_base_url()).rstrip("/").removesuffix("/api/v1")
     uri = resource_uri(resource_id, base)
     kind = _type(document)
@@ -137,8 +159,7 @@ def resource_jsonld(document, resource_id, *, base_url=None, distribution_contex
     issued = values(document.get("dct_issued_s"))
     if issued:
         try:
-            date.fromisoformat(issued[0])
-            result["datePublished"] = issued[0]
+            result["datePublished"] = date.fromisoformat(issued[0]).isoformat()
         except ValueError:
             # Preserve imprecise/free-text publication dates without an invalid Date.
             result[DCT + "issued"] = issued[0]
@@ -188,21 +209,24 @@ def resource_jsonld(document, resource_id, *, base_url=None, distribution_contex
     }
     for field, predicate in relationships.items():
         targets = values(document.get(field))
-        if targets:
-            result.setdefault(predicate, []).extend(
-                {"@id": target if is_absolute_iri(target) else resource_uri(target, base)}
-                for target in targets
-            )
+        for target in targets:
+            target_uri = _relationship_uri(target, base)
+            if target_uri:
+                nodes = result.setdefault(predicate, [])
+                node = {"@id": target_uri}
+                if node not in nodes:
+                    nodes.append(node)
     for field, predicate in (
         ("b1g_dct_conformsTo_sm", DCT + "conformsTo"),
         ("b1g_dct_provenance_sm", DCT + "provenance"),
         ("b1g_dct_provenanceStatement_sm", DCT + "provenance"),
     ):
         items = values(document.get(field))
-        if items:
-            result[predicate] = [
-                {"@id": item} if is_absolute_iri(item) else {"description": item} for item in items
-            ]
+        for item in items:
+            nodes = result.setdefault(predicate, [])
+            node = {"@id": item} if is_absolute_iri(item) else {"description": item}
+            if node not in nodes:
+                nodes.append(node)
 
     refs = _references(document, distribution_context)
     landing_pages = list(_links(refs.get("http://schema.org/url")))
