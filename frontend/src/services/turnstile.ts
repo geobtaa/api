@@ -80,9 +80,7 @@ export function isTurnstileRequiredResponse(
 ): boolean {
   if (response.status !== 403) return false;
 
-  if (
-    response.headers.get('x-turnstile-required')?.toLowerCase() === 'true'
-  ) {
+  if (response.headers.get('x-turnstile-required')?.toLowerCase() === 'true') {
     return true;
   }
 
@@ -229,7 +227,6 @@ function responseBodyRequiresTurnstile(bodyText: string): boolean {
 function shouldBypassTurnstileInLocalDev(): boolean {
   const isDevOrTest = import.meta.env.DEV || import.meta.env.MODE === 'test';
   return (
-    isDevOrTest &&
-    !isEnabledFlag(import.meta.env.VITE_TURNSTILE_ENABLE_LOCAL)
+    isDevOrTest && !isEnabledFlag(import.meta.env.VITE_TURNSTILE_ENABLE_LOCAL)
   );
 }

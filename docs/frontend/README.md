@@ -24,6 +24,10 @@ Features:
 
 - [Homepage Map Visualization](homepage-map.md) - H3 hex map, featured carousel,
   preview layers, and Allmaps behavior.
+- Resource-page item previews use the `ogm-viewer` web components with the
+  Aardvark record already returned by the resource API. Vite leaves the
+  components un-prebundled and resolves their runtime theme and icon assets in
+  development, then emits those assets during production builds.
 
 Configuration:
 
@@ -39,8 +43,8 @@ The frontend stack currently uses:
 - TypeScript, Vite 7, and React Router dev tooling.
 - Vitest 3, Testing Library, `happy-dom`, axe, and pa11y for tests and
   accessibility checks.
-- Material UI 7, Tailwind, Leaflet, GeoBlacklight frontend components, Allmaps,
-  H3, Recharts, and Lucide icons.
+- Material UI 7, Tailwind, MapLibre, `ogm-viewer`, Allmaps MapLibre layers
+  for homepage previews, Allmaps, H3, Recharts, and Lucide icons.
 
 ## Unfiltered Search
 
@@ -145,9 +149,73 @@ instead of invalidating dependency URLs while the page loads.
 
 PMTiles previews require Ctrl or Command plus scroll to zoom, leaving ordinary
 scrolling available for the page. Unmodified scrolling briefly displays a centered
-Leaflet-style instruction over a dimmed map (Command on Mac, Ctrl elsewhere); zoom buttons,
+MapLibre cooperative-gesture instruction (Command on Mac, Ctrl elsewhere); zoom buttons,
 dragging, and touch interactions remain available.
 
 Resource source links are native anchors, supporting URL previews, copy-link,
 and modifier clicks. Multiple source URLs are displayed individually. Web
 Services, Metadata, and Open in ArcGIS retain their selection dialogs.
+
+### OGM Viewer basemaps
+
+The resource viewer uses a pinned source build of the [BTAA OGM Viewer fork](ogm-viewer.md), based on upstream 1.6.0, with explicit OpenFreeMap Liberty
+and Dark styles. Version 1.x bundles its theme and icons; the application no longer
+copies viewer assets or imports private hashed asset-loader modules. Vite retains
+ES module worker output for COG decoding. The legacy standalone backend viewer separately pins upstream 1.6.0 and the same basemap styles. Application geographic maps use the
+shared MapLibre primitives in `frontend/src/mapping`. The resource-page Allmaps
+viewer remains the official embedded viewer; specialist IIIF viewers are retained.
+They preserve the existing latitude/longitude and legacy 256-pixel zoom contracts
+at the application boundary, converting once to MapLibre longitude/latitude and
+512-pixel zoom. GeoJSON collections share a source and use feature state for hover.
+Homepage protocol previews use OGM Viewer previewers and Allmaps MapLibre layers.
+
+The frontend Docker image and the combined application image use Node 22 and installs the committed lockfile with
+`npm ci --legacy-peer-deps`, matching the MapLibre dependency runtime requirements. The lockfile pins the fork tarball and its integrity in both images. No OGM postinstall patch, compiled-source substitution, or custom worker alias is needed.
+
+Search map controls:
+
+- The Location filter, results, and resource Location maps start with compact attribution collapsed behind the native MapLibre information button. Users can open or close it with mouse or keyboard. The shared `collapsedAttribution` map option applies only the initial state; attribution remains available and later user choices are preserved.
+
+Resource pages hide OGM Viewer's internal menubar and repeated title, so the
+canvas starts directly below the page-level viewer controls.
+
+The resource page omits OGM Viewer's metadata-only Location preview because the
+sidebar already shows that map. Records without a supported content reference
+skip the viewer and its controls entirely. Image, manifest, and actual map-layer
+previews remain available; WMS/WMTS references require a layer identifier.
+
+For records with both IIIF references, the viewer opens the manifest's **Images**
+tab before the **Single image** tab. Failed inactive image previews become
+unavailable; **Single image** tabs are hidden from the first render while the manifest
+loads and after it succeeds. They are revealed if its initial load fails. A lone
+preview displays its canvas without a tab bar, including during initial loading. An initial preview failure switches to another IIIF image preview
+only after it has loaded; later page failures keep the reader in the book.
+
+IIIF image downloads use the active image service already loaded by OGM Viewer.
+The resource page does not make a separate manifest-derived download request,
+so collections that the viewer can open do not show a second resolver's error.
+Links respect the service's Image API version, advertised sizes and limits.
+Paging and preview-tab changes update individual image downloads. The Downloads
+page/sheet picker navigates the viewer too; publisher-provided downloads remain
+available. The download heading only appears when image links are available.
+The independent API endpoint remains available to other clients; see
+[IIIF downloads](../backend/iiif_downloads.md) for its supported manifest shapes
+and endpoint fields.
+
+### Standalone OGM Viewer
+
+“Open in new tab” opens `/ogm-viewer?resource=<encoded resource ID>` with
+the complete catalog record and a viewport-height OGM Viewer. Its native
+menubar remains available in this standalone view. The resource-page viewer
+continues to omit the repeated title. Both omit the Location preview.
+
+Existing `/mirador?manifest=<encoded manifest URL>` links permanently redirect
+to `/ogm-viewer` with their query string preserved. Manifest-only links create
+a minimal Aardvark record in the browser viewer; the server does not fetch the
+user-supplied manifest URL. Missing or invalid inputs show an accessible message.
+
+### Resource viewer opening camera
+
+Embedded and standalone resource viewers share `utils/mapFraming.ts`. Valid record bounds narrower than 350 degrees retain their existing framing. Missing, invalid, or near-global record bounds can fall back to source-reported extents through OGM Viewer's resource adapters. GeoJSON and index maps use connected geometry and circular longitude intervals to preserve antimeridian coverage. Truly global geometry stays global; the algorithm does not select a preferred country or discard outlying features.
+
+Extent discovery is limited to four content sources and five seconds of initial waiting. If any source has unknown coverage, the viewer retains its normal fallback rather than fitting an incomplete union. Late results never move an already opened map. Only the in-memory viewer camera accessor changes: record JSON, coverage geometry, Location sidebar, search indexing, and downloadable metadata remain unchanged.

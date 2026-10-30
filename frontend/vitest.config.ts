@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
+import { configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import a11yReporter from './vitest-a11y-reporter'
 
@@ -7,6 +8,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
+    exclude: [...configDefaults.exclude, 'browser-tests/**', '.viewer-browser-build/**'],
+    // Bound expensive DOM/accessibility audits on shared development and CI CPUs.
+    maxWorkers: 2,
     environment: 'happy-dom',
     setupFiles: ['./src/setupTests.ts'],
     css: true,

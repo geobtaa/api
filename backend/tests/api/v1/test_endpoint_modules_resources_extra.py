@@ -50,7 +50,7 @@ async def test_list_resources_success(monkeypatch):
 
     # Two fake rows
     rows = [make_row({"id": "r1"}), make_row({"id": "r2"})]
-    res.async_session = lambda: DummySession(fetchall_rows=rows)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchall_rows=rows))
 
     async def fake_process_resource(resource_dict, session):
         return {"id": resource_dict["id"], "type": "resource", "attributes": resource_dict}
@@ -87,7 +87,7 @@ async def test_get_resource_found(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
     row = make_row({"id": "r1"})
-    res.async_session = lambda: DummySession(fetchone_row=row)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=row))
 
     async def fake_process_resource(resource_dict, session):
         return {"id": resource_dict["id"], "type": "resource", "attributes": resource_dict}
@@ -120,7 +120,7 @@ async def test_get_resource_homepage_profile_uses_lightweight_processor(monkeypa
     from app.api.v1.endpoint_modules import resources as res
 
     row = make_row({"id": "r1"})
-    res.async_session = lambda: DummySession(fetchone_row=row)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=row))
 
     async def unexpected_full_process(resource_dict, session):
         raise AssertionError("full resource processor should not run for homepage profile")
@@ -162,7 +162,7 @@ async def test_get_resource_not_found(monkeypatch):
 
     from app.api.v1.endpoint_modules import resources as res
 
-    res.async_session = lambda: DummySession(fetchone_row=None)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=None))
 
     class DummyRequest:
         def __init__(self):
@@ -186,7 +186,7 @@ async def test_get_resource_error(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
     row = make_row({"id": "r1"})
-    res.async_session = lambda: DummySession(fetchone_row=row)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=row))
 
     async def raise_process(resource_dict, session):
         raise Exception("processing")
@@ -213,7 +213,7 @@ async def test_get_resource_ogm_success(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
     row = make_row({"id": "r1", "empty": "", "arr": [None, ""], "ok": ["x"]})
-    res.async_session = lambda: DummySession(fetchone_row=row)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=row))
 
     class FakeMapper:
         @staticmethod
@@ -232,7 +232,7 @@ async def test_get_resource_ogm_not_found(monkeypatch):
 
     from app.api.v1.endpoint_modules import resources as res
 
-    res.async_session = lambda: DummySession(fetchone_row=None)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=None))
     with pytest.raises(HTTPException) as exc:
         await res.get_resource_ogm("x", callback=None)
     assert exc.value.status_code == 404
@@ -247,7 +247,7 @@ async def test_get_resource_viewer_found(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
     row = make_row({"id": "r1"})
-    res.async_session = lambda: DummySession(fetchone_row=row)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=row))
     resp = await res.get_resource_viewer("r1", embed=False)
     # HTMLResponse
     assert hasattr(resp, "body")
@@ -258,7 +258,7 @@ async def test_get_resource_viewer_found(monkeypatch):
 async def test_get_resource_viewer_not_found(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
-    res.async_session = lambda: DummySession(fetchone_row=None)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=None))
     from fastapi import HTTPException
 
     with pytest.raises(HTTPException) as exc:
@@ -272,7 +272,7 @@ async def test_get_resource_viewer_error(monkeypatch):
 
     from app.api.v1.endpoint_modules import resources as res
 
-    res.async_session = lambda: DummySession(raise_on="execute")
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(raise_on="execute"))
     with pytest.raises(HTTPException) as exc:
         await res.get_resource_viewer("r1", embed=False)
     assert exc.value.status_code == 500
@@ -283,7 +283,7 @@ async def test_get_resource_spatial_facets_exists(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
     row = make_row({"id": "r1", "dcat_bbox": "BOX(0 0,1 1)"})
-    res.async_session = lambda: DummySession(fetchone_row=row)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=row))
 
     class FakeSpatial:
         def __init__(self, rd):
@@ -320,7 +320,7 @@ async def test_get_resource_spatial_facets_exists(monkeypatch):
 async def test_get_resource_spatial_facets_missing(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
-    res.async_session = lambda: DummySession(fetchone_row=None)
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(fetchone_row=None))
 
     class DummyRequest:
         def __init__(self):
@@ -350,7 +350,7 @@ async def test_get_resource_spatial_facets_missing(monkeypatch):
 async def test_get_resource_spatial_facets_error(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
-    res.async_session = lambda: DummySession(raise_on="execute")
+    monkeypatch.setattr(res, "async_session", lambda: DummySession(raise_on="execute"))
     from fastapi import HTTPException
 
     class DummyRequest:

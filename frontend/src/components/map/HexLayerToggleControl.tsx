@@ -1,8 +1,9 @@
 import { useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import L from 'leaflet';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
 import { Hexagon, Table } from 'lucide-react';
-import { LeafletContext } from '@react-leaflet/core';
+import { MapContext as LeafletContext } from '../../mapping/context';
 import { HexTableModal } from './HexTableModal';
 
 const MAP_CONTROL_ICON_PROPS = {
@@ -19,7 +20,7 @@ interface HexLayerToggleControlProps {
   searchQuery?: string;
   queryString?: string;
   loading?: boolean;
-  mapInstance?: L.Map | null;
+  mapInstance?: MapTypes.Map | null;
   stackOrder?: 'default' | 'beforeBasemap';
 }
 
@@ -45,23 +46,22 @@ export function HexLayerToggleControl({
     const CustomControl = L.Control.extend({
       onAdd: () => {
         const div = document.createElement('div');
-        div.className = 'leaflet-control leaflet-bar';
+        div.className = 'maplibregl-ctrl maplibregl-ctrl-group';
         L.DomEvent.disableClickPropagation(div);
         return div;
       },
     });
 
     const control = new CustomControl({
-      position: 'topleft' as L.ControlPosition,
+      position: 'topright' as MapTypes.ControlPosition,
     });
     control.addTo(map);
     const controlContainer = control.getContainer();
     if (stackOrder === 'beforeBasemap') {
       const cornerContainer = controlContainer?.parentElement;
       if (cornerContainer && controlContainer) {
-        const basemapControl = cornerContainer.querySelector(
-          '.leaflet-control-layers'
-        );
+        const basemapControl =
+          cornerContainer.querySelector('.geo-map-basemap');
         if (basemapControl) {
           cornerContainer.insertBefore(controlContainer, basemapControl);
         }
@@ -100,7 +100,7 @@ export function HexLayerToggleControl({
           }}
           aria-label={enabled ? 'Hide hex map layer' : 'Show hex map layer'}
           title={enabled ? 'Hide hex map layer' : 'Show hex map layer'}
-          className={`leaflet-control-custom-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors ${
+          className={`geo-map-control-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors ${
             enabled ? 'bg-blue-50 hover:bg-blue-100' : ''
           }`}
         >
@@ -120,7 +120,7 @@ export function HexLayerToggleControl({
             isTableOpen ? 'Close hex data table' : 'View hex data as table'
           }
           title={isTableOpen ? 'Close hex data table' : 'View hex table'}
-          className="leaflet-control-custom-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors disabled:cursor-not-allowed disabled:text-gray-300"
+          className="geo-map-control-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors disabled:cursor-not-allowed disabled:text-gray-300"
         >
           <Table {...MAP_CONTROL_ICON_PROPS} className="text-gray-700" />
         </button>

@@ -10,6 +10,10 @@ import { BookmarkProvider } from '../../context/BookmarkContext';
 import { vi } from 'vitest';
 import type { GeoDocument } from '../../types/api';
 
+vi.mock('../../components/resource/ResourceViewer', () => ({
+  ResourceViewer: () => <div data-testid="resource-viewer" />,
+}));
+
 // Real fixture data from the /test/fixtures page
 const realFixtureData: GeoDocument[] = [
   {
@@ -27,6 +31,10 @@ const realFixtureData: GeoDocument[] = [
         dct_accessrights_s: 'Public',
         gbl_wxsidentifier_s: 'mit-001145244',
         gbl_wxsIdentifier_s: 'mit-001145244',
+        dct_references_s: JSON.stringify({
+          'http://www.opengis.net/def/serviceType/ogc/wms':
+            'https://example.com/wms',
+        }),
         locn_geometry_original: 'POINT(-71.0935 42.3601)',
         ui_viewer_protocol: 'wms',
         ui_viewer_endpoint: 'https://example.com/wms',
@@ -231,8 +239,8 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('ResourceView Component', () => {
-  let fetchResourceDetails: any;
-  let fetchSearchResults: any;
+  let fetchResourceDetails: typeof import('../../services/api').fetchResourceDetails;
+  let fetchSearchResults: typeof import('../../services/api').fetchSearchResults;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -243,8 +251,8 @@ describe('ResourceView Component', () => {
     fetchSearchResults = apiModule.fetchSearchResults;
 
     // Mock successful API response
-    (fetchResourceDetails as any).mockResolvedValue(realFixtureData[0]);
-    (fetchSearchResults as any).mockResolvedValue({
+    vi.mocked(fetchResourceDetails).mockResolvedValue(realFixtureData[0]);
+    vi.mocked(fetchSearchResults).mockResolvedValue({
       data: realFixtureData,
     });
   });
@@ -284,7 +292,7 @@ describe('ResourceView Component', () => {
 
   describe('Error Handling', () => {
     it('displays error message when API call fails', async () => {
-      (fetchResourceDetails as any).mockRejectedValue(new Error('API Error'));
+      vi.mocked(fetchResourceDetails).mockRejectedValue(new Error('API Error'));
 
       render(
         <TestWrapper>
@@ -303,7 +311,7 @@ describe('ResourceView Component', () => {
 
     it('displays ApiError message when API returns specific error', async () => {
       const { ApiError } = await import('../../services/api');
-      (fetchResourceDetails as any).mockRejectedValue(
+      vi.mocked(fetchResourceDetails).mockRejectedValue(
         new ApiError('Resource not found')
       );
 
@@ -598,32 +606,27 @@ describe('ResourceView Component', () => {
         ).toBeGreaterThan(0);
       });
 
-      // ResourceViewer should be rendered when protocol is available
-      expect(
-        screen.getAllByText('Nondigitized paper map with library catalog link')
-          .length
-      ).toBeGreaterThan(0);
+      expect(screen.getByTestId('resource-viewer')).toBeInTheDocument();
     });
 
-    it('renders AttributeTable when protocol is wms', async () => {
+    it('uses OGM Viewer without the legacy attribute inspection table', async () => {
       render(
         <TestWrapper>
           <ResourceView />
         </TestWrapper>
       );
-
-      await waitFor(() => {
-        expect(screen.getByText('Attribute')).toBeInTheDocument();
-        expect(screen.getByText('Value')).toBeInTheDocument();
-        expect(
-          screen.getByText('Click on map to inspect values')
-        ).toBeInTheDocument();
-      });
+      expect(await screen.findByTestId('resource-viewer')).toBeInTheDocument();
+      expect(
+        document.getElementById('attribute-table')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Click on map to inspect values')
+      ).not.toBeInTheDocument();
     });
 
     it('renders IndexMap when protocol is open_index_map', async () => {
       // Mock the component with open_index_map protocol
-      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[2]); // Tufts fixture with open_index_map
+      vi.mocked(fetchResourceDetails).mockResolvedValue(realFixtureData[2]); // Tufts fixture with open_index_map
 
       render(
         <TestWrapper>
@@ -727,7 +730,7 @@ describe('ResourceView Component', () => {
 
     it('handles different fixture data types', async () => {
       // Test with NYU fixture
-      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[1]);
+      vi.mocked(fetchResourceDetails).mockResolvedValue(realFixtureData[1]);
 
       render(
         <TestWrapper>
@@ -744,7 +747,7 @@ describe('ResourceView Component', () => {
 
     it('handles polygon data fixture', async () => {
       // Test with Tufts fixture
-      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[2]);
+      vi.mocked(fetchResourceDetails).mockResolvedValue(realFixtureData[2]);
 
       render(
         <TestWrapper>
@@ -774,7 +777,7 @@ describe('ResourceView Component', () => {
         },
       };
 
-      (fetchResourceDetails as any).mockResolvedValue(restrictedFixture);
+      vi.mocked(fetchResourceDetails).mockResolvedValue(restrictedFixture);
 
       render(
         <TestWrapper>

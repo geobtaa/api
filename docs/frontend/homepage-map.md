@@ -2,13 +2,13 @@
 
 ## Overview
 
-The homepage features an interactive Leaflet map that combines three main elements:
+The homepage features an interactive MapLibre map that combines three main elements:
 
 1. **H3 Hex Map** — Resource density visualization using Uber's H3 hexagonal grid
 2. **Featured Resources Carousel** — Curated examples that showcase different resource types and previews
 3. **Search Here** — Button to search within the current map extent (appears after user pan/zoom)
 
-The map defaults to an OpenStreetMap basemap and is centered south of the continental US so North America appears beneath the search form. Chicago (a dense hex cluster) is positioned for visual prominence via an initial programmatic pan. Interactive basemap pickers also offer Esri World Imagery.
+The map defaults to OpenFreeMap Liberty and matches the production camera: latitude 44, longitude -80, offset 400 pixels east at legacy zoom 3. This resolves to an initial center of (44, -9.6875), keeping the US cluster left of center. The offset is applied to the initial camera rather than generating a startup pan. Interactive basemap pickers offer OpenFreeMap Liberty, Bright, Positron, Dark, and Fiord (excluding 3D). The layers button expands in place into a continuous hover area, matching production. Loading, resizing, and basemap changes do not reveal the Search Here button or orange outline; the first user pan, zoom, or keyboard camera movement does. Returning Home clears the prompt.
 
 ---
 
@@ -20,16 +20,18 @@ The hex map aggregates geospatial resource counts into H3 cells and renders them
 
 ### How It Works
 
-- **Resolution mapping**: Leaflet zoom level maps to H3 resolution (2–8). Lower zoom = coarser hexes; higher zoom = finer hexes.
+- **Resolution mapping**: Application zoom level (legacy 256-pixel camera units) maps to H3 resolution (2–8). Lower zoom = coarser hexes; higher zoom = finer hexes.
 - **API**: `MapUpdaterHex` uses `useMapH3`, which calls `fetchMapH3` with the viewport bbox and resolution. The backend `/api/v1/map/h3` endpoint returns hex indexes and counts.
 - **Cache versioning**: `fetchMapH3` sends a `_v` request parameter. Bump `MAP_H3_REQUEST_VERSION` when H3 query/filter semantics change so browser, SSR, and backend endpoint caches do not reuse older hex aggregates.
 - **Data flow**: On map move/zoom, the component sends the visible bounds to the API. Hexes are fetched, then rendered as GeoJSON polygons using `cellToBoundary` from `h3-js`.
 - **Dateline geometry**: Both hex map views use `h3CellGeometry` to split cells crossing ±180° into a single GeoJSON MultiPolygon, retaining one H3 identifier and count for hover and clicks. Homepage click bounds use a short wrapped interval (`west > east`); the API splits it into two envelopes instead of searching a nearly global band.
+- **Refresh failures**: Zoom changes are coalesced and obsolete requests aborted. Keep the last successful viewport and its H3 resolution during loading or temporary errors; never reuse it across query/filter changes. Retry transient failures at most twice, honoring upstream retry guidance. Loading/error updates do not rebuild the existing map source.
+- **Local authentication**: Compose passes the configured server-only API credential to both the API and SSR services. This keeps ordinary map navigation on the intended authenticated tier. A separately started SSR preview must receive the same configured credential.
 - **Color ramp**: 10-step blue ramp; each hex color is chosen by its count relative to the max count in the current view.
 
 ### Zoom-to-Resolution
 
-| Leaflet Zoom | H3 Resolution | Typical Use |
+| Application Zoom | H3 Resolution | Typical Use |
 |--------------|---------------|-------------|
 | ≤3 | 2 | Large country / multi-country |
 | 4 | 3 | Country / state |
@@ -79,21 +81,23 @@ Featured items are defined in `frontend/src/config/featured.ts`. Each ID corresp
 - **Map fly**: The map flies to the active item's `dcat_bbox`. Allmaps items use tighter zoom (maxZoom 12, padding 20); others use maxZoom 10, padding 60.
 - **Bounds rectangle**: A blue outline and semi-transparent fill show the resource extent.
 - **Preview layer**:
-  - **GeoBlacklight** (WMS, WMTS, ArcGIS, XYZ, etc.): Renders the layer via GeoBlacklight Leaflet layers.
-  - **Allmaps**: Uses `@allmaps/leaflet` `WarpedMapLayer` to display georeferenced IIIF maps from the Allmaps annotation URL.
+  - **OGM Viewer** (WMS, WMTS, ArcGIS, XYZ, etc.): Attaches OGM Viewer MapLibre previewers to the shared map.
+  - **Allmaps**: Uses `@allmaps/maplibre` `WarpedMapLayer` to display georeferenced IIIF maps from the Allmaps annotation URL.
+- **Layer order**: MapLibre pane anchors keep density hexes (400), bounds (410), selection (415), and featured previews (420) in order regardless of fetch completion or hex visibility toggles. Featured ArcGIS point layers use overlapping blue pins; routes use the production blue stroke. Pin layers are removed with the preview on slide changes and Home.
+- **Readiness**: Overlay installation waits for the style document, not tile completion or idle; animated Allmaps previews must not block hex restoration. Carousel progress ticks leave map layers unchanged, and H3 requests use settled bounds/zoom. The Home camera is captured from configuration before previews can move the map.
 - **Popup card**: Title, description, year, resource class, thumbnail, and "View resource" link.
 
 ### User Engagement
 
-The map tracks whether the user has panned or zoomed. If they do before the 10-second timer, the featured carousel does **not** auto-start (user engagement takes precedence). Programmatic moves (initial pan, flyToBounds for featured items) are ignored. The carousel remains visible; the user can still click a thumbnail to trigger the featured experience.
+The map tracks whether the user has panned or zoomed. If they do before the 10-second timer, the featured carousel does **not** auto-start (user engagement takes precedence). Programmatic flights for featured items and passive layout/style events are ignored. The carousel remains visible; the user can still click a thumbnail to trigger the featured experience.
 
 ---
 
 ## Preview Layer Types
 
-### GeoBlacklight (Leaflet) Resources
+### OGM Viewer Resources
 
-Supported protocols: WMS, WMTS, ArcGIS (dynamic, feature, tiled, image), Tile JSON, Open Index Map, TMS, XYZ. The `FeaturedItemPreviewLayer` uses `meta.ui.viewer` (protocol, endpoint, geometry) and dynamically loads the appropriate GeoBlacklight layer.
+Supported protocols: WMS, WMTS, ArcGIS (dynamic, feature, tiled, image), Tile JSON, Open Index Map, TMS, XYZ. The `FeaturedItemPreviewLayer` normalizes the Aardvark record, derives resources and previewers through `ogm-viewer/lib`, and attaches the first geographic preview to the shared MapLibre map.
 
 ### Allmaps Georeferenced Maps
 
@@ -103,7 +107,7 @@ Resources with entries in the `resource_allmaps` table (where `annotated = true`
 - `allmaps_annotated` — Whether georeferencing exists
 - `allmaps_manifest_uri` — IIIF manifest URL
 
-The frontend creates a `WarpedMapLayer` from `@allmaps/leaflet` using the annotation URL. Allmaps uses WebGL to warp IIIF images onto their geographic position. See [Allmaps Leaflet docs](https://allmaps.org/docs/packages/leaflet/).
+The frontend creates a `WarpedMapLayer` from `@allmaps/maplibre` using the annotation URL. Allmaps uses WebGL to warp IIIF images onto their geographic position. See [Allmaps MapLibre docs](https://allmaps.org/docs/packages/maplibre/).
 
 ---
 
@@ -116,7 +120,7 @@ The frontend creates a `WarpedMapLayer` from `@allmaps/leaflet` using the annota
 | `FeaturedMapController` | Flies map to active featured item's bbox |
 | `FeaturedItemPreviewLayer` | Renders GeoBlacklight or Allmaps preview layer |
 | `FeaturedItemBoundsLayer` | Draws bounds rectangle for active item |
-| `MapPanner` | One-time initial pan (Chicago positioning) |
+| `HomeMapInitialView` | Captures the production-offset initial camera without moving it |
 | `MapUserEngagementTracker` | Detects user pan/zoom for engagement logic |
 | `SearchHereControl` | "Search here" button after user interaction |
 

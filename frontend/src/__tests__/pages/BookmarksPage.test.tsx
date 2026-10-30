@@ -25,7 +25,15 @@ vi.mock('../../components/layout/Footer', () => ({
 }));
 
 vi.mock('../../components/SearchResults', () => ({
-  SearchResults: ({ results, isLoading, totalResults }: any) => (
+  SearchResults: ({
+    results,
+    isLoading,
+    totalResults,
+  }: {
+    results: unknown[];
+    isLoading: boolean;
+    totalResults: number;
+  }) => (
     <div data-testid="search-results">
       {isLoading ? (
         <div data-testid="loading">Loading...</div>
@@ -40,19 +48,27 @@ vi.mock('../../components/SearchResults', () => ({
 }));
 
 vi.mock('../../components/FacetList', () => ({
-  FacetList: ({ facets }: any) => (
+  FacetList: ({ facets }: { facets: unknown[] }) => (
     <div data-testid="facet-list">Facets: {facets.length}</div>
   ),
 }));
 
 vi.mock('../../components/search/MapView', () => ({
-  MapView: ({ results }: any) => (
+  MapView: ({ results }: { results: unknown[] }) => (
     <div data-testid="map-view">Map with {results.length} results</div>
   ),
 }));
 
 vi.mock('../../components/search/SortControl', () => ({
-  SortControl: ({ options, currentSort, onSortChange }: any) => (
+  SortControl: ({
+    options,
+    currentSort,
+    onSortChange,
+  }: {
+    options: unknown[];
+    currentSort: string;
+    onSortChange: (sort: string) => void;
+  }) => (
     <div data-testid="sort-control">
       <div data-testid="current-sort">{currentSort}</div>
       <div data-testid="sort-options">{options.length} options</div>

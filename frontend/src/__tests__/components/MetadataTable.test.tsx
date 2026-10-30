@@ -256,9 +256,9 @@ describe('MetadataTable Component', () => {
         data: {
           attributes: {
             dct_description_sm: ['Valid description'],
-            dct_spatial_sm: null as any,
-            dct_temporal_sm: undefined as any,
-            dc_subject_sm: null as any,
+            dct_spatial_sm: null as never,
+            dct_temporal_sm: undefined as never,
+            dc_subject_sm: null as never,
           },
         },
       };
@@ -460,7 +460,7 @@ describe('MetadataTable Component', () => {
 
   describe('Edge Cases', () => {
     it('handles missing data object gracefully', () => {
-      const emptyData = { data: null as any };
+      const emptyData = { data: null as never };
 
       render(<MetadataTable data={emptyData} />);
 

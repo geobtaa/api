@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { useCallback, useEffect, useRef } from 'react';
+import { useMap } from '../../mapping/react';
+import L from '../../mapping/maplibre';
 import type { GeoDocumentDetails } from '../../types/api';
 import { parseBboxToLeafletBounds } from '../../utils/bbox';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
@@ -34,10 +34,11 @@ export function FeaturedMapController({
 }: FeaturedMapControllerProps) {
   const map = useMap();
   const wasInitiatedRef = useRef(false);
-  const getHomeView = () => {
+  const detail = featuredDetails[activeIndex];
+  const getHomeView = useCallback(() => {
     if (initialHomeViewRef?.current) return initialHomeViewRef.current;
     return { center: HOME_PAGE_MAP_CENTER, zoom: DEFAULT_US_ZOOM };
-  };
+  }, [initialHomeViewRef]);
 
   // When user clicks HOME (featuredInitiated becomes false), fly back to default map view
   useEffect(() => {
@@ -56,13 +57,14 @@ export function FeaturedMapController({
       map.off('moveend', onMoveEnd);
     };
     map.on('moveend', onMoveEnd);
-    return () => map.off('moveend', onMoveEnd);
-  }, [map, featuredInitiated, programmaticFlyRef]);
+    return () => {
+      map.off('moveend', onMoveEnd);
+    };
+  }, [map, featuredInitiated, programmaticFlyRef, getHomeView]);
 
   useEffect(() => {
     if (!featuredInitiated) return;
 
-    const detail = featuredDetails[activeIndex];
     programmaticFlyRef.current = true;
 
     const duration = featuredCamera?.duration ?? 1.5;
@@ -77,7 +79,9 @@ export function FeaturedMapController({
         map.off('moveend', onMoveEnd);
       };
       map.on('moveend', onMoveEnd);
-      return () => map.off('moveend', onMoveEnd);
+      return () => {
+        map.off('moveend', onMoveEnd);
+      };
     };
 
     const fallbackToHome = () => {
@@ -92,10 +96,8 @@ export function FeaturedMapController({
     const isAllmaps = hasAllmapsViewer(detail);
     const defaultPadding: [number, number] = isAllmaps ? [20, 20] : [60, 60];
     const padding = featuredCamera?.padding ?? defaultPadding;
-    const maxZoom =
-      featuredCamera?.maxZoom ?? (isAllmaps ? 12 : 10);
-    const minZoom =
-      featuredCamera?.minZoom ?? Number.NEGATIVE_INFINITY;
+    const maxZoom = featuredCamera?.maxZoom ?? (isAllmaps ? 12 : 10);
+    const minZoom = featuredCamera?.minZoom ?? Number.NEGATIVE_INFINITY;
 
     const bbox = detail?.attributes?.ogm?.dcat_bbox;
     const parsedBounds = parseBboxToLeafletBounds(bbox);
@@ -164,11 +166,11 @@ export function FeaturedMapController({
     return cleanupMoveListener();
   }, [
     map,
-    activeIndex,
-    featuredDetails,
+    detail,
     featuredCamera,
     featuredInitiated,
     programmaticFlyRef,
+    getHomeView,
   ]);
 
   return null;

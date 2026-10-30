@@ -1,0 +1,52 @@
+{
+  "@context": "http://iiif.io/api/presentation/2/context.json",
+  "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:2973/manifest.json",
+  "sequences": [
+    {
+      "canvases": [
+        {
+          "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:2973/canvas/c0",
+          "@type": "sc:Canvas",
+          "label": "Peace map of Europe : July 4, 1918",
+          "images": [
+            {
+              "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:2973/annotation/a0",
+              "@type": "oa:Annotation",
+              "motivation": "sc:painting",
+              "resource": {
+                "@id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll230:2973/full/full/0/default.jpg",
+                "@type": "dctypes:Image",
+                "service": {
+                  "@context": "http://iiif.io/api/image/2/context.json",
+                  "@id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll230:2973",
+                  "width": 8318,
+                  "height": 7460,
+                  "tiles": [
+                    {
+                      "width": 8318,
+                      "scaleFactors": [
+                        1,
+                        2,
+                        4,
+                        8,
+                        16
+                      ]
+                    }
+                  ],
+                  "profile": "http://iiif.io/api/image/2/level1.json",
+                  "protocol": "http://iiif.io/api/image"
+                },
+                "format": "image/jpeg",
+                "width": 8318,
+                "height": 7460
+              },
+              "on": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:2973/canvas/c0"
+            }
+          ],
+          "width": 8318,
+          "height": 7460
+        }
+      ]
+    }
+  ]
+}

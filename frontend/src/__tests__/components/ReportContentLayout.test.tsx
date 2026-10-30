@@ -1,5 +1,6 @@
 import { render, screen, within, waitFor } from '@testing-library/react';
 import { it, expect } from 'vitest';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import { ReportContentLayout } from '../../components/analytics/ReportContentLayout';
 
 it('uses visible headings rather than stale aliases or the sources class', async () => {
@@ -44,4 +45,23 @@ it('uses visible headings rather than stale aliases or the sources class', async
   await waitFor(() =>
     expect(within(nav).getByText('Updated heading')).toBeInTheDocument()
   );
+});
+
+it('has no WCAG violations in the real section navigation layout', async () => {
+  const { container } = render(
+    <ReportContentLayout report="Overview">
+      <main className="analytics-content">
+        <section className="analytics-section">
+          <h2>Daily activity</h2>
+          <p>Daily report</p>
+        </section>
+        <section className="analytics-section">
+          <h2>Sources</h2>
+          <p>Data provenance</p>
+        </section>
+      </main>
+    </ReportContentLayout>
+  );
+  await screen.findByRole('navigation', { name: 'Overview sections' });
+  expect((await axeWithWCAG22(container)).violations).toEqual([]);
 });

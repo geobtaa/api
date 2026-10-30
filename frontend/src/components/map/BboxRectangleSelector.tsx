@@ -1,12 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import L from 'leaflet';
-import { useMap } from 'react-leaflet';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
+import { useMap } from '../../mapping/react';
 import { normalizeBboxSearchEnvelope } from '../../utils/bbox';
 
 const BBOX_RECTANGLE_PANE = 'bboxRectangleSelectorPane';
 
-function buildBboxSearchUrl(bounds: L.LatLngBounds, relation = 'intersects') {
+function buildBboxSearchUrl(
+  bounds: MapTypes.LatLngBounds,
+  relation = 'intersects'
+) {
   const ne = bounds.getNorthEast();
   const sw = bounds.getSouthWest();
   const bbox = normalizeBboxSearchEnvelope(sw.lng, sw.lat, ne.lng, ne.lat);
@@ -38,8 +42,8 @@ export function BboxRectangleSelector() {
   const map = useMap();
   const navigate = useNavigate();
   const draggingRef = useRef(false);
-  const startRef = useRef<L.LatLng | null>(null);
-  const rectRef = useRef<L.Rectangle | null>(null);
+  const startRef = useRef<MapTypes.LatLng | null>(null);
+  const rectRef = useRef<MapTypes.Rectangle | null>(null);
   const movedRef = useRef(false);
   const suppressNextClickRef = useRef(false);
 

@@ -1,53 +1,7 @@
 from unittest.mock import MagicMock, call, patch
 
-import staticmaps
-
-from app.services.static_map_service import (
-    OPENSTREETMAP_TILE_PROVIDER,
-    STATIC_MAP_TILE_USER_AGENT,
-    StaticMapService,
-)
+from app.services.static_map_service import StaticMapService
 from app.services.visual_asset_cache import cache_visual_asset
-
-
-def test_map_context_uses_canonical_openstreetmap_tiles_and_application_user_agent():
-    service = StaticMapService()
-
-    with patch("app.services.static_map_service.staticmaps.Context") as context_type:
-        context = context_type.return_value
-        result = service._map_context()
-
-    assert result is context
-    assert OPENSTREETMAP_TILE_PROVIDER.url(4, 3, 6) == ("https://tile.openstreetmap.org/4/3/6.png")
-    assert "OpenStreetMap" in OPENSTREETMAP_TILE_PROVIDER.attribution()
-    context.set_tile_provider.assert_called_once_with(OPENSTREETMAP_TILE_PROVIDER)
-    context._tile_downloader.set_user_agent.assert_called_once_with(STATIC_MAP_TILE_USER_AGENT)
-
-
-def test_static_map_variants_change_with_openstreetmap_provider():
-    service = StaticMapService()
-
-    assert service.geometry_variant() == "static_map_v10"
-    assert service.basemap_variant() == "static_basemap_v8"
-
-
-def test_centered_basemap_respects_openstreetmap_max_zoom():
-    service = StaticMapService()
-    context = MagicMock()
-
-    with (
-        patch.object(service, "_map_context", return_value=context),
-        patch.object(service, "_render_and_cache", return_value=b"map"),
-    ):
-        result = service.generate_centered_basemap(
-            "campus",
-            latitude=44.9778,
-            longitude=-93.2650,
-            zoom=20,
-        )
-
-    assert result == b"map"
-    context.set_zoom.assert_called_once_with(19)
 
 
 def test_get_asset_hash_recovers_alias_from_durable_link():
@@ -92,7 +46,9 @@ def test_materialize_asset_persists_resource_link():
     with (
         patch.object(service, "set_asset_hash_sync") as mock_set_hash,
         patch("app.services.static_map_service.store_durable_visual_asset"),
-        patch("app.services.static_map_service.store_durable_visual_asset_link") as mock_link,
+        patch(
+            "app.services.static_map_service.store_durable_visual_asset_link", return_value=True
+        ) as mock_link,
     ):
         asset_hash = service.materialize_asset_sync(
             "resource-1",
@@ -228,148 +184,3 @@ def test_cache_visual_asset_waits_through_redis_loading(monkeypatch):
 
     assert cache.calls == 2
     mock_sleep.assert_called_once()
-
-
-def test_generate_map_uses_global_fallback_for_unrenderable_polar_extent():
-    service = StaticMapService()
-    geometry = {
-        "type": "Polygon",
-        "coordinates": [[[-10, 89], [10, 89], [10, 90], [-10, 90], [-10, 89]]],
-    }
-
-    with (
-        patch.object(service, "generate_global_map", return_value=b"global-map") as mock_global,
-        patch.object(service, "_render_and_cache") as mock_render,
-    ):
-        result = service.generate_map("polar-resource", geometry)
-
-    assert result == b"global-map"
-    mock_global.assert_called_once()
-    mock_render.assert_not_called()
-
-
-def test_generate_map_clamps_partially_renderable_polar_extent():
-    service = StaticMapService()
-    geometry = "ENVELOPE(-10, 10, 90, 80)"
-
-    with (
-        patch.object(service, "generate_global_map") as mock_global,
-        patch.object(service, "_render_and_cache", return_value=b"rendered") as mock_render,
-    ):
-        result = service.generate_map("near-polar-resource", geometry)
-
-    assert result == b"rendered"
-    mock_global.assert_not_called()
-    mock_render.assert_called_once()
-
-
-def test_generate_basemap_uses_global_fallback_for_unrenderable_polar_extent():
-    service = StaticMapService()
-    geometry = {
-        "type": "Polygon",
-        "coordinates": [[[-10, -90], [10, -90], [10, -89], [-10, -89], [-10, -90]]],
-    }
-
-    with (
-        patch.object(
-            service,
-            "generate_global_basemap",
-            return_value=b"global-basemap",
-        ) as mock_global,
-        patch.object(service, "_render_and_cache") as mock_render,
-    ):
-        result = service.generate_basemap("south-polar-resource", geometry)
-
-    assert result == b"global-basemap"
-    mock_global.assert_called_once()
-    mock_render.assert_not_called()
-
-
-def test_polygon_segments_are_not_replaced_with_geodesic_arcs():
-    service = StaticMapService()
-    geometry = {
-        "type": "Polygon",
-        "coordinates": [[[-115, 55], [-65, 55], [-65, 30], [-115, 30], [-115, 55]]],
-    }
-
-    objects = service._geojson_to_staticmaps_objects(geometry)
-
-    assert objects is not None
-    assert len(objects[-1].interpolate()) == 6
-    assert {round(point.lat().degrees, 6) for point in objects[-1].interpolate()} == {
-        30.0,
-        55.0,
-    }
-
-
-def test_multipolygon_extent_does_not_take_short_path_across_antimeridian():
-    service = StaticMapService()
-    geometry = {
-        "type": "MultiPolygon",
-        "coordinates": [
-            [[[170, 20], [179, 20], [179, 30], [170, 30], [170, 20]]],
-            [[[-179, -30], [-170, -30], [-170, -20], [-179, -20], [-179, -30]]],
-        ],
-    }
-
-    objects = service._geojson_to_staticmaps_objects(geometry)
-
-    assert objects is not None
-    extent_points = objects[-1].interpolate()
-    assert len(extent_points) == 5
-    assert [point.lng().degrees for point in extent_points] == [
-        -179.0,
-        -179.0,
-        179.0,
-        179.0,
-        -179.0,
-    ]
-
-
-def test_point_geometry_creates_visible_static_map_marker():
-    service = StaticMapService()
-
-    objects = service._geojson_to_staticmaps_objects(
-        {"type": "Point", "coordinates": [-87.62, 43.08]}
-    )
-
-    assert objects is not None
-    assert len(objects) == 1
-    assert isinstance(objects[0], staticmaps.Marker)
-    assert objects[0].latlng().lng().degrees == -87.62
-    assert objects[0].latlng().lat().degrees == 43.08
-    assert objects[0].size() == 10
-
-
-def test_generate_map_renders_zero_area_bbox_as_point():
-    service = StaticMapService()
-
-    with (
-        patch.object(service, "generate_global_map") as mock_global,
-        patch.object(service, "_render_and_cache", return_value=b"point-map") as mock_render,
-    ):
-        result = service.generate_map(
-            "bike-elevator",
-            "ENVELOPE(-87.62, -87.62, 43.08, 43.08)",
-        )
-
-    assert result == b"point-map"
-    mock_global.assert_not_called()
-    mock_render.assert_called_once()
-
-
-def test_generate_basemap_uses_point_to_set_extent():
-    service = StaticMapService()
-
-    with (
-        patch.object(service, "generate_global_basemap") as mock_global,
-        patch.object(service, "_render_and_cache", return_value=b"point-basemap") as mock_render,
-    ):
-        result = service.generate_basemap(
-            "bike-elevator",
-            "POINT(-87.62 43.08)",
-        )
-
-    assert result == b"point-basemap"
-    mock_global.assert_not_called()
-    mock_render.assert_called_once()

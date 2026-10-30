@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ExternalLink, Maximize, Minimize } from 'lucide-react';
 
+import { ViewerExpandedContext } from './viewerFrameContext';
+
 interface AllmapsViewerFrameProps {
   tabs: ReactNode;
   viewerUrl: string | null;
@@ -113,7 +115,9 @@ export function AllmapsViewerFrame({
             : undefined
         }
       >
-        {children}
+        <ViewerExpandedContext.Provider value={expanded}>
+          {children}
+        </ViewerExpandedContext.Provider>
       </div>
     </div>
   );

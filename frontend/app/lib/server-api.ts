@@ -102,7 +102,15 @@ export async function serverFetchJson<T>(
   if (!response.ok) {
     throw new Response(
       `API request failed: ${response.status} ${response.statusText}`,
-      { status: response.status }
+      {
+        status: response.status,
+        headers: {
+          'Cache-Control': 'no-store',
+          ...(response.headers.get('Retry-After')
+            ? { 'Retry-After': response.headers.get('Retry-After')! }
+            : {}),
+        },
+      }
     );
   }
   return response.json();
@@ -117,7 +125,15 @@ export async function serverFetchJsonWithTheme<T>(
   if (!response.ok) {
     throw new Response(
       `API request failed: ${response.status} ${response.statusText}`,
-      { status: response.status }
+      {
+        status: response.status,
+        headers: {
+          'Cache-Control': 'no-store',
+          ...(response.headers.get('Retry-After')
+            ? { 'Retry-After': response.headers.get('Retry-After')! }
+            : {}),
+        },
+      }
     );
   }
   return response.json();

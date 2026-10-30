@@ -11,6 +11,7 @@ import { Header } from '../layout/Header';
 import { Footer } from '../layout/Footer';
 import { MetadataTable } from './MetadataTable';
 import { useApi } from '../../context/ApiContext';
+import { hasOgmContentPreview } from '../../utils/ogmViewerRecord';
 import { ResourceViewer } from './ResourceViewer';
 import { ResourceBreadcrumbs } from './ResourceBreadcrumbs';
 import { ResourceSubtitle } from './ResourceSubtitle';
@@ -39,39 +40,6 @@ interface ItemData {
 // New component for index map
 function IndexMap() {
   return <div className="viewer-information" aria-live="polite"></div>;
-}
-
-// New component for the attribute table
-function AttributeTable() {
-  return (
-    <div id="table-container" className="w-full">
-      <table id="attribute-table" className="w-full table-auto border-collapse">
-        <thead className="bg-gray-50">
-          <tr>
-            <th
-              scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Attribute
-            </th>
-            <th
-              scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Value
-            </th>
-          </tr>
-        </thead>
-        <tbody className="attribute-table-body bg-white divide-y divide-gray-200">
-          <tr className="hover:bg-gray-50">
-            <td className="border px-4 py-2" colSpan={2}>
-              <em>Click on map to inspect values</em>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 export function ResourceView() {
@@ -230,7 +198,9 @@ export function ResourceView() {
     return <ErrorMessage message={error} />;
   }
 
-  const viewerProtocol = data?.data?.meta?.ui?.viewer?.protocol;
+  const viewerProtocol = hasOgmContentPreview(data.data)
+    ? data?.data?.meta?.ui?.viewer?.protocol
+    : undefined;
   const dataDictionaries = data?.data?.attributes?.b1g?.data_dictionaries || [];
   const isRestricted = isRestrictedAccessResource(data?.data);
 
@@ -315,16 +285,11 @@ export function ResourceView() {
                   {viewerProtocol && (
                     <div className="bg-white rounded-lg shadow-md overflow-hidden">
                       <div className="">
-                        <ResourceViewer data={data.data} pageValue="SHOW" />
+                        <ResourceViewer data={data.data} />
                       </div>
                     </div>
                   )}
 
-                  {/* Conditionally render the attribute table if the protocol is 'wms' or 'arcgis_feature_layer' */}
-                  {(viewerProtocol === 'wms' ||
-                    viewerProtocol === 'arcgis_feature_layer') && (
-                    <AttributeTable />
-                  )}
                   {viewerProtocol === 'open_index_map' && <IndexMap />}
 
                   {dataDictionaries.length > 0 && (

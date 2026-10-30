@@ -21,6 +21,7 @@ export function ReportContentLayout({
     if (!content) return;
     let targets: HTMLElement[] = [];
     let frame = 0;
+    let collectionFrame = 0;
     const updateActive = () => {
       frame = 0;
       if (!targets.length) return;
@@ -74,7 +75,7 @@ export function ReportContentLayout({
         let suffix = 2;
         while (used.has(id)) id = base + '-' + suffix++;
         used.add(id);
-        panel.id = id;
+        if (panel.id !== id) panel.id = id;
         entries.push({ id, label });
         targets.push(panel);
       }
@@ -86,7 +87,29 @@ export function ReportContentLayout({
       schedule();
     };
     collect();
-    const observer = new MutationObserver(collect);
+    const navigationSelector = sectionSelector + ', h2, h3';
+    const relevantNode = (node: Node) => {
+      const element = node instanceof Element ? node : node.parentElement;
+      return (
+        !!element &&
+        (element.matches(navigationSelector) ||
+          !!element.querySelector(navigationSelector))
+      );
+    };
+    const observer = new MutationObserver((records) => {
+      // Table cells, chart measurements and accessibility probes cannot change
+      // section navigation. Avoid rescanning entire reports for those mutations.
+      const changed = records.some((record) =>
+        record.type === 'characterData'
+          ? record.target.parentElement?.closest('h2, h3, [data-nav-label]')
+          : [...record.addedNodes, ...record.removedNodes].some(relevantNode)
+      );
+      if (changed && !collectionFrame)
+        collectionFrame = requestAnimationFrame(() => {
+          collectionFrame = 0;
+          collect();
+        });
+    });
     observer.observe(content, {
       childList: true,
       subtree: true,
@@ -99,6 +122,7 @@ export function ReportContentLayout({
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(collectionFrame);
     };
   }, [report]);
 

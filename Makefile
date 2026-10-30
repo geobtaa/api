@@ -1950,3 +1950,10 @@ analytics-evidence: ## Generate screened evidence for existing analytics snapsho
 
 analytics-evidence-check: ## Reproduce and verify evidence packets without changing published files
 	python backend/scripts/export_analytics_evidence.py frontend/private-analytics-reports --check $(if $(ARCHIVES),--archives $(ARCHIVES),)
+
+.PHONY: native-map-test native-map-start
+native-map-start: ## Build and start the local MapLibre Native renderer
+	docker compose up -d --build map_renderer
+
+native-map-test: ## Run renderer camera tests in its compatible Linux image
+	docker compose exec -T map_renderer npm test

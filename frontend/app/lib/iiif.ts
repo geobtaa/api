@@ -25,7 +25,7 @@ function inferImageUrl(serviceId: string): string {
 
 /**
  * Build a minimal IIIF Presentation 3 manifest for an IIIF Image Service.
- * This lets Mirador render `iiif_image` references by converting them into a manifest.
+ * This lets Presentation API clients render image references as a manifest.
  */
 export function buildPresentation3ManifestFromImageInfo(args: {
   manifestId: string;

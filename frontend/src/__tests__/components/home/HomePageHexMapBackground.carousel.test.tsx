@@ -18,6 +18,14 @@ import { FEATURED_RESOURCE_IDS } from '../../../config/featured';
 import { HomePageHexMapBackground } from '../../../components/home/HomePageHexMapBackground.client';
 
 const mockNavigate = vi.hoisted(() => vi.fn());
+const mapEvents = vi.hoisted(
+  () => new Map<string, Set<(event: object) => void>>()
+);
+function emitMapEvent(name: string, event = {}) {
+  act(() => {
+    mapEvents.get(name)?.forEach((handler) => handler(event));
+  });
+}
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
 vi.mock('leaflet-gesture-handling', () => ({ GestureHandling: {} }));
@@ -60,9 +68,17 @@ vi.mock('../../../components/map/MapGeosearchControl', () => ({
 }));
 
 const mockPane = document.createElement('div');
-vi.mock('react-leaflet', () => ({
-  MapContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="map-container">{children}</div>
+vi.mock('../../../mapping/react', () => ({
+  MapContainer: ({
+    children,
+    center,
+  }: {
+    children: React.ReactNode;
+    center: number[];
+  }) => (
+    <div data-testid="map-container" data-center={JSON.stringify(center)}>
+      {children}
+    </div>
   ),
   TileLayer: () => null,
   ZoomControl: () => null,
@@ -78,13 +94,20 @@ vi.mock('react-leaflet', () => ({
       getSouthWest: () => ({ lat: 30, lng: -100 }),
     }),
     getZoom: () => 5,
+    getCenter: () => ({ lat: 44, lng: -9.6875 }),
     whenReady: (cb: () => void) => cb(),
-    on: () => {},
-    off: () => {},
+    on: (name: string, handler: (event: object) => void) => {
+      if (!mapEvents.has(name)) mapEvents.set(name, new Set());
+      mapEvents.get(name)!.add(handler);
+    },
+    off: (name: string, handler: (event: object) => void) => {
+      mapEvents.get(name)?.delete(handler);
+    },
     hasLayer: () => false,
     addLayer: vi.fn(),
     removeLayer: () => {},
     fitBounds: () => {},
+    flyTo: () => {},
     getPane: () => null,
     createPane: () => mockPane,
     panBy: () => {},
@@ -180,6 +203,7 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
 
   beforeEach(() => {
     vi.useRealTimers();
+    mapEvents.clear();
     localStorage.clear();
     vi.clearAllMocks();
     mockNavigate.mockClear();
@@ -230,6 +254,32 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
 
   const getProgressBar = () =>
     screen.getByRole('progressbar', { name: /Time remaining/i });
+
+  it('matches the production offset and only offers Search here after user movement', () => {
+    renderCarousel();
+    expect(screen.getByTestId('map-container')).toHaveAttribute(
+      'data-center',
+      '[44,-9.6875]'
+    );
+    for (let i = 0; i < 3; i++) {
+      emitMapEvent('moveend');
+      emitMapEvent('zoomend');
+      emitMapEvent('movestart', { originalEvent: { type: 'resize' } });
+      emitMapEvent('moveend', { originalEvent: { type: 'resize' } });
+    }
+    expect(
+      screen.queryByRole('button', { name: 'Search in this area' })
+    ).not.toBeInTheDocument();
+    emitMapEvent('movestart', { originalEvent: { type: 'pointerdown' } });
+    emitMapEvent('moveend');
+    expect(
+      screen.getByRole('button', { name: 'Search in this area' })
+    ).toBeInTheDocument();
+    act(() => window.dispatchEvent(new Event('btaa-home-map-reset')));
+    expect(
+      screen.queryByRole('button', { name: 'Search in this area' })
+    ).not.toBeInTheDocument();
+  });
 
   it('carousel region renders with expected structure', async () => {
     renderCarousel({ featuredVisible: true });
