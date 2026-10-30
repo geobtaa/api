@@ -460,10 +460,16 @@ def create_pagination_links(
     Returns:
         Dictionary of pagination links
     """
-    from urllib.parse import urlencode
+    from urllib.parse import urlencode, urlsplit
 
-    # Get base URL without query params
-    base_url = str(request.url).split("?")[0]
+    # Use the public origin when TLS terminates before the application. Preserve
+    # the request path: APPLICATION_URL may already include an /api/v1 suffix.
+    request_url = urlsplit(str(request.url))
+    application_url = os.getenv("APPLICATION_URL", "").strip()
+    if application_url:
+        public_url = urlsplit(application_url)
+        request_url = request_url._replace(scheme=public_url.scheme, netloc=public_url.netloc)
+    base_url = request_url._replace(query="", fragment="").geturl()
 
     # Use strong parameters if allowed_params is specified
     if allowed_params is not None:

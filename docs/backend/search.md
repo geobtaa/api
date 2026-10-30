@@ -39,6 +39,19 @@ curl -XPUT -H "Content-Type: application/json" http://localhost:9200/_all/_setti
 
 # Search API Parameters
 
+## Pagination links
+
+Search and gazetteer pagination links use the scheme and host (including any port)
+from `APPLICATION_URL` when it is set. This keeps links on HTTPS when the public
+API uses HTTPS but the backend receives HTTP requests. The request path is
+preserved, so an `/api/v1/` suffix in `APPLICATION_URL` is not duplicated.
+Allowed query parameters, including repeated filters, remain in each link.
+
+When `APPLICATION_URL` is unset or empty, links use the request URL's origin.
+Local development can use an HTTP value such as `http://localhost:8000`.
+
+## Parameters
+
 The `/api/v1/search` endpoint supports a variety of query and filter parameters for flexible searching and faceting. Below is a table of all supported parameters:
 
 | Parameter         | Type     | Required | Description                                                                                      | Example Value(s)                                  |
