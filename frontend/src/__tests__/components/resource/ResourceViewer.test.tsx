@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('ogm-viewer', () => ({}));
 vi.mock('ogm-viewer/lib', () => ({
   OgmRecord: mocks.recordConstructor,
+  resourcesFor: () => [],
 }));
 
 import { ResourceViewer } from '../../../components/resource/ResourceViewer';

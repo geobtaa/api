@@ -213,3 +213,9 @@ Existing `/mirador?manifest=<encoded manifest URL>` links permanently redirect
 to `/ogm-viewer` with their query string preserved. Manifest-only links create
 a minimal Aardvark record in the browser viewer; the server does not fetch the
 user-supplied manifest URL. Missing or invalid inputs show an accessible message.
+
+### Resource viewer opening camera
+
+Embedded and standalone resource viewers share `utils/mapFraming.ts`. Valid record bounds narrower than 350 degrees retain their existing framing. Missing, invalid, or near-global record bounds can fall back to source-reported extents through OGM Viewer's resource adapters. GeoJSON and index maps use connected geometry and circular longitude intervals to preserve antimeridian coverage. Truly global geometry stays global; the algorithm does not select a preferred country or discard outlying features.
+
+Extent discovery is limited to four content sources and five seconds of initial waiting. If any source has unknown coverage, the viewer retains its normal fallback rather than fitting an incomplete union. Late results never move an already opened map. Only the in-memory viewer camera accessor changes: record JSON, coverage geometry, Location sidebar, search indexing, and downloadable metadata remain unchanged.
