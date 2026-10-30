@@ -1966,4 +1966,4 @@ preview-assets-prepare: ## Queue selected local preview jobs (IDS="record1 recor
 	cd backend && uv run python scripts/prepare_preview_assets.py $(IDS)
 
 preview-assets-test: ## Isolated preview tests (requires pinned GDAL and Tippecanoe)
-	cd backend && uv run python -m pytest --confcutdir=tests/preview_assets -o addopts='' tests/preview_assets -q
+	cd backend && PREVIEW_REQUIRE_TOOLS=true uv run python -m pytest --confcutdir=tests/preview_assets -o addopts='' tests/preview_assets -q

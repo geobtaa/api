@@ -30,6 +30,8 @@ not included because its actual record metadata has not been available.
 
 Run `make preview-assets-test` for isolated conversion and contract tests. These
 exercise actual GDAL/Tippecanoe conversions without clearing application caches.
+The dedicated CI worker builds with `INSTALL_TEST_DEPS=true` and requires the pinned
+tools; general API tests skip conversion cases when that toolchain is absent.
 `--recipe recipe.json` supplies an explicit rendering recipe; `--layer name` selects
 a named spatial layer. An audit entry can override these with `recipe` and `layer`.
 Without a selected layer, every supported spatial layer is exposed up to the limit.

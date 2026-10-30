@@ -1,5 +1,7 @@
 import json
+import os
 import shutil
+import subprocess
 import zipfile
 
 import numpy as np
@@ -20,6 +22,24 @@ from app.services.preview_assets.pipeline import Pipeline
 from app.services.preview_assets.repository import next_active
 from app.services.preview_assets.sources import Source, arcgis_export, wms_image
 from app.services.preview_assets.storage import LocalStorage
+
+
+@pytest.fixture(scope="session")
+def pinned_conversion_tools():
+    """The dedicated worker CI job requires these; general API CI may lack them."""
+    try:
+        gdal = subprocess.check_output(["gdalinfo", "--version"], text=True)
+        tiles = subprocess.check_output(
+            ["tippecanoe", "--version"], text=True, stderr=subprocess.STDOUT
+        )
+        available = gdal.startswith("GDAL 3.11.0") and "v2.79.0" in tiles
+    except (OSError, subprocess.CalledProcessError):
+        available = False
+    if not available:
+        message = "Conversion tests require GDAL 3.11.0 and Tippecanoe 2.79.0 (Dockerfile.preview)"
+        if os.getenv("PREVIEW_REQUIRE_TOOLS") == "true":
+            pytest.fail(message)
+        pytest.skip(message)
 
 
 def fixture_fetch(source):
@@ -57,6 +77,7 @@ def raster(path, kind):
 
 
 @pytest.mark.parametrize("kind", ["rgb", "scalar", "classified"])
+@pytest.mark.usefixtures("pinned_conversion_tools")
 def test_real_cog_conversion_and_render(tmp_path, kind):
     source = tmp_path / "input.tif"
     raster(source, kind)
@@ -75,6 +96,7 @@ def test_real_cog_conversion_and_render(tmp_path, kind):
         assert dst.overviews(1)
 
 
+@pytest.mark.usefixtures("pinned_conversion_tools")
 def test_real_vector_conversion(tmp_path):
     source = tmp_path / "input.geojson"
     source.write_text(
@@ -200,6 +222,7 @@ def test_recipe_rejects_unknown_class_palette():
         Recipe(kind="classified")
 
 
+@pytest.mark.usefixtures("pinned_conversion_tools")
 def test_zip_geopackage_all_layers_and_ids(tmp_path):
     import fiona
 
@@ -228,6 +251,7 @@ def test_zip_geopackage_all_layers_and_ids(tmp_path):
     assert len({layer.id for layer in result.layers}) == 2
 
 
+@pytest.mark.usefixtures("pinned_conversion_tools")
 def test_missing_crs_is_not_guessed(tmp_path):
     source = tmp_path / "unlocated.tif"
     with rasterio.open(
@@ -254,6 +278,7 @@ def test_dateline_and_holes_are_preserved():
     assert shape(metadata_coverage({"locn_geometry": mapping(donut)}).geometry).area == 99
 
 
+@pytest.mark.usefixtures("pinned_conversion_tools")
 def test_output_limit_prevents_publication(tmp_path):
     source = tmp_path / "source.tif"
     raster(source, "rgb")
@@ -307,6 +332,7 @@ def test_unknown_access_does_not_download(tmp_path):
     assert result.status == Outcome.UNAVAILABLE
 
 
+@pytest.mark.usefixtures("pinned_conversion_tools")
 def test_single_point_vector_has_valid_coverage(tmp_path):
     source = tmp_path / "point.geojson"
     source.write_text(
@@ -380,6 +406,7 @@ def test_actual_asset_route_range_and_access_gate(tmp_path, monkeypatch):
         assert client.get(url).status_code == 404
 
 
+@pytest.mark.usefixtures("pinned_conversion_tools")
 def test_tiff_companion_crs_survives_isolated_conversion(tmp_path):
     from app.services.preview_assets.convert import convert_raster
 

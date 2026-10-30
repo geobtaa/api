@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 python3
 COPY --from=tools /usr/local/bin/tippecanoe /usr/local/bin/tippecanoe
 WORKDIR /app/backend
 COPY backend /app/backend
-RUN python3 -m venv /opt/preview-venv && /opt/preview-venv/bin/pip install --no-cache-dir .
+ARG INSTALL_TEST_DEPS=false
+RUN python3 -m venv /opt/preview-venv && /opt/preview-venv/bin/pip install --no-cache-dir . && if [ "$INSTALL_TEST_DEPS" = true ]; then /opt/preview-venv/bin/pip install --no-cache-dir '.[dev]'; fi
 ENV PATH="/opt/preview-venv/bin:$PATH" PYTHONPATH=/app/backend
 RUN useradd --create-home preview && mkdir -p /app/backend/data /app/backend/logs && chown -R preview:preview /app/backend/data /app/backend/logs
 USER preview

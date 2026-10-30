@@ -15,6 +15,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preview-assets:
+    name: Pinned preview conversion worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned geospatial toolchain
+        run: docker build -f Dockerfile.preview --build-arg INSTALL_TEST_DEPS=true -t preview-assets-test .
+      - name: Verify bounded preparation without network access
+        run: >-
+          docker run --rm --network none --memory 4g --cpus 2
+          -e PREVIEW_REQUIRE_TOOLS=true preview-assets-test
+          python -m pytest --confcutdir=tests/preview_assets -o addopts=''
+          tests/preview_assets -q
   backend:
     name: Backend
     runs-on: ubuntu-latest
