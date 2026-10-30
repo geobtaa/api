@@ -7,6 +7,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   use: {
     viewport: { width: 1280, height: 900 },
+    channel: process.env.PLAYWRIGHT_CHANNEL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     launchOptions: {

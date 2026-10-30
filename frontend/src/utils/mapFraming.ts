@@ -8,7 +8,9 @@ export function validBounds(
 ): Bounds | undefined {
   if (!value) return;
   try {
-    const b = LngLatBounds.convert(value);
+    // Bounds may come from OGM Viewer's separate MapLibre bundle.
+    const portable = 'toArray' in value ? value.toArray() : value;
+    const b = LngLatBounds.convert(portable);
     const [w, s, rawEast, n] = [
       b.getWest(),
       b.getSouth(),
@@ -187,8 +189,14 @@ export async function frameViewerRecord(
     if (!chosen) return record;
     const originalGeometry = record.getGeometry.bind(record);
     const framed = Object.create(record) as OgmRecord;
-    framed.getBounds = () =>
-      new LngLatBounds([chosen[0], chosen[1]], [chosen[2], chosen[3]]);
+    // Let OGM Viewer construct its own bounds instance. Passing an instance
+    // from the app's MapLibre bundle fails its runtime instanceof checks.
+    const { OgmRecord: ViewerRecord } = await import('ogm-viewer/lib');
+    const cameraRecord = new ViewerRecord({
+      ...record.json,
+      dcat_bbox: `ENVELOPE(${chosen[0]}, ${chosen[2]}, ${chosen[3]}, ${chosen[1]})`,
+    });
+    framed.getBounds = () => cameraRecord.getBounds();
     framed.getGeometry = originalGeometry;
     return framed;
   } finally {
