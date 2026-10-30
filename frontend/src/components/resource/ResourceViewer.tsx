@@ -1,3 +1,4 @@
+import { frameViewerRecord } from '../../utils/mapFraming';
 import {
   toAardvarkRecord,
   hasOgmContentPreview,
@@ -100,7 +101,7 @@ function ContentViewer({
 
       try {
         await import('ogm-viewer');
-        const { OgmRecord } = await import('ogm-viewer/lib');
+        const { OgmRecord, resourcesFor } = await import('ogm-viewer/lib');
         await customElements.whenDefined('ogm-viewer');
 
         if (cancelled || !viewerElement) return;
@@ -137,7 +138,10 @@ function ContentViewer({
         };
         viewerElement.setAttribute('light-basemap', BASEMAP_STYLES.liberty);
         viewerElement.setAttribute('dark-basemap', BASEMAP_STYLES.dark);
-        await viewerElement.loadRecord(new OgmRecord(toAardvarkRecord(data)));
+        const record = new OgmRecord(toAardvarkRecord(data));
+        const framed = await frameViewerRecord(record, resourcesFor(record));
+        if (cancelled) return;
+        await viewerElement.loadRecord(framed);
       } catch (viewerError) {
         if (cancelled) return;
         removeViewerListeners?.();
