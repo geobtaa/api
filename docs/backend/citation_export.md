@@ -68,8 +68,16 @@ Datasets and web services use the `[Data set]` descriptor in APA; maps use `[Map
 
 ## Frontend
 
-The **Cite & Reference** section on each resource page includes:
-- Style selector: Generic, APA 7th, MLA 9th, Chicago
+The **Citation** section on each resource page includes:
+- Style selector: APA 7th, MLA 9th, Chicago
 - Copy citation (formatted text for selected style)
 - Copy permalink
-- Export links: RIS, BibTeX, JSON-LD
+- Export links: RIS, BibTeX
+
+The visible citation panel consumes the formatted strings in `meta.ui.citation`
+and `meta.ui.citations`. It does not format citations from JSON-LD nodes.
+The page loader separately requests `/citation/json-ld` with
+`Accept: application/ld+json` and passes the complete object to React Router's
+JSON-LD metadata renderer. Inline contexts and multivalued publishers, licenses,
+descriptions and languages are preserved in the page's structured-data script.
+Failure of that optional request does not prevent the resource page from loading.
