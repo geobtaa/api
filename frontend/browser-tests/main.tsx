@@ -7,12 +7,14 @@ import type { ImageNavigation, ImageSelection } from 'ogm-viewer/lib';
 import '../src/index.css';
 
 function Fixture() {
-  const [scenario, setScenario] = useState('good');
+  const [scenario, setScenario] = useState(
+    new URLSearchParams(location.search).get('fixture') ?? 'good'
+  );
   const [selection, setSelection] = useState<ImageSelection | null>(null);
   const [navigation, setNavigation] = useState<ImageNavigation | null>(null);
   const data = useMemo(() => {
     const references: Record<string, string> = {};
-    if (!['arcgis', 'location'].includes(scenario)) {
+    if (!['arcgis', 'location', 'framing'].includes(scenario)) {
       references['http://iiif.io/api/image'] =
         `${location.origin}/fixtures/iiif/single/info.json`;
       references['http://iiif.io/api/presentation#manifest'] =
@@ -21,6 +23,9 @@ function Fixture() {
     if (['arcgis', 'mixed'].includes(scenario))
       references['urn:x-esri:serviceType:ArcGIS#FeatureLayer'] =
         `${location.origin}/fixtures/FeatureServer/0`;
+    if (scenario === 'framing')
+      references['http://geojson.org/geojson-spec.html'] =
+        `${location.origin}/fixtures/framing.json`;
     return {
       id: scenario,
       attributes: {
@@ -31,6 +36,9 @@ function Fixture() {
           gbl_mdVersion_s: 'Aardvark',
           dct_accessRights_s: 'Public',
           locn_geometry: 'ENVELOPE(-2,2,2,-2)',
+          ...(scenario === 'framing'
+            ? { dcat_bbox: 'ENVELOPE(-180,180,84,-15)' }
+            : {}),
           dct_references_s: references,
         },
       },
@@ -56,6 +64,7 @@ function Fixture() {
             'mixed',
             'arcgis',
             'location',
+            'framing',
           ].map((value) => (
             <option key={value}>{value}</option>
           ))}

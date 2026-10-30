@@ -29,7 +29,13 @@ const source = (data: unknown) =>
   }) as unknown as Resource;
 const record = (bounds?: [number, number, number, number]) =>
   ({
-    json: { id: 'unchanged' },
+    json: {
+      id: 'unchanged',
+      gbl_mdVersion_s: 'Aardvark',
+      dct_title_s: 'Fixture',
+      gbl_resourceClass_sm: ['Maps'],
+      dct_accessRights_s: 'Public',
+    },
     getBounds: () => (bounds ? new LngLatBounds(bounds) : undefined),
     getGeometry: () => polygon(-180, 180),
   }) as unknown as OgmRecord;
@@ -83,6 +89,18 @@ describe('shared data-informed framing', () => {
         [-10, 0, 160, 20],
       ])
     ).toEqual([-170, 0, 160, 20]);
+  });
+  it('preserves useful bounds created by the actual viewer bundle', async () => {
+    const { OgmRecord: ViewerRecord } = await import('ogm-viewer/lib');
+    const r = new ViewerRecord({
+      ...record().json,
+      dcat_bbox: 'ENVELOPE(-100,-80,50,30)',
+    });
+    const s = source(collection(polygon(134, 135)));
+    expect(await frameViewerRecord(r, [s])).toBe(r);
+    expect(
+      (s as unknown as { getData: unknown }).getData
+    ).not.toHaveBeenCalled();
   });
   it('leaves useful record bounds alone', async () => {
     const r = record([-100, 30, -80, 50]),
