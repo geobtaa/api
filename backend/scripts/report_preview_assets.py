@@ -77,6 +77,8 @@ def main():
                     "No content thumbnail supplied by the public API; "
                     "family fallback remains available."
                 )
+            if name == "thumbnail" and item.get("family_fallback"):
+                label = "Current family fallback"
             cells.append(
                 (label, image_bytes(item.get("path"), "Current asset unavailable", message))
             )
@@ -95,7 +97,12 @@ def main():
         )
         if review_key:
             label = "Review candidate (not published)"
-        elif thumb_path and before.get("thumbnail", {}).get("path"):
+        elif (
+            thumb_path
+            and before.get("thumbnail", {}).get("path")
+            and not before.get("thumbnail", {}).get("family_fallback")
+            and not before.get("thumbnail", {}).get("placeholder")
+        ):
             label = "Prepared candidate; current asset retained"
         cells.append(
             (
