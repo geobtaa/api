@@ -37,6 +37,20 @@ export interface PreviewHost {
 
 type PreparedMapLayer = PreparedLayer & { format: 'cog' | 'pmtiles' };
 
+function cameraBounds(layer: PreparedLayer) {
+  const bounds = layer.recipe?.thumbnail_bounds ?? layer.bounds;
+  if (!bounds) return bounds;
+  const [west, south, east, north] = bounds;
+  // A point/straight line has a valid geographic extent but cannot define a
+  // useful fitted camera. Pad only the runtime camera, never API coverage.
+  return [
+    west === east ? Math.max(-180, west - 0.01) : west,
+    south === north ? Math.max(-90, south - 0.01) : south,
+    west === east ? Math.min(180, east + 0.01) : east,
+    south === north ? Math.min(90, north + 0.01) : north,
+  ] as [number, number, number, number];
+}
+
 export function readyPreparedLayers(data: PreviewHost): PreparedMapLayer[] {
   const preview = data.meta?.ui?.preview;
   if (preview?.status !== 'ready' || preview.version !== '1') return [];
@@ -50,7 +64,7 @@ export function readyPreparedLayers(data: PreviewHost): PreparedMapLayer[] {
 export function attachPreparedPreview(record: OgmRecord, data: PreviewHost) {
   const layers = readyPreparedLayers(data).map((layer) => ({
     ...layer,
-    bounds: layer.recipe?.thumbnail_bounds ?? layer.bounds,
+    bounds: cameraBounds(layer),
   }));
   (
     record as OgmRecord & { preparedPreviews?: PreparedMapLayer[] }

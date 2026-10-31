@@ -38,6 +38,29 @@ const data = {
   },
 };
 describe('prepared previews', () => {
+  it('gives a single-point layer a usable camera without changing its bounds', () => {
+    const point: [number, number, number, number] = [-88, 43, -88, 43];
+    const framed = {
+      meta: {
+        ui: {
+          preview: {
+            ...data.meta.ui.preview,
+            layers: [{ ...data.meta.ui.preview.layers[0], bounds: point }],
+          },
+        },
+      },
+    };
+    const record = new OgmRecord(
+      data.attributes.ogm as ConstructorParameters<typeof OgmRecord>[0]
+    );
+    const attached = attachPreparedPreview(record, framed) as OgmRecord & {
+      preparedPreviews: { bounds: number[] }[];
+    };
+    expect(attached.preparedPreviews[0].bounds).toEqual([
+      -88.01, 42.99, -87.99, 43.01,
+    ]);
+    expect(framed.meta.ui.preview.layers[0].bounds).toEqual(point);
+  });
   it('uses explicit detail framing without changing published coverage bounds', () => {
     const full: [number, number, number, number] = [-175, -15, 145, 75];
     const detail: [number, number, number, number] = [-125, 24, -66, 50];
