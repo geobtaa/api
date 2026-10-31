@@ -1,3 +1,4 @@
+import logging
 import os
 from urllib.parse import quote, urlparse, urlunparse
 
@@ -9,6 +10,7 @@ try:
 except (OSError, PermissionError):
     # In sandboxed environments, .env may be unreadable. Continue with defaults/env.
     pass
+
 
 def _repair_placeholder_database_password(database_url: str | None) -> str | None:
     """Replace placeholder `postgres` password with the configured env password."""
@@ -82,4 +84,4 @@ def _mask_database_url(url: str | None) -> str:
     return urlunparse(parsed._replace(netloc=netloc))
 
 
-print("Using configured database connection")
+logging.getLogger(__name__).debug("Using configured database connection")

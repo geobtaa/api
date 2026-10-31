@@ -162,7 +162,7 @@ Browser acceptance must verify partial reads, pan/zoom, placement, feature inspe
 where available, and default styling. A ready conversion is not itself browser acceptance.
 
 The companion `feature/shared-preview-recipes` viewer changes are published as
-`v1.7.0-btaa.4`; the frontend pins that release archive and integrity hash. Future
+`v1.7.0-btaa.5`; the frontend pins that release archive and integrity hash. Future
 updates must publish and validate a versioned viewer artifact before updating the
 application pin. Package publication does not enable collection-wide preparation.
 
@@ -223,3 +223,8 @@ with an explicit incomplete-coverage label and review note.
 Public access is checked automatically. It does not establish permission to create or
 redistribute derivatives: apply the collection's reuse policy when approving the records
 to queue. This release does not infer licenses or grant reuse rights from public access.
+
+Custom GeoTIFF projections measured in feet use their recorded linear units for
+projection offsets in the viewer. This preserves source georeferencing; it does
+not stretch a raster to a catalog extent. Raster units remain unspecified when
+neither the source nor an explicit recipe provides them.
