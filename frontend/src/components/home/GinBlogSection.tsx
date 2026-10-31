@@ -13,7 +13,13 @@ interface GinBlogSectionProps {
   ctaUrl: string;
 }
 
-function BlogImage({ post, featured }: { post: HomeBlogPost; featured: boolean }) {
+function BlogImage({
+  post,
+  featured,
+}: {
+  post: HomeBlogPost;
+  featured: boolean;
+}) {
   const [failed, setFailed] = useState(false);
   const hasImage = !!post.image_url && !failed;
   return (
@@ -68,7 +74,9 @@ function BlogCard({
         <div className="absolute inset-x-0 bottom-0 z-10 p-3.5 sm:p-4">
           <h3
             className={`${
-              featured ? 'text-lg sm:text-xl lg:text-2xl' : 'text-base sm:text-lg'
+              featured
+                ? 'text-lg sm:text-xl lg:text-2xl'
+                : 'text-base sm:text-lg'
             } font-semibold leading-tight text-white line-clamp-2`}
           >
             {post.title}

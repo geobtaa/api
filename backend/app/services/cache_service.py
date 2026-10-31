@@ -799,6 +799,20 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
 
         @wraps(func)
         async def wrapper(*args, **kwargs):
+            from app.services.preview_assets.models import enabled as previews_enabled
+
+            # During the pilot, never persist prepared presentation state in the
+            # legacy response caches. Source withdrawal must take effect at once,
+            # and disabling the feature must restore the untouched legacy cache.
+            module = func.__module__
+            if previews_enabled() and (
+                ".endpoint_modules.resources" in module
+                or module.endswith((".endpoint_modules.search", ".endpoint_modules.home"))
+            ):
+                result = await func(*args, **kwargs)
+                if isinstance(result, Response):
+                    result.headers["Cache-Control"] = "no-store"
+                return result
             if not ENDPOINT_CACHE:
                 return await func(*args, **kwargs)
 

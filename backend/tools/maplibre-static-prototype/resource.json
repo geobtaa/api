@@ -1,0 +1,42 @@
+{
+  "style": "https://tiles.openfreemap.org/styles/liberty",
+  "id": "0efeae5d-6e6c-513c-ab45-01c5fc0cb16c",
+  "title": "Madison Structure",
+  "sourceUrl": "https://ogm.geo4lib.app/api/v1/resources/0efeae5d-6e6c-513c-ab45-01c5fc0cb16c",
+  "sourceGeometry": "ENVELOPE(-109.9876, -101.1135, 52.1614, 48.8912)",
+  "width": 800,
+  "height": 600,
+  "bounds": [
+    -109.9876,
+    48.8912,
+    -101.1135,
+    52.1614
+  ],
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -109.9876,
+          48.8912
+        ],
+        [
+          -101.1135,
+          48.8912
+        ],
+        [
+          -101.1135,
+          52.1614
+        ],
+        [
+          -109.9876,
+          52.1614
+        ],
+        [
+          -109.9876,
+          48.8912
+        ]
+      ]
+    ]
+  }
+}

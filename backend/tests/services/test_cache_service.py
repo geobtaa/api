@@ -585,6 +585,7 @@ class TestCacheServiceKeyGeneration:
         self._assert_cache_key_shape(key, namespace="test_prefix")
 
 
+@pytest.mark.xdist_group(name="cache_service_edge_cases")
 class TestCacheServiceEdgeCases:
     """Test cases for edge cases and error conditions."""
 
@@ -594,6 +595,8 @@ class TestCacheServiceEdgeCases:
         service = CacheService()
 
         try:
+            if service._redis_client:
+                await service._redis_client.delete("")
             result = await service.get("")
             assert result is None
         except Exception as e:
@@ -612,6 +615,8 @@ class TestCacheServiceEdgeCases:
         try:
             result = await service.set("", {"data": "test"})
             assert isinstance(result, bool)
+            if result and service._redis_client:
+                await service._redis_client.delete("")
         except Exception as e:
             # Handle Redis connection errors gracefully
             assert (

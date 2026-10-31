@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import L from 'leaflet';
+import L from '../../../mapping/maplibre';
 import { FeaturedMapController } from '../../../components/home/FeaturedMapController';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../../config/mapView';
 
@@ -15,7 +15,7 @@ const mockMap = {
   getMaxZoom: vi.fn(() => 18),
 };
 
-vi.mock('react-leaflet', () => ({
+vi.mock('../../../mapping/react', () => ({
   useMap: () => mockMap,
 }));
 
@@ -48,12 +48,34 @@ function makeDetail({
           }
         : {},
     },
-  } as any;
+  } as never;
 }
 
 describe('FeaturedMapController camera precedence', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('does not restart the active flight when another thumbnail finishes loading', () => {
+    const active = makeDetail({});
+    const programmaticFlyRef = { current: false };
+    const view = render(
+      <FeaturedMapController
+        activeIndex={0}
+        featuredDetails={[active, null]}
+        featuredInitiated
+        programmaticFlyRef={programmaticFlyRef}
+      />
+    );
+    view.rerender(
+      <FeaturedMapController
+        activeIndex={0}
+        featuredDetails={[active, makeDetail({})]}
+        featuredInitiated
+        programmaticFlyRef={programmaticFlyRef}
+      />
+    );
+    expect(mockMap.flyToBounds).toHaveBeenCalledTimes(1);
   });
 
   it('uses explicit center+zoom override before bbox fit', () => {

@@ -1,0 +1,29 @@
+# Opt in with: docker compose -f docker-compose.yml -f docker-compose.native-maps.yml up -d --build
+# Only the private renderer uses Ubuntu. API/Celery keep their existing image.
+services:
+  api:
+    environment:
+      STATIC_MAP_RENDERER_URL: http://map_renderer:8080
+      STATIC_MAP_RENDER_REVISION: ${STATIC_MAP_RENDER_REVISION:-openfreemap-liberty-native-v1}
+  celery_worker:
+    environment:
+      STATIC_MAP_RENDERER_URL: http://map_renderer:8080
+      STATIC_MAP_RENDER_REVISION: ${STATIC_MAP_RENDER_REVISION:-openfreemap-liberty-native-v1}
+  map_renderer:
+    build:
+      context: .
+      dockerfile: backend/tools/maplibre-static-prototype/Dockerfile.worker
+    command:
+      [
+        "sh",
+        "-c",
+        "rm -f /tmp/.X99-lock /tmp/.X11-unix/X99; Xvfb :99 -screen 0 1280x1024x24 -ac -nolisten tcp & sleep 2; exec node server.mjs",
+      ]
+    environment:
+      STATIC_MAP_STYLE_URL: ${STATIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
+    init: true
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 2
+    networks:
+      - elastic

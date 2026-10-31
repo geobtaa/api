@@ -91,7 +91,9 @@ describe('FacetMoreModal', () => {
     render(<MemoryRouter>{ui}</MemoryRouter>);
 
   it('has no accessibility violations when open', async () => {
-    const { container } = renderWithRouter(<FacetMoreModal {...defaultProps} />);
+    const { container } = renderWithRouter(
+      <FacetMoreModal {...defaultProps} />
+    );
     const results = await axeWithWCAG22(container);
     expect(results).toHaveNoViolations();
   });

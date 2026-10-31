@@ -1,6 +1,6 @@
 // IMPORTANT: keep Leaflet mocks at module top-level so Vitest can hoist them before any imports.
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
-vi.mock('leaflet', () => ({
+vi.mock('../../mapping/maplibre', () => ({
   default: {
     Handler: {
       extend: vi.fn((definition) => definition),

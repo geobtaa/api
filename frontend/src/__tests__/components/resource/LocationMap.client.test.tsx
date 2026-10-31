@@ -1,6 +1,6 @@
 import { render, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import L from 'leaflet';
+import L from '../../../mapping/maplibre';
 import LocationMap from '../../../components/resource/LocationMap.client';
 
 const mockMapInstance = {
@@ -17,7 +17,7 @@ vi.mock('../../../config/basemaps', () => ({
   attachBasemapSwitcher: vi.fn(() => vi.fn()),
 }));
 
-vi.mock('leaflet', () => ({
+vi.mock('../../../mapping/maplibre', () => ({
   default: {
     Handler: {
       extend: vi.fn((definition) => definition),

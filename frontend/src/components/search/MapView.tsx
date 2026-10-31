@@ -1,13 +1,12 @@
 import { useEffect, useRef, useCallback } from 'react';
-import type * as Leaflet from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import type * as Leaflet from '../../mapping/maplibre';
+
 import type { GeoDocument } from '../../types/api';
 import { useMap } from '../../context/MapContext';
 import { isValidGeoJsonForLeaflet } from '../../utils/geometryUtils';
 import { useSearchParams } from 'react-router';
 import { attachBasemapSwitcher } from '../../config/basemaps';
-import { leafletGestureMapOptions } from '../../config/leafletConfig';
-import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+import { mapInteractionOptions } from '../../config/mapConfig';
 import { debugLog } from '../../utils/logger';
 
 interface MapViewProps {
@@ -32,9 +31,8 @@ export function MapView({ results }: MapViewProps) {
 
   // Leaflet requires `window`, so only load it in the browser.
   const loadLeaflet = useCallback(async () => {
-    const mod = await import('leaflet');
+    const mod = await import('../../mapping/maplibre');
     const LeafletNamespace = mod.default;
-    registerLeafletGestureHandling(LeafletNamespace);
     return LeafletNamespace;
   }, []);
 
@@ -88,10 +86,15 @@ export function MapView({ results }: MapViewProps) {
         const L = await loadLeaflet();
         if (!mapContainer.current) return;
         if (mapRef.current) return;
-        mapRef.current = L.map(
-          mapContainer.current,
-          leafletGestureMapOptions
-        ).setView([39.8283, -98.5795], 3);
+        try {
+          mapRef.current = L.map(
+            mapContainer.current,
+            mapInteractionOptions
+          ).setView([39.8283, -98.5795], 3);
+        } catch {
+          L.showMapError(mapContainer.current);
+          return;
+        }
         basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
         debugLog('✅ Map initialized');
       })();

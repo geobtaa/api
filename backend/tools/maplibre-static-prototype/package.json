@@ -1,0 +1,14 @@
+{
+  "name": "ogm-maplibre-static-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "demo": "node render.mjs campus.json output/campus.png && node render.mjs resource.json output/resource.png"
+  },
+  "dependencies": {
+    "@maplibre/maplibre-gl-native": "6.4.1",
+    "sharp": "0.35.5"
+  }
+}

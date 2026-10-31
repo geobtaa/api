@@ -1,0 +1,17 @@
+# Isolated, versioned conversion worker; no changes to API container toolchain.
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.0 AS tools
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential git libsqlite3-dev zlib1g-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN git clone --depth 1 --branch 2.79.0 https://github.com/felt/tippecanoe.git /tmp/tippecanoe && make -C /tmp/tippecanoe -j2 && make -C /tmp/tippecanoe install
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.0
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv python3-dev build-essential libcairo2-dev libsqlite3-0 && rm -rf /var/lib/apt/lists/*
+COPY --from=tools /usr/local/bin/tippecanoe /usr/local/bin/tippecanoe
+WORKDIR /app/backend
+COPY backend /app/backend
+ARG INSTALL_TEST_DEPS=false
+RUN python3 -m venv /opt/preview-venv && /opt/preview-venv/bin/pip install --no-cache-dir . && if [ "$INSTALL_TEST_DEPS" = true ]; then /opt/preview-venv/bin/pip install --no-cache-dir '.[dev]'; fi
+ENV PATH="/opt/preview-venv/bin:$PATH" PYTHONPATH=/app/backend
+RUN useradd --create-home preview && mkdir -p /app/backend/data /app/backend/logs && chown -R preview:preview /app/backend/data /app/backend/logs
+USER preview
+CMD ["celery", "-A", "app.tasks.worker", "worker", "-Q", "previews", "--concurrency=2", "--max-tasks-per-child=1"]

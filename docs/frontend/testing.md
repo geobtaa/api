@@ -572,3 +572,40 @@ Allmaps page-load checks are covered by `useAllmapsAvailability.test.tsx`
 (mocked HTTP responses, real annotation parser), including discovery after a
 reload, empty/invalid results, timeout, and stale-response cancellation. The
 resource-page suite verifies that live discovery reveals the overlay tab.
+
+The suite uses the shared happy-dom environment, including analytics dashboards,
+and bounds workers to two so exhaustive DOM/accessibility audits have consistent
+CPU availability. Run the full suite with `npm test -- --run` and coverage with
+`npm run test:coverage -- --run`; no analytics test exclusion is required.
+
+Generated analytics JSON snapshots remain in their generator's compact format.
+Prettier checks hand-maintained sources; snapshot generators and evidence checks
+validate those generated files without reformatting their bytes.
+
+Accessibility audits evaluate all WCAG-tagged rules and keep full violation and
+incomplete results. The shared axe helper limits detailed passing-node output,
+following axe's `resultTypes` performance guidance, to avoid generating unused
+selectors for thousands of passing report cells. Report behavior and exhaustive
+report/period audits use separate test files; real navigation layout accessibility
+is covered by its component suite. No report/period case is excluded.
+
+Exhaustive full-report WCAG audits have a bounded 120-second per-report budget
+because all-time tables can exceed 60 seconds under coverage on shared CPUs.
+Interaction tests retain their 30-second budget. These time limits do not exclude
+records, periods, nodes, or WCAG rules from evaluation.
+
+## OGM Viewer browser contracts
+
+Run `npx playwright install chromium` once, then `npm run test:viewer:browser`
+from `frontend/`. This runs the actual installed viewer with our React
+`ResourceViewer` and `DownloadsTable` in both Vite development and production
+builds, using local IIIF and ArcGIS fixtures. It needs no API server, database,
+external image service, or basemap. The dedicated fixture entry is outside the
+application route tree and is never included in the deployed application.
+
+Coverage includes v2/v3 manifests, multiple images per canvas, repeated image
+URLs, bidirectional paging, download clearing during loading/failure, initial
+fallback, record replacement, map selection, feature inspection, publisher
+download preservation, and location-only records. Unexpected API or external
+requests fail the suite. Failed CI runs retain Playwright traces and screenshots.
+See [the viewer integration](ogm-viewer.md) for dependency and upgrade policy.

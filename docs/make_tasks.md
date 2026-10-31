@@ -320,3 +320,23 @@ operations documentation.
 Without `ARCHIVES`, generation is limited to report integrity and arithmetic and
 cannot replace archive-backed evidence. See the
 [report evidence contract](frontend/analytics-runtime-reporting.md#report-evidence-packets).
+
+Local Native map rendering: `make native-map-start` starts its compatible Linux
+renderer; `make native-map-test` runs camera tests inside that container.
+
+For reproducible backend checks, use the locked Python 3.12 development
+environment (matching CI), rather than globally installed test packages:
+
+```bash
+uv sync --project backend --locked --extra dev --python 3.12
+uv run --project backend --extra dev --locked make lint-check
+uv run --project backend --extra dev --locked make test
+```
+
+### Experimental shared previews
+
+`make preview-assets-init` creates local manifest storage; `make preview-assets-prepare
+IDS="record-id"` queues explicitly selected records; `make preview-assets-test` runs
+isolated tests with pinned GDAL and Tippecanoe. See
+[shared preview assets](backend/shared_preview_assets.md) for feature flags, supported
+formats, limits, and the separate viewer-package release gate.
