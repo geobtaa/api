@@ -11,10 +11,14 @@ Start from the OGM Viewer integration branch. Install the backend dependencies a
 GDAL **3.11.0** and Tippecanoe **2.79.0**, or build `Dockerfile.preview`. Tool versions
 are checked before conversion. Initialize the local database with
 `make preview-assets-init`. Set `PREVIEW_ASSETS_ENABLED=true` in the local environment,
-and set `PREVIEW_APPROVED_RESOURCE_IDS=record-id` for records reviewed under the
-collection's access and reuse policy. Then run `make preview-assets-prepare IDS="record-id"`.
+and set `PREVIEW_APPROVED_RESOURCE_IDS=record-id` for records that have passed
+technical and visual review. Then run `make preview-assets-prepare IDS="record-id"`.
 The comma-separated allowlist defaults to empty and does not support wildcards.
 Removing a record immediately disables its prepared presentation and asset routes.
+The collection maintainer confirms that inclusion in the BTAA Geoportal establishes
+reuse eligibility for preview derivatives. Preparation and delivery still require
+an explicitly public, published, unsuppressed record. The allowlist stages technical
+rollout; it does not require a separate license approval for each catalog record.
 Jobs use the `previews` queue;
 resource requests only read completed manifests. A worker consuming that queue is
 required. The existing API worker must not perform conversions inline.
@@ -208,7 +212,8 @@ viewer package and runtime adapter. It does not enable catalog publication.
 
 ## Initial limitations
 
-The experimental adapters do not yet establish every release gate. Native PMTiles
+Release gates must be checked against actual rendered outputs and browser acceptance,
+including when an adapter or rendering recipe changes. Native PMTiles
 inspection currently supports MVT archives with gzip directories and gzip or
 uncompressed tiles. Other native encodings keep their existing viewer behavior but
 require an additional preparation adapter. Complex IIIF presentation structures
@@ -220,9 +225,9 @@ Raster grid bounds and vector layer extents are qualified coverage, not automati
 computed occupied-pixel or feature-union footprints. Invalid index polygons are omitted
 with an explicit incomplete-coverage label and review note.
 
-Public access is checked automatically. It does not establish permission to create or
-redistribute derivatives: apply the collection's reuse policy when approving the records
-to queue. This release does not infer licenses or grant reuse rights from public access.
+The BTAA collection reuse policy above governs these derivatives. Catalog publication,
+access restrictions, suppression, source changes, and removal from the rollout allowlist
+are checked independently; a stale prepared asset does not override those checks.
 
 Custom GeoTIFF projections measured in feet use their recorded linear units for
 projection offsets in the viewer. This preserves source georeferencing; it does
