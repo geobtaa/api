@@ -22,7 +22,7 @@ def panels(geometry):
         joined = unary_union(shifted)
         if joined.bounds[2] - joined.bounds[0] < geom.bounds[2] - geom.bounds[0]:
             parts, geom = shifted, joined
-    if len(parts) > 1 and geom.area and geom.envelope.area > 4 * geom.area:
+    if len(parts) > 1 and geom.area and geom.envelope.area > 2 * geom.area:
         ordered = sorted(parts, key=lambda p: (-p.area, p.bounds))
         # All geometry remains represented, including small remote islands.
         return ordered[:3] + [unary_union(ordered[3:])] if len(ordered) > 4 else ordered

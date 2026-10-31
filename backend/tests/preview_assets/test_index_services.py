@@ -29,6 +29,21 @@ from app.services.preview_assets.sources import (
 from app.services.preview_assets.storage import LocalStorage
 
 
+def test_coverage_insets_keep_remote_regions_readable():
+    from app.services.preview_assets.coverage_map import panels
+    from shapely.geometry import MultiPolygon
+
+    regions = MultiPolygon(
+        [
+            box(-125, 24, -66, 50),
+            box(-170, 51, -130, 71),
+            box(-160, 18, -154, 23),
+            box(-68, 17, -65, 19),
+        ]
+    )
+    assert len(panels(mapping(regions))) == 4
+
+
 def test_publication_requires_explicit_resource_selection(monkeypatch):
     monkeypatch.delenv("PREVIEW_APPROVED_RESOURCE_IDS", raising=False)
     assert not publication_allowed("test")
