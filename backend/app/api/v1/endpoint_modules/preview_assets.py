@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.api.errors import COMMON_ERROR_RESPONSES
+from app.services.preview_assets.metrics import MeteredAssetResponse
 from app.services.preview_assets.repository import published_for
 from app.services.preview_assets.storage import MIME, LocalStorage, check_key, storage
 from db.session import async_session
@@ -63,7 +64,9 @@ async def preview_asset(id: str, key: str, request: Request):
         path = store.path(key)
         if not path.is_file():
             raise HTTPException(404, "Preview asset unavailable")
-        return FileResponse(path, media_type=MIME[path.suffix], headers=HEADERS)
+        return MeteredAssetResponse(
+            FileResponse(path, media_type=MIME[path.suffix], headers=HEADERS), id, path.suffix
+        )
     byte_range = request.headers.get("range")
     if byte_range and not re.fullmatch(r"bytes=(\d+-\d*|-\d+)", byte_range):
         raise HTTPException(416, "Unsupported byte range")
@@ -102,9 +105,13 @@ async def preview_asset(id: str, key: str, request: Request):
     headers = {**HEADERS, "Content-Length": str(item["ContentLength"]), "ETag": item["ETag"]}
     if item.get("ContentRange"):
         headers["Content-Range"] = item["ContentRange"]
-    return StreamingResponse(
-        chunks(),
-        status_code=206 if item.get("ContentRange") else 200,
-        headers=headers,
-        media_type=MIME[Path(key).suffix],
+    return MeteredAssetResponse(
+        StreamingResponse(
+            chunks(),
+            status_code=206 if item.get("ContentRange") else 200,
+            headers=headers,
+            media_type=MIME[Path(key).suffix],
+        ),
+        id,
+        Path(key).suffix,
     )

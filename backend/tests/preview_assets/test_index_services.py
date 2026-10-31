@@ -30,8 +30,9 @@ from app.services.preview_assets.storage import LocalStorage
 
 
 def test_coverage_insets_keep_remote_regions_readable():
-    from app.services.preview_assets.coverage_map import panels
     from shapely.geometry import MultiPolygon
+
+    from app.services.preview_assets.coverage_map import panels
 
     regions = MultiPolygon(
         [

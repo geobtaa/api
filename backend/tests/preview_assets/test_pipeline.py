@@ -370,7 +370,7 @@ def test_curated_sources_take_precedence_and_invalidate():
     assert record_signature(record) != record_signature({**record, "_preview_sources": []})
 
 
-def test_actual_asset_route_range_and_access_gate(tmp_path, monkeypatch):
+def test_actual_asset_route_range_and_access_gate(tmp_path, monkeypatch, caplog):
     from contextlib import asynccontextmanager
 
     from fastapi import FastAPI
@@ -396,6 +396,7 @@ def test_actual_asset_route_range_and_access_gate(tmp_path, monkeypatch):
     monkeypatch.setattr(route, "storage", lambda: store)
     app = FastAPI()
     app.include_router(route.router)
+    caplog.set_level("INFO", logger="app.services.preview_assets.metrics")
     with TestClient(app) as client:
         url = f"/resources/test/preview-assets/{key}"
         response = client.get(url, headers={"Range": "bytes=3-6"})
@@ -405,6 +406,13 @@ def test_actual_asset_route_range_and_access_gate(tmp_path, monkeypatch):
         assert client.head(url).content == b""
         active = None
         assert client.get(url).status_code == 404
+    deliveries = [
+        entry.preview_delivery for entry in caplog.records if hasattr(entry, "preview_delivery")
+    ]
+    assert [(item["status"], item["bytes"], item["complete"]) for item in deliveries] == [
+        (206, 4, True),
+        (200, 0, True),
+    ]
 
 
 @pytest.mark.usefixtures("pinned_conversion_tools")

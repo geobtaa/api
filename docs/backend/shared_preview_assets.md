@@ -162,6 +162,15 @@ The companion `feature/shared-preview-recipes` viewer changes are published as
 updates must publish and validate a versioned viewer artifact before updating the
 application pin. Package publication does not enable collection-wide preparation.
 
+`make preview-assets-status` summarizes the latest stored outcomes by provider and
+format, processing time, bytes read, derivative size, and active manifests older than
+30 days. `scripts/preview_assets_status.py --report path/to/report.json` summarizes an
+isolated audit instead. These are latest-attempt snapshots, not historical totals.
+Asset delivery emits `preview_asset_delivery` JSON log events with resource ID, format,
+HTTP status, emitted bytes, elapsed time, and completion state. They contain no source
+URL queries or dataset attributes. Use these events to measure serving volume and
+interrupted responses; provider failures remain in manifest source-attempt metrics.
+
 Deployment-specific storage configuration, credentials, serving policies, and worker
 operations belong in restricted operations documentation. This page deliberately
 contains only the local workflow and public API contract.

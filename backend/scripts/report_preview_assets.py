@@ -56,10 +56,12 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     statuses = Counter(row["manifest"]["status"] for row in rows)
     thumbs = Counter(row["manifest"]["thumbnail_status"] for row in rows)
+    browser_passes = sum(str(row.get("browser_review", "")).startswith("Passed:") for row in rows)
     summary = (
         f"{len(rows)} fixed pilot records. Processing ready: {statuses['ready']}; "
-        f"thumbnail ready: {thumbs['ready']}. These are processing outcomes, "
-        "not a collection-wide success rate or completed browser acceptance."
+        f"thumbnail ready: {thumbs['ready']}; browser checks passed: {browser_passes}. "
+        "These are separate pilot outcomes, not a collection-wide success rate. "
+        "See each record's review notes and remaining limitations."
     )
     cards, evidence = [], []
     for number, row in enumerate(rows, 1):
@@ -128,7 +130,9 @@ def main():
         text = (
             f"Preview processing: {manifest['status']} | "
             f"Thumbnail: {manifest['thumbnail_status']} | "
-            f"Scope: {manifest['scope']} | {metrics.get('seconds', '?')} s | "
+            f"Layer scope: {manifest['scope']} | "
+            f"Thumbnail scope: {manifest.get('thumbnail_scope', 'resource')} | "
+            f"{metrics.get('seconds', '?')} s | "
             f"Read {metrics.get('bytes_read', 0):,} bytes | "
             f"Stored assets {row.get('stored_asset_bytes', metrics.get('output_bytes', 0)):,} bytes"
         )
