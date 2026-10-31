@@ -209,7 +209,7 @@ def convert_vector(source: Path, output_dir: Path, budget, selected_layer=None, 
         raise PreviewError(Outcome.NEEDS_REVIEW, "Selected layer not found")
     if len(entries) > budget.limits.layers:
         raise PreviewError(Outcome.OVER_LIMIT, "Spatial layer limit exceeded")
-    layers, footprints = [], []
+    layers, footprints, identifiers = [], [], []
     regional_points = False
     for index, (path, name) in enumerate(entries):
         with fiona.open(
@@ -221,6 +221,22 @@ def convert_vector(source: Path, output_dir: Path, budget, selected_layer=None, 
                 continue
             bounds = list(transform_bounds(src.crs, "EPSG:4326", *src.bounds, densify_pts=21))
             bounds_geometry(bounds)
+            # Driver FIDs (including GeoPackage primary keys) are not ordinary
+            # attributes and FlatGeobuf can renumber them while spatially sorting.
+            # Preserve the original as text before reprojection, also avoiding
+            # JavaScript precision loss for 64-bit identifiers in the viewer.
+            fields = {field.casefold() for field in src.schema["properties"]}
+            identifier = "__preview_source_fid"
+            while identifier.casefold() in fields:
+                identifier += "_"
+            rowid = next(
+                (alias for alias in ("rowid", "_rowid_", "oid") if alias not in fields), None
+            )
+            if rowid is None:
+                raise PreviewError(Outcome.NEEDS_REVIEW, "Source fields obscure all FID aliases")
+            quoted_name = '"' + name.replace('"', '""') + '"'
+            query = f'SELECT *, CAST("{rowid}" AS TEXT) AS "{identifier}" FROM {quoted_name}'
+            identifiers.append(f"Layer {name}: source driver FID retained as {identifier} (text)")
         sequence = output_dir / f"layer-{index}.fgb"
         output = output_dir / f"layer-{index}.pmtiles"
         run_tool(
@@ -235,9 +251,14 @@ def convert_vector(source: Path, output_dir: Path, budget, selected_layer=None, 
                 "PROMOTE_TO_MULTI",
                 "-lco",
                 "SPATIAL_INDEX=YES",
+                "-dialect",
+                "SQLITE",
+                "-sql",
+                query,
+                "-nln",
+                name,
                 str(sequence),
                 str(path),
-                name,
             ],
             budget,
         )
@@ -330,6 +351,7 @@ def convert_vector(source: Path, output_dir: Path, budget, selected_layer=None, 
                 "vector tiles generalized by zoom"
             ),
             "Features may be omitted in dense tiles; original download remains authoritative",
-            "Generated feature IDs are stable within this derivative version",
+            "Vector preparation version 2; generated tile IDs are distinct from source FIDs",
+            *identifiers,
         ],
     )

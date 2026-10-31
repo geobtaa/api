@@ -127,6 +127,71 @@ def test_real_vector_conversion(tmp_path):
     assert result.thumbnail_status == Outcome.READY
 
 
+@pytest.mark.parametrize("driver", ["GPKG", "GeoJSON", "ESRI Shapefile"])
+@pytest.mark.usefixtures("pinned_conversion_tools")
+def test_source_feature_ids_survive_vector_tiles(tmp_path, driver):
+    import gzip
+
+    import fiona
+    import mapbox_vector_tile
+    from pmtiles.reader import all_tiles
+
+    from app.services.preview_assets.convert import convert_vector
+
+    suffix = {"GPKG": ".gpkg", "GeoJSON": ".geojson", "ESRI Shapefile": ".shp"}[driver]
+    source = tmp_path / ("identifiers" + suffix)
+    # A quoted layer and colliding field exercise query quoting and preservation
+    # of existing attributes. Shapefile field names are limited to ten characters.
+    name = 'parks "original"' if driver == "GPKG" else "identifiers"
+    existing = "__preview_source_fid" if driver != "ESRI Shapefile" else "label"
+    with fiona.open(
+        source,
+        "w",
+        driver=driver,
+        layer=name,
+        schema={"geometry": "Point", "properties": {existing: "str", "rowid": "str"}},
+        crs="EPSG:4326",
+    ) as collection:
+        for index, point in enumerate([(-91, 44), (-90, 45)]):
+            collection.write(
+                {
+                    "geometry": {"type": "Point", "coordinates": point},
+                    "properties": {existing: f"original-{index}", "rowid": f"attribute-{index}"},
+                }
+            )
+    if driver == "GPKG":
+        subprocess.run(
+            [
+                "ogrinfo",
+                str(source),
+                "-sql",
+                'UPDATE "parks ""original""" SET fid=fid+9007199254740992',
+            ],
+            check=True,
+            capture_output=True,
+        )
+    elif driver == "GeoJSON":
+        content = json.loads(source.read_text())
+        for index, feature in enumerate(content["features"]):
+            feature["id"] = 9007199254740993 + index
+        source.write_text(json.dumps(content))
+    with fiona.open(source, layer=name) as collection:
+        expected = {f["properties"][existing]: f.id for f in collection}
+    layers, _, changes = convert_vector(source, tmp_path, Budget(Limits(), tmp_path))
+    field = "__preview_source_fid" + ("_" if driver != "ESRI Shapefile" else "")
+    assert any(field in change for change in changes)
+    content = layers[0]["path"].read_bytes()
+    observed = {}
+    for _, data in all_tiles(lambda offset, size: content[offset : offset + size]):
+        for layer in mapbox_vector_tile.decode(gzip.decompress(data)).values():
+            for feature in layer["features"]:
+                properties = feature["properties"]
+                assert properties["rowid"].startswith("attribute-")
+                observed[properties[existing]] = properties[field]
+    assert observed == expected
+    assert all(isinstance(value, str) for value in observed.values())
+
+
 def test_archive_rejects_traversal(tmp_path):
     archive = tmp_path / "bad.zip"
     with zipfile.ZipFile(archive, "w") as z:

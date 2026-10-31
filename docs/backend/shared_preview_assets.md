@@ -73,7 +73,11 @@ occurs with an explicit `max_dimension` recipe; the default preserves source res
 Vectors use a WGS84 FlatGeobuf intermediate and one vector PMTiles file per spatial
 layer. Original attributes are retained; tile geometry can be repaired, generalized,
 and omitted in dense tiles. Generated IDs are stable within the derivative version.
-The manifest records these limitations. Null geometry and unsupported layers can result
+Source driver feature IDs are retained as text in `__preview_source_fid` before
+intermediate sorting; underscores are appended if that attribute name already exists.
+This also preserves large integer identifiers exactly in browser inspection. The
+manifest records the actual attribute name per layer and distinguishes source IDs
+from generated tile IDs. Null geometry and unsupported layers can result
 in a reviewable failure; no alternative full-fidelity download is implied.
 
 The approach is informed by the public
