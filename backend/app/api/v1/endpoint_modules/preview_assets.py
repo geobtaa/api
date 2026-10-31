@@ -7,11 +7,12 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
+from app.api.errors import COMMON_ERROR_RESPONSES
 from app.services.preview_assets.repository import published_for
 from app.services.preview_assets.storage import MIME, LocalStorage, check_key, storage
 from db.session import async_session
 
-router = APIRouter()
+router = APIRouter(responses=COMMON_ERROR_RESPONSES)
 HEADERS = {
     "Accept-Ranges": "bytes",
     "Access-Control-Allow-Origin": "*",
@@ -45,7 +46,9 @@ async def asset_options(id: str, key: str):
     )
 
 
-@router.api_route("/resources/{id}/preview-assets/{key}", methods=["GET", "HEAD"])
+@router.api_route(
+    "/resources/{id}/preview-assets/{key}", methods=["GET", "HEAD"], response_class=Response
+)
 async def preview_asset(id: str, key: str, request: Request):
     try:
         check_key(key)

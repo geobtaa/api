@@ -39,7 +39,7 @@ test.beforeEach(async ({ page }) => {
           new URL('http://127.0.0.1/fixtures/iiif/a/full/full/0/default.png')
         )!.body,
       });
-    if (url.hostname !== '127.0.0.1' || url.pathname.includes('/api/'))
+    if (url.hostname !== '127.0.0.1' || url.pathname.startsWith('/api/'))
       throw new Error(`Unexpected service request: ${url.href}`);
     return route.continue();
   });
