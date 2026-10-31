@@ -582,7 +582,18 @@
       "dct_accessRights_s": "Public",
       "publication_state": "published",
       "gbl_suppressed_b": null
-    }
+    },
+    "recipe": {
+      "kind": "vector",
+      "thumbnail_bounds": [
+        -125,
+        24,
+        -66,
+        50
+      ],
+      "point_radius": 1
+    },
+    "recipe_note": "Representative contiguous-US detail; full regional data extent is shown separately."
   },
   {
     "family": "download",
@@ -600,7 +611,18 @@
       "dct_accessRights_s": "Public",
       "publication_state": "published",
       "gbl_suppressed_b": null
-    }
+    },
+    "recipe": {
+      "kind": "vector",
+      "thumbnail_bounds": [
+        -125,
+        24,
+        -66,
+        50
+      ],
+      "point_radius": 1
+    },
+    "recipe_note": "Representative contiguous-US detail; full regional data extent is shown separately."
   },
   {
     "family": "download",
@@ -618,7 +640,18 @@
       "dct_accessRights_s": "Public",
       "publication_state": "published",
       "gbl_suppressed_b": null
-    }
+    },
+    "recipe": {
+      "kind": "vector",
+      "thumbnail_bounds": [
+        -125,
+        24,
+        -66,
+        50
+      ],
+      "point_radius": 1
+    },
+    "recipe_note": "Representative contiguous-US detail; full regional data extent is shown separately."
   },
   {
     "family": "download",

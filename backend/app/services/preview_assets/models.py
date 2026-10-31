@@ -2,13 +2,14 @@
 
 import hashlib
 import json
+import math
 import os
 from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-PIPELINE_VERSION = "1"
+PIPELINE_VERSION = "2"
 
 
 class Outcome(StrEnum):
@@ -64,6 +65,7 @@ class Recipe(BaseModel):
     stroke_width: float = Field(default=1.5, gt=0, le=10)
     point_radius: float = Field(default=3, gt=0, le=20)
     max_dimension: int | None = Field(default=None, ge=512)
+    thumbnail_bounds: tuple[float, float, float, float] | None = None
 
     @model_validator(mode="after")
     def validate_recipe(self):
@@ -75,6 +77,14 @@ class Recipe(BaseModel):
             raise ValueError("Classified recipes require a known palette")
         if self.value_range and self.value_range[0] >= self.value_range[1]:
             raise ValueError("Value range must increase")
+        if self.thumbnail_bounds:
+            west, south, east, north = self.thumbnail_bounds
+            if self.kind != "vector" or not (
+                all(math.isfinite(value) for value in self.thumbnail_bounds)
+                and -180 <= west < east <= 180
+                and -85.0511 <= south < north <= 85.0511
+            ):
+                raise ValueError("Thumbnail detail requires geographic vector bounds")
         return self
 
 
@@ -92,6 +102,7 @@ class Layer(BaseModel):
     name: str
     url: str
     format: Literal["cog", "pmtiles", "geojson", "wms", "arcgis", "iiif", "image"]
+    source_layer: str | None = None
     bounds: list[float] | None = None
     recipe: Recipe | None = None
     asset_key: str | None = None
@@ -99,7 +110,7 @@ class Layer(BaseModel):
 
 
 class Manifest(BaseModel):
-    version: str = PIPELINE_VERSION
+    version: str = "1"
     status: Outcome
     layers: list[Layer] = Field(default_factory=list)
     scope: Literal["resource", "sample"] = "resource"
@@ -113,6 +124,7 @@ class Manifest(BaseModel):
     coverage_key: str | None = None
     coverage_url: str | None = None
     thumbnail_status: Outcome = Outcome.UNSUPPORTED
+    thumbnail_scope: Literal["resource", "sample"] = "resource"
     thumbnail_key: str | None = None
     thumbnail_url: str | None = None
     detail: str | None = None
@@ -127,6 +139,16 @@ def fingerprint(value: object) -> str:
 
 def enabled() -> bool:
     return os.getenv("PREVIEW_ASSETS_ENABLED", "false").lower() == "true"
+
+
+def publication_allowed(resource_id: str) -> bool:
+    """Explicit rollout selection after access/reuse and visual review; no wildcard."""
+    approved = {
+        value.strip()
+        for value in os.getenv("PREVIEW_APPROVED_RESOURCE_IDS", "").split(",")
+        if value.strip() and value.strip() != "*"
+    }
+    return str(resource_id) in approved
 
 
 def eligible(record: dict) -> bool:

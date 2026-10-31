@@ -1,6 +1,7 @@
 """Pure source selection and service request construction."""
 
 import json
+import re
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -13,6 +14,18 @@ COG = "https://github.com/cogeotiff/cog-spec"
 PMTILES = "https://github.com/protomaps/PMTiles"
 INDEX = "https://openindexmaps.org"
 WMS = "http://www.opengis.net/def/serviceType/ogc/wms"
+
+
+def retryable_attempts(attempts):
+    return any(
+        attempt.get("status") == "unavailable"
+        and re.search(
+            r"provider busy|timed? ?out|timeout|connection reset|HTTP (429|500|502|503|504)\b",
+            attempt.get("detail", ""),
+            re.I,
+        )
+        for attempt in attempts
+    )
 
 
 @dataclass(frozen=True)
@@ -84,13 +97,65 @@ def query_url(url, params):
     )
 
 
-def wms_image(source: Source, record, version="1.3.0", crs="EPSG:4326"):
+def iiif_manifest_image(manifest):
+    """Resolve an embedded v2/v3 painting image without following page graphs."""
+    sequences = manifest.get("sequences", [])
+    canvases = sequences[0].get("canvases", []) if sequences else manifest.get("items", [])
+    if not canvases:
+        raise PreviewError(Outcome.NEEDS_REVIEW, "IIIF manifest has no embedded canvases")
+    canvas = canvases[0]
+    if sequences:
+        bodies = [annotation.get("resource") for annotation in canvas.get("images", [])]
+    else:
+        bodies = [
+            annotation.get("body")
+            for page in canvas.get("items", [])
+            for annotation in page.get("items", [])
+            if annotation.get("motivation") == "painting"
+        ]
+    images = [
+        body
+        for body in bodies
+        if isinstance(body, dict)
+        and (body.get("type") or body.get("@type")) in {"Image", "dctypes:Image"}
+    ]
+    if len(images) != 1 or len(bodies) != 1:
+        raise PreviewError(Outcome.NEEDS_REVIEW, "IIIF canvas requires image composition or choice")
+    body = images[0]
+    services = body.get("service", [])
+    services = [services] if isinstance(services, dict) else services
+    for service in services:
+        identifier = service.get("id") or service.get("@id")
+        if identifier and (
+            service.get("type") in {"ImageService2", "ImageService3"}
+            or "iiif.io/api/image" in str(service.get("@context", ""))
+            or "iiif.io/api/image" in str(service.get("profile", ""))
+        ):
+            return Source(identifier, "iiif"), len(canvases) > 1
+    identifier = body.get("id") or body.get("@id")
+    if not identifier:
+        raise PreviewError(Outcome.NEEDS_REVIEW, "IIIF painting image URL missing")
+    return Source(identifier, "image"), len(canvases) > 1
+
+
+def wms_image(source: Source, record, version=None, crs=None):
     if not source.layer:
         raise PreviewError(Outcome.NEEDS_REVIEW, "WMS layer identifier missing")
     coverage = metadata_coverage(record)
     if not coverage.geometry:
         raise PreviewError(Outcome.NEEDS_REVIEW, "WMS extent missing")
     west, south, east, north = shape(coverage.geometry).bounds
+    configured = {key.upper(): value for key, value in parse_qsl(urlsplit(source.url).query)}
+    version = version or configured.get("VERSION", "1.3.0")
+    crs = crs or configured.get("CRS") or configured.get("SRS") or "EPSG:4326"
+    if version not in {"1.1.1", "1.3.0"}:
+        raise PreviewError(Outcome.UNSUPPORTED, "Unsupported WMS version")
+    if crs.upper() not in {"EPSG:4326", "CRS:84", "EPSG:3857"}:
+        raise PreviewError(Outcome.NEEDS_REVIEW, "WMS CRS requires a configured adapter")
+    if crs.upper() == "EPSG:3857":
+        from rasterio.warp import transform_bounds
+
+        west, south, east, north = transform_bounds("EPSG:4326", crs, west, south, east, north)
     bounds = (
         (south, west, north, east)
         if version == "1.3.0" and crs.upper() == "EPSG:4326"

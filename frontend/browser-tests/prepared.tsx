@@ -7,7 +7,9 @@ import type { PreviewDescription } from '../src/utils/preparedPreview';
 type Row = {
   id: string;
   title: string;
+  record?: Record<string, unknown>;
   manifest: PreviewDescription & {
+    detail?: string;
     thumbnail_key?: string;
     coverage_key?: string;
     layers: (PreviewDescription['layers'][number] & { asset_key?: string })[];
@@ -25,17 +27,7 @@ function Acceptance() {
           throw new Error('Start the local pilot evidence server first.');
         return response.json();
       })
-      .then((results: Row[]) =>
-        setRows(
-          results.filter(
-            (row) =>
-              row.manifest.status === 'ready' &&
-              row.manifest.layers.some((layer) =>
-                ['cog', 'pmtiles'].includes(layer.format)
-              )
-          )
-        )
-      )
+      .then((results: Row[]) => setRows(results))
       .catch((failure: Error) => setError(failure.message));
   }, []);
   const row = rows[selected];
@@ -58,6 +50,12 @@ function Acceptance() {
         ))}
       </select>
       {row && (
+        <p className="mb-3" role="status">
+          {row.manifest.status}
+          {row.manifest.detail ? ` — ${row.manifest.detail}` : ''}
+        </p>
+      )}
+      {row && (
         <div
           style={{
             display: 'grid',
@@ -77,6 +75,7 @@ function Acceptance() {
                   gbl_mdVersion_s: 'Aardvark',
                   dct_accessRights_s: 'Public',
                   dct_references_s: '{}',
+                  ...row.record,
                 },
               },
               meta: {

@@ -14,7 +14,7 @@ from db.models import (
     resources,
 )
 
-from .models import Manifest, Outcome, eligible, enabled, fingerprint
+from .models import Manifest, Outcome, eligible, enabled, fingerprint, publication_allowed
 
 
 def record_signature(record):
@@ -69,6 +69,7 @@ def next_active(previous, attempt: Manifest):
         ):
             for key in ("thumbnail_status", "thumbnail_key", "thumbnail_url"):
                 published[key] = previous[key]
+            published["thumbnail_scope"] = previous.get("thumbnail_scope", "resource")
         return published
     return previous
 
@@ -113,7 +114,7 @@ def save_attempt(connection, resource_id, signature, attempt):
 
 
 async def published_for(resource_id, session):
-    if not enabled():
+    if not enabled() or not publication_allowed(resource_id):
         return None
     row = (
         (
@@ -169,7 +170,7 @@ async def published_for(resource_id, session):
 
 
 async def attach_preview(resource, record, session=None):
-    if not enabled() or not eligible(record):
+    if not enabled() or not eligible(record) or not publication_allowed(str(record["id"])):
         return
     from db.session import async_session
 
@@ -178,13 +179,13 @@ async def attach_preview(resource, record, session=None):
             manifest = await published_for(str(record["id"]), owned)
     else:
         manifest = await published_for(str(record["id"]), session)
-    from .geometry import metadata_coverage
+    from .geometry import display_coverage, metadata_coverage
 
     ui = resource.setdefault("meta", {}).setdefault("ui", {})
     ui["coverage"] = (
         manifest.get("coverage")
         if manifest and manifest.get("coverage")
-        else metadata_coverage(record).model_dump(mode="json")
+        else display_coverage(metadata_coverage(record)).model_dump(mode="json")
     )
     ui.setdefault("viewer", {})["geometry"] = ui["coverage"]["geometry"]
     if manifest and manifest.get("coverage") and not manifest.get("coverage_url"):

@@ -10,9 +10,16 @@ from celery import shared_task
 from sqlalchemy import select, text
 
 from app.services.preview_assets.io import Budget
-from app.services.preview_assets.models import Limits, Manifest, Outcome, enabled
+from app.services.preview_assets.models import (
+    Limits,
+    Manifest,
+    Outcome,
+    enabled,
+    publication_allowed,
+)
 from app.services.preview_assets.process import run_tool
 from app.services.preview_assets.repository import hydrate_sources, record_signature, save_attempt
+from app.services.preview_assets.sources import retryable_attempts
 from db.models import resources
 from db.session import sync_engine
 
@@ -28,6 +35,11 @@ from db.session import sync_engine
 def prepare_resource_preview(self, resource_id, recipe=None, selected_layer=None):
     if not enabled():
         return {"status": "disabled"}
+    if not publication_allowed(resource_id):
+        return {
+            "status": "needs-review",
+            "detail": "Resource is not approved for preview publication",
+        }
     # PostgreSQL session locks deduplicate resources and enforce a global cap
     # across all worker processes; disconnects release locks automatically.
     with sync_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as lease:
@@ -86,11 +98,10 @@ def prepare_resource_preview(self, resource_id, recipe=None, selected_layer=None
                 result = Manifest(status=getattr(exc, "status", Outcome.INVALID), detail=str(exc))
             with sync_engine.begin() as connection:
                 save_attempt(connection, resource_id, signature, result)
-            if result.status != Outcome.READY and any(
-                "Provider busy; retry later" in attempt.get("detail", "")
-                for attempt in result.metrics.get("source_attempts", [])
+            if result.status != Outcome.READY and retryable_attempts(
+                result.metrics.get("source_attempts", [])
             ):
-                raise self.retry(countdown=30)
+                raise self.retry(countdown=min(300, 30 * 2**self.request.retries))
             return result.model_dump(mode="json")
         finally:
             for name in reversed(locks):

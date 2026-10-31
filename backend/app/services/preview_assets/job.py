@@ -11,7 +11,7 @@ from db.models import resources
 from db.session import sync_engine
 
 from .coverage_map import render_coverage
-from .io import download
+from .io import RangeReader, download
 from .models import Outcome, PreviewError
 from .pipeline import Pipeline
 from .repository import hydrate_sources
@@ -38,6 +38,10 @@ def provider_download(url, target, budget):
     return download(url, target, budget, host_guard=provider_lease)
 
 
+def provider_range(url, budget):
+    return RangeReader(url, budget, host_guard=provider_lease)
+
+
 def child_record(identifier):
     with sync_engine.connect() as connection:
         row = (
@@ -51,12 +55,13 @@ def child_record(identifier):
 def main():
     request = json.loads(Path(sys.argv[1]).read_text())
     audit_root = request.pop("audit_root", None)
+    audit_records = request.pop("audit_records", {})
     if audit_root:
         from .storage import LocalStorage
 
         store = LocalStorage(Path(audit_root))
         fetch = download
-        lookup = None
+        lookup = audit_records.get
     else:
         store, fetch, lookup = storage(), provider_download, child_record
     result = Pipeline(
@@ -65,6 +70,7 @@ def main():
         child_lookup=lookup,
         coverage_renderer=render_coverage,
         work_root=Path(sys.argv[2]).parent,
+        range_open=RangeReader if audit_root else provider_range,
     ).prepare(**request)
     Path(sys.argv[2]).write_text(result.model_dump_json())
 

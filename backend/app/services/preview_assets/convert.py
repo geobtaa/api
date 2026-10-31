@@ -11,7 +11,7 @@ from rasterio.warp import transform_bounds
 from rio_tiler.colormap import cmap
 from shapely.geometry import mapping
 
-from .geometry import bounds_geometry
+from .geometry import bounds_geometry, point_regions
 from .io import extract_zip
 from .models import Coverage, Outcome, PreviewError, Recipe
 from .process import run_tool
@@ -202,12 +202,15 @@ def convert_vector(source: Path, output_dir: Path, budget, selected_layer=None, 
     for path in inputs:
         for name in fiona.listlayers(path):
             if selected_layer is None or name == selected_layer:
-                entries.append((path, name))
+                with fiona.open(path, layer=name) as candidate:
+                    if candidate.schema.get("geometry") not in {None, "None"}:
+                        entries.append((path, name))
     if not entries:
         raise PreviewError(Outcome.NEEDS_REVIEW, "Selected layer not found")
     if len(entries) > budget.limits.layers:
         raise PreviewError(Outcome.OVER_LIMIT, "Spatial layer limit exceeded")
     layers, footprints = [], []
+    regional_points = False
     for index, (path, name) in enumerate(entries):
         with fiona.open(
             path, layer=name, enabled_drivers=["ESRI Shapefile", "GPKG", "GeoJSON"]
@@ -280,7 +283,29 @@ def convert_vector(source: Path, output_dir: Path, budget, selected_layer=None, 
                 "recipe": recipe,
             }
         )
-        footprints.append(bounds_geometry(bounds))
+        with fiona.open(sequence) as points:
+            if points.schema["geometry"] in {"Point", "MultiPoint"}:
+
+                def coordinates():
+                    for number, feature in enumerate(points):
+                        if number % 1000 == 0:
+                            budget.check()
+                        geom = feature["geometry"]
+                        if not geom:
+                            continue
+                        if geom["type"] == "Point":
+                            yield geom["coordinates"][:2]
+                        else:
+                            yield from (point[:2] for point in geom["coordinates"])
+
+                regions = point_regions(coordinates())
+                if regions is not None:
+                    footprints.append(regions)
+                    regional_points = True
+                else:
+                    footprints.append(bounds_geometry(bounds))
+            else:
+                footprints.append(bounds_geometry(bounds))
     if not layers:
         raise PreviewError(Outcome.UNSUPPORTED, "No spatial layers")
     from shapely.ops import unary_union
@@ -289,7 +314,12 @@ def convert_vector(source: Path, output_dir: Path, budget, selected_layer=None, 
         geometry=mapping(unary_union(footprints)),
         kind="data-footprint",
         label="Data extent",
-        provenance="Union of spatial layer extents; gaps may be included",
+        provenance=(
+            "Union of regional point envelopes (adjacent five-degree cells) "
+            "and other layer extents; gaps may be included"
+            if regional_points
+            else "Union of spatial layer extents; gaps may be included"
+        ),
     )
     return (
         layers,

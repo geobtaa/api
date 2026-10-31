@@ -11,7 +11,11 @@ Start from the OGM Viewer integration branch. Install the backend dependencies a
 GDAL **3.11.0** and Tippecanoe **2.79.0**, or build `Dockerfile.preview`. Tool versions
 are checked before conversion. Initialize the local database with
 `make preview-assets-init`. Set `PREVIEW_ASSETS_ENABLED=true` in the local environment,
-then run `make preview-assets-prepare IDS="record-id"`. Jobs use the `previews` queue;
+and set `PREVIEW_APPROVED_RESOURCE_IDS=record-id` for records reviewed under the
+collection's access and reuse policy. Then run `make preview-assets-prepare IDS="record-id"`.
+The comma-separated allowlist defaults to empty and does not support wildcards.
+Removing a record immediately disables its prepared presentation and asset routes.
+Jobs use the `previews` queue;
 resource requests only read completed manifests. A worker consuming that queue is
 required. The existing API worker must not perform conversions inline.
 
@@ -35,6 +39,8 @@ tools; general API tests skip conversion cases when that toolchain is absent.
 `--recipe recipe.json` supplies an explicit rendering recipe; `--layer name` selects
 a named spatial layer. An audit entry can override these with `recipe` and `layer`.
 Without a selected layer, every supported spatial layer is exposed up to the limit.
+`--child-records children.json` supplies public child-record snapshots for a database-free
+index audit. The resolver still follows only one child-record hop and detects cycles.
 
 Local file storage defaults to `data/preview-assets`; `PREVIEW_ASSET_ROOT` selects a
 shared local directory. API and conversion workers must see the same files.
@@ -48,6 +54,14 @@ Assigned assets and normalized distributions take precedence over legacy referen
 of the same type. Existing COG, PMTiles, IIIF, and live service references are preferred
 before download conversion. The runtime adapter adds prepared layers without changing
 harvested OGM references. Original working previews remain available.
+
+Native COG and vector PMTiles inspection uses bounded HTTP Range reads with a small
+block cache. Every redirect is checked, connections are pinned to public addresses,
+and a strong ETag must remain stable across reads. Sources without usable ranges or
+validators fall back to the normal bounded download path. COG thumbnails use source
+overviews; PMTiles thumbnails decode a bounded complete overview level. Native PMTiles
+layers retain their names through the optional `source_layer` field. No source archive
+is re-encoded merely to make its thumbnail.
 
 TIFF conversion uses lossless LZW compression, 512-pixel blocks, and internal overviews.
 Numeric values and masks are checked against the input. Classified rasters require a
@@ -84,12 +98,25 @@ links are retained. A version-1 preview includes `status`, `layers`, `scope`, so
 fingerprint, generation time, processing version, transformations, thumbnail status,
 and metrics. Each layer includes its name, URL, format, geographic bounds, and recipe.
 A scope of `sample` means the content does not represent the complete collection.
+Embedded IIIF v2/v3 painting images can supply thumbnails. A multi-canvas manifest is
+labeled as a sample; image choices, composite canvases, or externally referenced page
+graphs require review instead of guessing the painting image.
 
 Coverage includes GeoJSON geometry, `kind`, `label`, and provenance. Kinds are
 `data-footprint`, `indexed-coverage`, `metadata-extent`, `geographic-focus`, and
 `unavailable`. Raster grid bounds may contain NoData areas; vector extents may contain
 gaps. These qualifications are recorded rather than implying an exact occupied area.
 Unknown geography is represented by null geometry. Search indexing is unchanged.
+Display simplification is performed once before publication, with its tolerance and
+source geometry fingerprint recorded. Static maps and UI overlays use that same
+published geometry.
+
+Point datasets use regional envelopes of actual point groups, preserving disconnected
+and antimeridian groups. The coverage label explicitly identifies extents that can
+contain gaps. An explicit vector `thumbnail_bounds` recipe supplies representative
+detail framing for both the thumbnail and initial viewer camera without changing
+published layer bounds or coverage. `thumbnail_scope=sample` and an embedded caption
+identify that detail even for clients using only the legacy thumbnail URL.
 
 Asset routes support GET, HEAD, OPTIONS, HTTP Range, and browser CORS. Immutable keys
 identify bytes, but every resource-scoped request checks current publication, access,
@@ -118,6 +145,9 @@ Outcomes are `queued`, `processing`, `ready`, `unsupported`, `unavailable`, `inv
 `over-limit`, and `needs-review`. Inspect `detail` and `metrics.source_attempts` for
 failure causes. Point clouds, nested archives, multidimensional scientific formats,
 and unlocated images remain outside the first-release conversion scope.
+Transient download failures use bounded exponential retries; missing sources and
+access restrictions are not retried automatically. Failed refreshes retain the last
+valid version only while its source assignment and access remain valid.
 
 ## Release validation
 
@@ -128,7 +158,7 @@ Browser acceptance must verify partial reads, pan/zoom, placement, feature inspe
 where available, and default styling. A ready conversion is not itself browser acceptance.
 
 The companion `feature/shared-preview-recipes` viewer changes are published as
-`v1.7.0-btaa.3`; the frontend pins that release archive and integrity hash. Future
+`v1.7.0-btaa.4`; the frontend pins that release archive and integrity hash. Future
 updates must publish and validate a versioned viewer artifact before updating the
 application pin. Package publication does not enable collection-wide preparation.
 
@@ -165,12 +195,11 @@ viewer package and runtime adapter. It does not enable catalog publication.
 
 ## Initial limitations
 
-The experimental adapters do not yet establish every release gate. Native COG and
-PMTiles inspection currently stages a bounded source download; large existing tiled
-sources need a controlled partial-read inspection adapter before broader use. Existing
-IIIF manifest previews are preserved, but the new preparation path does not yet resolve
-all IIIF presentation manifests. Numeric pixel inspection is not supplied by this viewer
-integration.
+The experimental adapters do not yet establish every release gate. Native PMTiles
+inspection currently supports MVT archives with gzip directories and gzip or
+uncompressed tiles. Other native encodings keep their existing viewer behavior but
+require an additional preparation adapter. Complex IIIF presentation structures
+require review. Numeric pixel inspection is not supplied by this viewer integration.
 
 Very broad vector extents can produce an unhelpful default view. Review these thumbnails
 and retain working curated images until a documented framing recipe is available.

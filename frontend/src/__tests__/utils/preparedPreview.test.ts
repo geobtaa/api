@@ -38,6 +38,40 @@ const data = {
   },
 };
 describe('prepared previews', () => {
+  it('uses explicit detail framing without changing published coverage bounds', () => {
+    const full: [number, number, number, number] = [-175, -15, 145, 75];
+    const detail: [number, number, number, number] = [-125, 24, -66, 50];
+    const framed = {
+      meta: {
+        ui: {
+          preview: {
+            ...data.meta.ui.preview,
+            layers: [
+              {
+                ...data.meta.ui.preview.layers[0],
+                bounds: full,
+                recipe: {
+                  kind: 'vector' as const,
+                  bands: [],
+                  thumbnail_bounds: detail,
+                },
+              },
+            ],
+          },
+        },
+      },
+    };
+    const record = new OgmRecord(
+      data.attributes.ogm as ConstructorParameters<typeof OgmRecord>[0]
+    );
+    const original = JSON.stringify(framed);
+    const attached = attachPreparedPreview(record, framed) as OgmRecord & {
+      preparedPreviews: { bounds: number[] }[];
+    };
+    expect(attached.preparedPreviews[0].bounds).toEqual(detail);
+    expect(JSON.stringify(framed)).toBe(original);
+    expect(framed.meta.ui.preview.layers[0].bounds).toEqual(full);
+  });
   it('enables download-only records without changing their source references', () => {
     expect(hasOgmContentPreview(data)).toBe(true);
     const record = new OgmRecord(

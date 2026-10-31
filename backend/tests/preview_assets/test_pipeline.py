@@ -249,6 +249,7 @@ def test_zip_geopackage_all_layers_and_ids(tmp_path):
     assert result.status == Outcome.READY, result.detail
     assert [layer.name for layer in result.layers] == ["roads", "parks"]
     assert len({layer.id for layer in result.layers}) == 2
+    assert result.thumbnail_scope == "sample"
 
 
 @pytest.mark.usefixtures("pinned_conversion_tools")

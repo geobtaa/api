@@ -5,17 +5,41 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from urllib3.exceptions import HTTPError
 
 from .convert import GDAL_VERSION, TIPPECANOE_VERSION, convert_raster, convert_vector, raster_recipe
-from .geometry import index_coverage, metadata_coverage, representative_members
-from .io import Budget, download, extract_zip
-from .models import Layer, Limits, Manifest, Outcome, PreviewError, Recipe, eligible, fingerprint
+from .geometry import (
+    display_coverage,
+    index_coverage,
+    metadata_coverage,
+    representative_members,
+    validate_index_content,
+)
+from .io import Budget, RangeReader, download, extract_zip
+from .models import (
+    PIPELINE_VERSION,
+    Layer,
+    Limits,
+    Manifest,
+    Outcome,
+    PreviewError,
+    Recipe,
+    eligible,
+    fingerprint,
+)
 from .render import quality, render_raster, render_vector
-from .sources import Source, arcgis_export, discover, query_url, urls, wms_image
+from .sources import (
+    Source,
+    arcgis_export,
+    discover,
+    iiif_manifest_image,
+    query_url,
+    urls,
+    wms_image,
+)
 from .storage import asset_url
 
 CURATION_RECIPE = (
@@ -32,6 +56,7 @@ class Pipeline:
         child_lookup=None,
         coverage_renderer=None,
         work_root=None,
+        range_open=None,
     ):
         self.work_root = work_root
         self.store = store
@@ -39,6 +64,7 @@ class Pipeline:
         self.limits = limits or Limits.from_env()
         self.fetch = fetch
         self.child_lookup = child_lookup
+        self.range_open = range_open or (RangeReader if fetch is download else None)
 
     def prepare(self, record, *, source=None, recipe=None, selected_layer=None):
         with TemporaryDirectory(prefix="btaa-preview-", dir=self.work_root) as name:
@@ -94,6 +120,7 @@ class Pipeline:
                 result.status, result.detail = exc.status, str(exc)
             except (OSError, ValueError, KeyError, TypeError) as exc:
                 result.status, result.detail = Outcome.INVALID, str(exc)
+            result.coverage = display_coverage(result.coverage)
             if self.coverage_renderer and result.coverage and result.coverage.geometry:
                 try:
                     target = directory / "coverage.png"
@@ -134,7 +161,12 @@ class Pipeline:
                         None,
                     )
                     if direct:
-                        child = {**record, "locn_geometry": member["geometry"], "dcat_bbox": None}
+                        child = {
+                            **record,
+                            "locn_geometry": member["geometry"],
+                            "dcat_bbox": None,
+                            "_preview_sample": True,
+                        }
                         prepared = self._source(
                             child,
                             Source(direct, "download"),
@@ -145,13 +177,22 @@ class Pipeline:
                             visited,
                             depth,
                         )
-                    elif props.get("recordIdentifier") and self.child_lookup and depth == 0:
+                    elif props.get("recordIdentifier"):
                         identifier = str(props["recordIdentifier"])
                         if identifier in visited:
                             raise PreviewError(Outcome.INVALID, "Index reference cycle")
+                        if depth >= 1:
+                            raise PreviewError(
+                                Outcome.UNSUPPORTED, "Index child-record hop limit exceeded"
+                            )
+                        if not self.child_lookup:
+                            raise PreviewError(
+                                Outcome.UNAVAILABLE, "Child record snapshot unavailable"
+                            )
                         child = self.child_lookup(identifier)
                         if not child or not eligible(child):
                             raise PreviewError(Outcome.UNAVAILABLE, "Child record unavailable")
+                        child = {**child, "_preview_sample": True}
                         sources = discover(child)
                         if not sources:
                             raise PreviewError(
@@ -177,10 +218,18 @@ class Pipeline:
                             Outcome.UNSUPPORTED,
                             "Index member has no direct data or resolvable child",
                         )
+                    if prepared.status != Outcome.READY:
+                        raise PreviewError(
+                            prepared.status, prepared.detail or "Member preview failed"
+                        )
+                    validate_index_content(record, member, prepared)
                     prepared.scope = "sample"
                     # Derivatives are published under the collection's manifest,
                     # even when discovery followed a child catalog record.
                     for layer in prepared.layers:
+                        member_label = props.get("label") or props.get("title")
+                        if member_label:
+                            layer.name = str(member_label)
                         if layer.asset_key:
                             layer.url = asset_url(record["id"], layer.asset_key)
                     if prepared.thumbnail_key:
@@ -209,6 +258,57 @@ class Pipeline:
         if source.kind in {"arcgis", "wms", "iiif", "iiif-manifest"}:
             return self._service(record, source, directory, budget)
         suffix = Path(urlsplit(source.url).path).suffix.lower()
+        supplied = Recipe.model_validate(recipe) if isinstance(recipe, dict) else recipe
+        if self.range_open and (
+            source.kind in {"cog", "pmtiles"} or suffix in {".tif", ".tiff", ".pmtiles"}
+        ):
+            from .native import inspect_cog, inspect_pmtiles
+
+            try:
+                with self.range_open(source.url, budget) as stream:
+                    thumbnail = directory / "thumbnail.png"
+                    if source.kind == "pmtiles" or suffix == ".pmtiles":
+                        layers, coverage, status = inspect_pmtiles(
+                            stream, thumbnail, budget, supplied, selected_layer
+                        )
+                    else:
+                        layers, coverage, status = inspect_cog(stream, thumbnail, supplied)
+                    result = Manifest(
+                        status=Outcome.READY,
+                        source_url=source.url,
+                        source_fingerprint=fingerprint(
+                            {
+                                "source": stream.fingerprint,
+                                "recipes": [
+                                    layer.recipe.model_dump(mode="json") for layer in layers
+                                ],
+                                "version": PIPELINE_VERSION,
+                            }
+                        ),
+                        coverage=coverage,
+                        layers=layers,
+                        transformations=[
+                            "Reused source asset through validated HTTP partial reads"
+                        ],
+                        metrics={
+                            "source_bytes": stream.size,
+                            "source_etag": stream.etag,
+                            "source_access": "http-range",
+                        },
+                    )
+                    if thumbnail.is_file():
+                        self._thumbnail(record, thumbnail, status, result, budget)
+                    else:
+                        result.thumbnail_status = status
+                        result.detail = (
+                            "No usable bounded PMTiles overview; content thumbnail needs review"
+                        )
+                    return result
+            except PreviewError as exc:
+                if exc.status != Outcome.UNSUPPORTED:
+                    raise
+                # Unsupported range/validator/COG layout may still be converted
+                # safely, subject to the original full-download limits.
         if suffix not in {
             ".tif",
             ".tiff",
@@ -236,30 +336,40 @@ class Pipeline:
                 coverage=coverage,
                 layers=[Layer(id="image", name="Source image", url=source.url, format="image")],
             )
-            self._thumbnail(record["id"], image, quality(image), result, budget)
+            self._thumbnail(record, image, quality(image), result, budget)
             return result
         if suffix == ".pmtiles":
-            # Native PMTiles already has an independent thumbnail path. Retain
-            # its source rather than re-encoding the archive.
             import mmap
+            from types import SimpleNamespace
 
-            from pmtiles.reader import Reader
+            from .native import inspect_pmtiles
 
+            thumbnail = directory / "thumbnail.png"
             with local.open("rb") as stream:
                 with mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-                    reader = Reader(lambda offset, length: mm[offset : offset + length])
-                    header = reader.header()
-                    reader.metadata()
-            if header["addressed_tiles_count"] < 1:
-                raise PreviewError(Outcome.INVALID, "Empty PMTiles archive")
-            return Manifest(
+                    reader = SimpleNamespace(
+                        url=source.url,
+                        size=len(mm),
+                        read_at=lambda offset, length: mm[offset : offset + length],
+                    )
+                    layers, coverage, status = inspect_pmtiles(
+                        reader, thumbnail, budget, supplied, selected_layer
+                    )
+            result = Manifest(
                 status=Outcome.READY,
                 source_url=source.url,
                 source_fingerprint=source_hash,
                 coverage=coverage,
-                layers=[Layer(id="native", name="PMTiles", url=source.url, format="pmtiles")],
+                layers=layers,
+                transformations=[
+                    "Reused native PMTiles; thumbnail uses generalized overview tiles"
+                ],
             )
-        supplied = Recipe.model_validate(recipe) if isinstance(recipe, dict) else recipe
+            if thumbnail.is_file():
+                self._thumbnail(record, thumbnail, status, result, budget)
+            else:
+                result.thumbnail_status = status
+            return result
         if source.kind == "cog":
             import rasterio
             from rasterio.warp import transform_bounds
@@ -286,7 +396,7 @@ class Pipeline:
                             )
                         ],
                     )
-                    self._thumbnail(record["id"], thumbnail, status, result, budget)
+                    self._thumbnail(record, thumbnail, status, result, budget)
                     return result
         if suffix == ".zip":
             contents = extract_zip(local, directory / "unpacked", budget)
@@ -369,7 +479,7 @@ class Pipeline:
                 "source": source_hash,
                 "recipes": [layer["recipe"].model_dump(mode="json") for layer in layers],
                 "transformations": changes,
-                "version": "1",
+                "version": PIPELINE_VERSION,
                 "gdal": GDAL_VERSION,
                 "tippecanoe": TIPPECANOE_VERSION,
             }
@@ -380,6 +490,7 @@ class Pipeline:
             source_fingerprint=signature,
             coverage=coverage,
             transformations=changes,
+            thumbnail_scope="sample" if len(layers) > 1 else "resource",
         )
         thumbnail = directory / "thumbnail.png"
         first = layers[0]
@@ -395,7 +506,11 @@ class Pipeline:
             result.layers.append(
                 Layer(
                     id=layer["id"],
-                    name=layer["name"],
+                    name=(
+                        Path(unquote(urlsplit(source.url).path)).stem
+                        if layer["name"] == "source"
+                        else layer["name"]
+                    ),
                     url=asset_url(record["id"], key),
                     asset_key=key,
                     byte_size=layer["path"].stat().st_size,
@@ -404,14 +519,34 @@ class Pipeline:
                     recipe=layer["recipe"],
                 )
             )
-        self._thumbnail(record["id"], thumbnail, thumbnail_status, result, budget)
+        self._thumbnail(record, thumbnail, thumbnail_status, result, budget)
         return result
 
     def _put(self, path, budget):
         budget.publish(path.stat().st_size)
         return self.store.put(path)
 
-    def _thumbnail(self, resource_id, path, status, manifest, budget):
+    def _thumbnail(self, record, path, status, manifest, budget):
+        if record.get("_preview_sample"):
+            manifest.scope = "sample"
+        detail = any(layer.recipe and layer.recipe.thumbnail_bounds for layer in manifest.layers)
+        if manifest.scope == "sample" or detail or manifest.thumbnail_scope == "sample":
+            manifest.thumbnail_scope = "sample"
+            label = "Representative detail" if detail else "Representative member"
+            if len(manifest.layers) > 1 and manifest.scope != "sample":
+                label = "Representative layer"
+            # Put the scope on the image itself so search/gallery consumers of
+            # the legacy thumbnail URL cannot mistake a detail for full coverage.
+            with Image.open(path) as original:
+                content = original.convert("RGBA")
+                content.thumbnail((512, 480))
+                labeled = Image.new(
+                    "RGBA", (max(160, content.width), content.height + 28), "#f5f7fa"
+                )
+                labeled.paste(content, ((labeled.width - content.width) // 2, 0))
+                ImageDraw.Draw(labeled).text((8, content.height + 7), label, fill="#334155")
+                labeled.save(path, optimize=True)
+            quality(path)  # Enforce the byte/dimension limits after adding the label.
         manifest.thumbnail_status = status
         if status == Outcome.NEEDS_REVIEW:
             # Retain evidence privately; this key is deliberately not served by
@@ -420,9 +555,15 @@ class Pipeline:
         if status == Outcome.READY:
             key = self._put(path, budget)
             manifest.thumbnail_key = key
-            manifest.thumbnail_url = asset_url(resource_id, key)
+            manifest.thumbnail_url = asset_url(record["id"], key)
 
     def _service(self, record, source, directory, budget):
+        origin = source
+        sample, manifest_hash = False, None
+        if source.kind == "iiif-manifest":
+            manifest_path = directory / "manifest.json"
+            manifest_hash = self.fetch(source.url, manifest_path, budget)
+            source, sample = iiif_manifest_image(json.loads(manifest_path.read_text()))
         thumb_url = source.url
         if source.kind == "wms":
             thumb_url = wms_image(source, record)
@@ -434,8 +575,6 @@ class Pipeline:
             thumb_url = (
                 source.url.rstrip("/").removesuffix("/info.json") + "/full/!512,512/0/default.jpg"
             )
-        else:
-            raise PreviewError(Outcome.UNSUPPORTED, "Existing IIIF manifest resolver retained")
         target = directory / "response-image"
         digest = self.fetch(thumb_url, target, budget)
         thumbnail = directory / "thumbnail.png"
@@ -444,8 +583,10 @@ class Pipeline:
             image.convert("RGBA").save(thumbnail)
         result = Manifest(
             status=Outcome.READY,
-            source_url=source.url,
-            source_fingerprint=digest,
+            source_url=origin.url,
+            source_fingerprint=fingerprint([manifest_hash, digest]) if manifest_hash else digest,
+            scope="sample" if sample else "resource",
+            transformations=["First IIIF canvas is representative content"] if sample else [],
             coverage=metadata_coverage(record),
             layers=[
                 Layer(
@@ -456,5 +597,5 @@ class Pipeline:
                 )
             ],
         )
-        self._thumbnail(record["id"], thumbnail, quality(thumbnail), result, budget)
+        self._thumbnail(record, thumbnail, quality(thumbnail), result, budget)
         return result

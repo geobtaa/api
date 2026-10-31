@@ -10,6 +10,7 @@ export interface PreviewRecipe {
   fill_opacity?: number;
   stroke_width?: number;
   point_radius?: number;
+  thumbnail_bounds?: [number, number, number, number] | null;
 }
 
 export interface PreparedLayer {
@@ -17,6 +18,7 @@ export interface PreparedLayer {
   name: string;
   url: string;
   format: string;
+  source_layer?: string | null;
   bounds?: [number, number, number, number];
   recipe?: PreviewRecipe;
 }
@@ -46,7 +48,10 @@ export function readyPreparedLayers(data: PreviewHost): PreparedMapLayer[] {
 
 /** Attach runtime sources; source record JSON and original downloads stay intact. */
 export function attachPreparedPreview(record: OgmRecord, data: PreviewHost) {
-  const layers = readyPreparedLayers(data);
+  const layers = readyPreparedLayers(data).map((layer) => ({
+    ...layer,
+    bounds: layer.recipe?.thumbnail_bounds ?? layer.bounds,
+  }));
   (
     record as OgmRecord & { preparedPreviews?: PreparedMapLayer[] }
   ).preparedPreviews = layers;

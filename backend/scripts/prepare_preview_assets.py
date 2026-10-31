@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from app.services.preview_assets.models import enabled
+from app.services.preview_assets.models import enabled, publication_allowed
 
 
 def main():
@@ -16,6 +16,11 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("data/preview-audit"))
     parser.add_argument("--recipe", type=Path, help="Explicit rendering recipe JSON")
     parser.add_argument("--layer")
+    parser.add_argument(
+        "--child-records",
+        type=Path,
+        help="Local JSON array of child record snapshots for index audits",
+    )
     parser.add_argument(
         "--sync",
         action="store_true",
@@ -33,6 +38,11 @@ def main():
 
         args.output.mkdir(parents=True, exist_ok=True)
         records = json.loads(args.records.read_text())
+        children = json.loads(args.child_records.read_text()) if args.child_records else []
+        audit_records = {
+            item.get("record", item)["id"]: item.get("record", item)
+            for item in [*records, *children]
+        }
         report = []
         for entry in records:
             record = entry.get("record", entry)
@@ -43,6 +53,7 @@ def main():
                     "recipe": entry.get("recipe", recipe),
                     "selected_layer": entry.get("layer", args.layer),
                     "audit_root": str((args.output / "assets").resolve()),
+                    "audit_records": audit_records,
                 }
                 (work / "input.json").write_text(json.dumps(payload))
                 try:
@@ -79,6 +90,9 @@ def main():
     from app.tasks.preview_assets import prepare_resource_preview
 
     for identifier in args.ids:
+        if not publication_allowed(identifier):
+            print(identifier, "needs-review: resource is not approved for preview publication")
+            continue
         if args.sync:
             result = prepare_resource_preview(identifier, recipe=recipe, selected_layer=args.layer)
             print(identifier, result["status"])

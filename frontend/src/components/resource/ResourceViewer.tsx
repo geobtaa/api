@@ -1,5 +1,6 @@
 import {
   attachPreparedPreview,
+  readyPreparedLayers,
   type PreviewHost,
 } from '../../utils/preparedPreview';
 import { frameViewerRecord } from '../../utils/mapFraming';
@@ -225,6 +226,14 @@ function ContentViewer({
         hide-single-tab=""
         hide-menubar={standalone ? undefined : ''}
       />
+      {readyPreparedLayers(data).some(
+        (layer) => layer.recipe?.thumbnail_bounds
+      ) && (
+        <p className="bg-white px-3 py-2 text-sm text-gray-600">
+          Initial view: representative detail. Pan or zoom to explore the
+          dataset.
+        </p>
+      )}
     </div>
   );
 }

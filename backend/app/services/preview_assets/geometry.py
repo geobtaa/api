@@ -4,12 +4,107 @@ import json
 import math
 import re
 
-from shapely import affinity, wkt
+from shapely import affinity, get_num_coordinates, wkt
 from shapely.errors import ShapelyError
-from shapely.geometry import LineString, Point, box, mapping, shape
+from shapely.geometry import LineString, MultiLineString, Point, box, mapping, shape
 from shapely.ops import split, transform, unary_union
 
-from .models import Coverage, Outcome, PreviewError
+from .models import Coverage, Outcome, PreviewError, fingerprint
+
+
+def display_coverage(coverage):
+    """Persist one display geometry for static maps and all UI overlays."""
+    if not coverage or not coverage.geometry:
+        return coverage
+    geometry = shape(coverage.geometry)
+    if get_num_coordinates(geometry) <= 2000:
+        return coverage
+    west, south, east, north = geometry.bounds
+    tolerance = max(east - west, north - south) / 8000
+    simplified = geometry.simplify(tolerance, preserve_topology=True)
+    return coverage.model_copy(
+        update={
+            "geometry": mapping(simplified),
+            "provenance": coverage.provenance
+            + (
+                f"; display simplification tolerance {tolerance:.8g} degrees; "
+                f"source geometry SHA256 {fingerprint(coverage.geometry)}"
+            ),
+        }
+    )
+
+
+def point_regions(coordinates):
+    """Regional envelopes from actual points, preserving remote/dateline groups.
+
+    A bounded five-degree occupancy grid groups neighboring points. Envelopes
+    describe geographic extent, not a claim of continuous data between points.
+    """
+    cells = {}
+    for longitude, latitude in coordinates:
+        if not (-180 <= longitude <= 180 and -90 <= latitude <= 90):
+            raise PreviewError(Outcome.INVALID, "Point coordinate is not geographic")
+        key = (min(71, math.floor((longitude + 180) / 5)), min(35, math.floor((latitude + 90) / 5)))
+        previous = cells.get(key, [longitude, latitude, longitude, latitude])
+        cells[key] = [
+            min(previous[0], longitude),
+            min(previous[1], latitude),
+            max(previous[2], longitude),
+            max(previous[3], latitude),
+        ]
+    groups = []
+    while cells:
+        seed = min(cells)
+        pending, bounds = [seed], []
+        while pending:
+            cell = pending.pop()
+            if cell not in cells:
+                continue
+            bounds.append(cells.pop(cell))
+            pending.extend(
+                ((cell[0] + dx) % 72, cell[1] + dy)
+                for dx in (-1, 0, 1)
+                for dy in (-1, 0, 1)
+                if dx or dy
+            )
+        longitudes = sorted({value for extent in bounds for value in (extent[0], extent[2])})
+        if len(longitudes) == 1:
+            west = east = longitudes[0]
+        else:
+            gaps = [
+                (
+                    longitudes[(i + 1) % len(longitudes)]
+                    + (360 if i == len(longitudes) - 1 else 0)
+                    - value,
+                    i,
+                )
+                for i, value in enumerate(longitudes)
+            ]
+            _, gap = max(gaps)
+            west, east = longitudes[(gap + 1) % len(longitudes)], longitudes[gap]
+        south, north = min(b[1] for b in bounds), max(b[3] for b in bounds)
+        groups.append(bounds_geometry([west, south, east, north]))
+    return unary_union(groups) if groups else None
+
+
+def validate_index_content(record, member, manifest):
+    """Withhold a sample when its geography or known band meaning conflicts."""
+    area = normalized_geometry(member["geometry"])
+    if manifest.layers and all(layer.bounds for layer in manifest.layers):
+        if not any(area.intersects(bounds_geometry(layer.bounds)) for layer in manifest.layers):
+            raise PreviewError(
+                Outcome.NEEDS_REVIEW, "Index member data lies outside its indexed geometry"
+            )
+    title = record.get("dct_title_s", "")
+    if re.search(r"\b(DEM|DSM|digital elevation model|digital surface model)\b", title, re.I):
+        if not re.search(r"\b(imagery|photograph|scan)\b", title, re.I):
+            if any(
+                layer.format == "cog" and layer.recipe and layer.recipe.kind != "scalar"
+                for layer in manifest.layers
+            ):
+                raise PreviewError(
+                    Outcome.NEEDS_REVIEW, "Elevation index title conflicts with member band meaning"
+                )
 
 
 def bounds_geometry(bounds):
@@ -17,6 +112,8 @@ def bounds_geometry(bounds):
     if west == east and south == north:
         return normalized_geometry(mapping(Point(west, south)))
     if west == east or south == north:
+        if west > east:
+            return MultiLineString([[(west, south), (180, south)], [(-180, south), (east, south)]])
         return normalized_geometry(mapping(LineString([(west, south), (east, north)])))
     return normalized_geometry(f"ENVELOPE({west},{east},{north},{south})")
 

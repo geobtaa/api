@@ -13,7 +13,7 @@ from app.services.native_static_maps import renderer_url
 
 def panels(geometry):
     geom = shape(geometry)
-    parts = list(geom.geoms) if geom.geom_type == "MultiPolygon" else [geom]
+    parts = list(geom.geoms) if hasattr(geom, "geoms") else [geom]
     # Keep dateline neighbors together in the renderer's unwrapped world.
     if geom.bounds[2] - geom.bounds[0] > 180 and all(
         p.bounds[2] - p.bounds[0] < 180 for p in parts
@@ -44,12 +44,11 @@ def render_coverage(coverage, target, budget):
             bounds[0], bounds[2] = bounds[0] - 0.01, bounds[2] + 0.01
         if bounds[3] == bounds[1]:
             bounds[1], bounds[3] = bounds[1] - 0.01, bounds[3] + 0.01
-        tolerance = max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 2000
         spec = {
             "width": width,
             "height": height,
             "bounds": bounds,
-            "geometry": mapping(geometry.simplify(tolerance, preserve_topology=True)),
+            "geometry": mapping(geometry),
         }
         response = requests.post(
             renderer_url() + "/render", json=spec, timeout=(5, min(60, budget.limits.seconds))

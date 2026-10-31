@@ -30,6 +30,7 @@ def test_publication_retention_and_source_withdrawal(monkeypatch):
         pytest.skip("Set PREVIEW_TEST_DATABASE_URL to a local PostgreSQL database")
     assert make_url(url).host in {"localhost", "127.0.0.1", "::1"}
     monkeypatch.setenv("PREVIEW_ASSETS_ENABLED", "true")
+    monkeypatch.setenv("PREVIEW_APPROVED_RESOURCE_IDS", "test")
     schema = "preview_test_" + uuid.uuid4().hex
     engine = create_engine(url)
     with engine.connect() as base:

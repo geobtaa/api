@@ -1,6 +1,7 @@
 """Render actual content using the same versioned recipe exposed to the viewer."""
 
 import math
+from contextlib import nullcontext
 from pathlib import Path
 
 import fiona
@@ -13,8 +14,8 @@ from rio_tiler.colormap import cmap
 from .models import Outcome, PreviewError
 
 
-def render_raster(path: Path, recipe, target: Path):
-    with rasterio.open(path) as src:
+def render_raster(path, recipe, target: Path):
+    with nullcontext(path) if hasattr(path, "read") else rasterio.open(path) as src:
         scale = min(512 / src.width, 512 / src.height, 1)
         height, width = max(1, round(src.height * scale)), max(1, round(src.width * scale))
         values = src.read(
@@ -57,7 +58,7 @@ def render_raster(path: Path, recipe, target: Path):
 def render_vector(sequence: Path, recipe, bounds, target: Path, budget):
     image = Image.new("RGB", (512, 512), "#f5f7fa")
     draw = ImageDraw.Draw(image)
-    west, south, east, north = bounds
+    west, south, east, north = recipe.thumbnail_bounds or bounds
 
     # Project to Web Mercator to match the viewer's default flat-map framing.
     def mercator(lat):

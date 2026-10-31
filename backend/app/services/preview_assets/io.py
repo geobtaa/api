@@ -1,13 +1,16 @@
 """Bounded source retrieval and extraction, independent of web request handlers."""
 
 import hashlib
+import io
 import ipaddress
+import re
 import socket
 import ssl
 import stat
 import time
 import zipfile
-from contextlib import ExitStack, nullcontext
+from collections import OrderedDict
+from contextlib import ExitStack, contextmanager, nullcontext
 from pathlib import Path, PurePosixPath
 from urllib.parse import urljoin, urlsplit
 
@@ -67,8 +70,9 @@ def public_address(url: str) -> tuple[str, str, int, str]:
     return parsed.scheme, parsed.hostname, port, addresses[0]
 
 
-def download(url: str, target: Path, budget: Budget, host_guard=None) -> str:
-    """Stream a file; never let a driver follow unvalidated network references."""
+@contextmanager
+def source_response(url, budget, host_guard=None, headers=None):
+    """A pinned, guarded request, revalidating every redirect before connecting."""
     for _ in range(6):
         budget.check()
         scheme, host, port, address = public_address(url)
@@ -96,6 +100,7 @@ def download(url: str, target: Path, budget: Budget, host_guard=None) -> str:
                     "Host": host,
                     "Accept-Encoding": "identity",
                     "User-Agent": "BTAA-preview/1",
+                    **(headers or {}),
                 },
                 preload_content=False,
                 redirect=False,
@@ -107,24 +112,160 @@ def download(url: str, target: Path, budget: Budget, host_guard=None) -> str:
                         raise PreviewError(Outcome.UNAVAILABLE, "Redirect missing location")
                     url = urljoin(url, location)
                     continue
-                if response.status != 200:
-                    raise PreviewError(Outcome.UNAVAILABLE, f"Source HTTP {response.status}")
-                length = response.headers.get("Content-Length")
-                if length and int(length) > budget.limits.download_bytes - budget.bytes_read:
-                    raise PreviewError(Outcome.OVER_LIMIT, "Source exceeds download limit")
-                digest = hashlib.sha256()
-                with target.open("wb") as output:
-                    for chunk in response.stream(1 << 18, decode_content=False):
-                        budget.read(len(chunk))
-                        digest.update(chunk)
-                        output.write(chunk)
-                return digest.hexdigest()
+                yield response, url
+                return
             finally:
                 response.close()
         finally:
             stack.close()
             pool.close()
     raise PreviewError(Outcome.UNAVAILABLE, "Too many redirects")
+
+
+def download(url: str, target: Path, budget: Budget, host_guard=None) -> str:
+    """Stream a file; never let a driver follow unvalidated network references."""
+    with source_response(url, budget, host_guard) as (response, _):
+        if response.status != 200:
+            raise PreviewError(Outcome.UNAVAILABLE, f"Source HTTP {response.status}")
+        length = response.headers.get("Content-Length")
+        if length and int(length) > budget.limits.download_bytes - budget.bytes_read:
+            raise PreviewError(Outcome.OVER_LIMIT, "Source exceeds download limit")
+        digest = hashlib.sha256()
+        with target.open("wb") as output:
+            for chunk in response.stream(1 << 18, decode_content=False):
+                budget.read(len(chunk))
+                digest.update(chunk)
+                output.write(chunk)
+        return digest.hexdigest()
+
+
+class RangeReader(io.RawIOBase):
+    """Seekable, bounded HTTP access without exposing URLs to GDAL drivers.
+
+    Each block must belong to the same strongly validated source representation.
+    Servers without Range/strong ETag support fall back to bounded download at
+    the adapter level. Cache eviction does not reset the downloaded byte budget.
+    """
+
+    BLOCK = 64 * 1024
+    CACHE_BLOCKS = 64
+
+    def __init__(self, url, budget, host_guard=None):
+        super().__init__()
+        self.url, self.budget, self.host_guard = url, budget, host_guard
+        self.position, self.size = 0, None
+        self.etag, self.final_url = None, None
+        self.failure = None
+        self.cache = OrderedDict()
+        self._block(0)
+
+    def readable(self):
+        return True
+
+    def seekable(self):
+        return True
+
+    def tell(self):
+        return self.position
+
+    def seek(self, offset, whence=0):
+        self._checkClosed()
+        position = offset + (self.position if whence == 1 else self.size if whence == 2 else 0)
+        if whence not in {0, 1, 2} or position < 0:
+            raise ValueError("Invalid source seek")
+        self.position = position
+        return position
+
+    @property
+    def fingerprint(self):
+        from .models import fingerprint
+
+        return fingerprint({"url": self.final_url, "etag": self.etag, "length": self.size})
+
+    def read_at(self, offset, length):
+        try:
+            self.seek(offset)
+            return self.read(length)
+        except PreviewError as exc:
+            # GDAL's C callbacks can wrap Python errors. Preserve the precise
+            # outcome so a byte limit is not reported as a malformed raster.
+            self.failure = exc
+            raise
+
+    def _block(self, offset):
+        if offset in self.cache:
+            self.cache.move_to_end(offset)
+            return self.cache[offset]
+        end = offset + self.BLOCK - 1
+        if self.size is not None:
+            end = min(end, self.size - 1)
+        headers = {"Range": f"bytes={offset}-{end}"}
+        if self.etag:
+            headers["If-Match"] = self.etag
+        with source_response(self.url, self.budget, self.host_guard, headers) as (response, url):
+            if response.status in {200, 405, 416} and self.size is None:
+                raise PreviewError(Outcome.UNSUPPORTED, "Source does not support byte ranges")
+            if response.status != 206:
+                raise PreviewError(Outcome.UNAVAILABLE, f"Range source HTTP {response.status}")
+            match = re.fullmatch(
+                r"bytes (\d+)-(\d+)/(\d+)", response.headers.get("Content-Range", "")
+            )
+            if not match:
+                raise PreviewError(Outcome.INVALID, "Malformed Content-Range")
+            start, stop, size = map(int, match.groups())
+            if start != offset or stop != min(end, size - 1) or size <= 0:
+                raise PreviewError(Outcome.INVALID, "Incorrect source byte range")
+            if response.headers.get("Content-Encoding", "identity").lower() != "identity":
+                raise PreviewError(Outcome.INVALID, "Encoded source byte range")
+            etag = response.headers.get("ETag", "")
+            if not re.fullmatch(r'"[^"\r\n]+"', etag):
+                raise PreviewError(Outcome.UNSUPPORTED, "Range source needs a strong ETag")
+            if self.size is not None and (size, etag, url) != (
+                self.size,
+                self.etag,
+                self.final_url,
+            ):
+                raise PreviewError(Outcome.INVALID, "Source changed during partial reads")
+            self.size, self.etag, self.final_url = size, etag, url
+            expected = stop - start + 1
+            if expected > self.budget.limits.download_bytes - self.budget.bytes_read:
+                raise PreviewError(Outcome.OVER_LIMIT, "Download limit exceeded")
+            chunks, received = [], 0
+            for chunk in response.stream(min(expected + 1, 1 << 16), decode_content=False):
+                self.budget.read(len(chunk))
+                received += len(chunk)
+                if received > expected:
+                    raise PreviewError(Outcome.INVALID, "Oversized byte range response")
+                chunks.append(chunk)
+            if received != expected:
+                raise PreviewError(Outcome.INVALID, "Truncated byte range response")
+            block = b"".join(chunks)
+        self.cache[offset] = block
+        if len(self.cache) > self.CACHE_BLOCKS:
+            self.cache.popitem(last=False)
+        return block
+
+    def read(self, size=-1):
+        self._checkClosed()
+        if size is None or size < 0:
+            size = self.size - self.position
+        size = max(0, min(size, self.size - self.position))
+        if size > self.budget.limits.memory_bytes // 4:
+            raise PreviewError(Outcome.OVER_LIMIT, "Source read exceeds memory budget")
+        output = bytearray()
+        while len(output) < size:
+            offset = self.position // self.BLOCK * self.BLOCK
+            block = self._block(offset)
+            start = self.position - offset
+            chunk = block[start : start + size - len(output)]
+            output.extend(chunk)
+            self.position += len(chunk)
+        return bytes(output)
+
+    def readinto(self, buffer):
+        chunk = self.read(len(buffer))
+        buffer[: len(chunk)] = chunk
+        return len(chunk)
 
 
 def extract_zip(source: Path, destination: Path, budget: Budget) -> list[Path]:
