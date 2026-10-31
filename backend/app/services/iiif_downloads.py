@@ -19,7 +19,7 @@ def http_url(value):
         if parsed.scheme in ("http", "https") and parsed.hostname and not parsed.username:
             return value
     except ValueError:
-        pass
+        return None
     return None
 
 

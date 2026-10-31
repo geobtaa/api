@@ -59,7 +59,6 @@ def _generate_uncached(
         spec.update(center=center, leafletZoom=zoom)
     else:
         bounds = service._parse_geometry_to_bbox(geometry)
-        geojson = service._geometry_to_geojson_dict(geometry)
         # Preserve dateline-crossing envelopes rather than interpreting them as missing data.
         import re
 
@@ -67,7 +66,7 @@ def _generate_uncached(
             values = re.findall(r"[-+]?(?:\d*\.)?\d+(?:[eE][-+]?\d+)?", geometry)
             if len(values) == 4:
                 west, east, north, south = map(float, values)
-                if west > east and -180 <= east < west <= 180:
+                if -180 <= east < west <= 180:
                     bounds = (west, south, east + 360, north)
         no_geometry = not bounds or service._is_global_bbox(bounds)
         if no_geometry:

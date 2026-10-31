@@ -81,7 +81,6 @@ def test_publication_retention_and_source_withdrawal(monkeypatch):
                     return connection.execute(query)
 
             assert asyncio.run(published_for("test", Session()))["status"] == "ready"
-            child = {**record, "id": "child", "_preview_sources": []}
             connection.execute(
                 resources.insert().values(
                     id="child", dct_accessRights_s="Public", publication_state="published"
