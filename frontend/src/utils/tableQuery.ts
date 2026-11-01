@@ -13,10 +13,10 @@ export function tableQuery(
     ? ` WHERE ${columns.map((name) => `contains(lower(COALESCE(CAST(${sqlIdentifier(name)} AS VARCHAR), '')), lower(${sqlLiteral(search)}))`).join(' OR ')}`
     : '';
   const order = columns[sort]
-    ? ` ORDER BY ${sqlIdentifier(columns[sort])} ${descending ? 'DESC' : 'ASC'} NULLS LAST`
+    ? ` ORDER BY data.${sqlIdentifier(columns[sort])} ${descending ? 'DESC' : 'ASC'} NULLS LAST`
     : '';
   return {
-    rows: `SELECT ${columns.map((name) => `CAST(${sqlIdentifier(name)} AS VARCHAR) AS ${sqlIdentifier(name)}`).join(', ')} FROM read_parquet('dataset.parquet')${filter}${order} LIMIT 50 OFFSET ${Math.max(0, Math.floor(page)) * 50}`,
-    count: `SELECT count(*) AS count FROM read_parquet('dataset.parquet')${filter}`,
+    rows: `SELECT ${columns.map((name) => `CAST(${sqlIdentifier(name)} AS VARCHAR) AS ${sqlIdentifier(name)}`).join(', ')} FROM read_parquet('dataset.parquet') AS data${filter}${order} LIMIT 50 OFFSET ${Math.max(0, Math.floor(page)) * 50}`,
+    count: `SELECT count(*) AS count FROM read_parquet('dataset.parquet') AS data${filter}`,
   };
 }

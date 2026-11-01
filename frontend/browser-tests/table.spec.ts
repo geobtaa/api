@@ -72,11 +72,16 @@ test('Parquet range reads, exact values, literal search, sorting and pagination'
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByText('120,000 matching rows')).toBeVisible();
   await page.getByRole('button', { name: 'amount', exact: true }).click();
-  await expect(page.getByText('Loading table…', { exact: false })).toBeVisible();
+  await expect(
+    page.getByText('Loading table…', { exact: false })
+  ).toBeVisible();
   await expect(page.getByText('120,000 matching rows')).toBeVisible();
   await expect(
     page.getByRole('columnheader', { name: 'amount ↑' })
   ).toHaveAttribute('aria-sort', 'ascending');
+  await expect(
+    page.locator('tbody tr').first().locator('td').nth(2)
+  ).toHaveText('2');
   expect(reads.some((bytes) => bytes < data.length)).toBeTruthy();
   expect(errors).toEqual([]);
   await page.screenshot({

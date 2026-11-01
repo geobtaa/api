@@ -7,6 +7,7 @@ describe('dataset table queries', () => {
     const result = tableQuery(['a"b'], "' OR true --", 1, 0, true);
     expect(result.rows).toContain('"a""b"');
     expect(result.rows).toContain("lower(''' OR true --')");
+    expect(result.rows).toContain('ORDER BY data.');
     expect(result.rows).toContain('DESC NULLS LAST LIMIT 50 OFFSET 50');
     expect(result.count).not.toContain('LIMIT');
   });

@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('ogm-viewer', () => ({}));
+vi.mock('../../../components/resource/TabularPreview', () => ({
+  default: () => <div>Dataset table</div>,
+}));
 vi.mock('ogm-viewer/lib', () => ({
   OgmRecord: mocks.recordConstructor,
   resourcesFor: () => [],
@@ -64,6 +67,37 @@ describe('ResourceViewer', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('clears image selection when a table takes precedence over an image preview', async () => {
+    const onChange = vi.fn();
+    const data = viewerData('table', {
+      'http://iiif.io/api/image': 'https://example.org/image/info.json',
+    });
+    data.meta = {
+      ui: {
+        preview: {
+          version: '1',
+          status: 'ready',
+          layers: [
+            {
+              id: 'table',
+              name: 'Table',
+              format: 'parquet',
+              url: 'https://example.org/table.parquet',
+              columns: [{ name: 'id', type: 'INTEGER' }],
+              row_count: 1,
+            },
+          ],
+        },
+      },
+    };
+    const { container } = render(
+      <ResourceViewer data={data} onImageSelectionChange={onChange} />
+    );
+    expect(await screen.findByText('Dataset table')).toBeInTheDocument();
+    expect(container.querySelector('ogm-viewer')).toBeNull();
+    expect(onChange).toHaveBeenLastCalledWith(null);
   });
 
   it('does not mount a viewer for location-only records and clears the previous image', async () => {

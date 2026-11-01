@@ -108,7 +108,9 @@ for review independently of whether the live layer remains usable.
 `meta.ui.preview` and `meta.ui.coverage` are optional. Existing viewer fields and download
 links are retained. A version-1 preview includes `status`, `layers`, `scope`, source
 fingerprint, generation time, processing version, transformations, thumbnail status,
-and metrics. Each layer includes its name, URL, format, geographic bounds, and recipe.
+and thumbnail URL. Each layer includes its name, URL, format, geographic bounds,
+and recipe. Internal object keys, tile registries, dependencies, and processing
+metrics remain in the persisted manifest and audit reports, not public responses.
 A scope of `sample` means the content does not represent the complete collection.
 Embedded IIIF v2/v3 painting images can supply thumbnails. A multi-canvas manifest is
 labeled as a sample; image choices, composite canvases, or externally referenced page
@@ -154,7 +156,7 @@ two conversion leases are available. Downloads are bounded and public-address ch
 including redirects. Archives reject traversal, links, duplicates, and nested archives.
 
 Outcomes are `queued`, `processing`, `ready`, `unsupported`, `unavailable`, `invalid`,
-`over-limit`, and `needs-review`. Inspect `detail` and `metrics.source_attempts` for
+`over-limit`, and `needs-review`. Inspect public `detail` and stored manifest/audit `metrics.source_attempts` for
 failure causes. Point clouds, nested archives, multidimensional scientific formats,
 and unlocated images remain outside the first-release conversion scope.
 Transient download failures use bounded exponential retries; missing sources and
@@ -283,7 +285,7 @@ use the existing asset route. Source withdrawal disables the bundle through the
 same resource gate. An interrupted upload can leave unreferenced immutable objects;
 retention/garbage collection must respect active manifests and `iiif_assets` values.
 
-`meta.ui.preview.iiif_assets` maps exact bundle-relative request paths to immutable
+The internal persisted manifest’s `iiif_assets` maps bundle-relative request paths to immutable
 content-addressed object keys; the new `iiif-manifest` layer format points to the
 hosted manifest. Static paths currently resolve through the API, including with
 S3-compatible storage. Direct CDN/object serving requires exporting this mapping
@@ -307,3 +309,21 @@ subject to readable content, rather than claiming a universally smallest encodin
 
 High-entropy thumbnails that still exceed 512 KB are reduced in display dimensions
 (within the existing 512-pixel maximum), rather than accepting arbitrary color error.
+
+## Review gates before broad enablement
+
+The feature flag currently bypasses resource and search response caches to preserve
+publication and withdrawal checks. Broad enablement requires a cacheable base
+representation plus a freshly applied, batch-loaded preview overlay. Simply
+restoring cached preview responses would risk stale publication decisions.
+
+Version retention and orphan cleanup are not yet automated. Immutable uploads can
+remain after failed jobs or refreshes. Storage estimates assuming two retained
+versions require manifest history and reference-aware garbage collection, with a
+grace period, dry-run reporting, rollback versions, and protection for shared
+objects. Age-only object deletion is unsafe.
+
+Thumbnail and interactive outcomes have separate fields, but some conversion
+paths still render before publishing layers. A renderer exception can prevent an
+otherwise valid layer from publishing. Failure isolation across those stages
+remains an acceptance requirement.

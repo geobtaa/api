@@ -27,6 +27,11 @@ def run_tool(args: list[str], budget) -> str:
     }
     log = budget.directory / "tool.log"
     own_group = not os.getenv("PREVIEW_CHILD_JOB")
+
+    def check_log():
+        if log.stat().st_size > 8 << 20:
+            raise PreviewError(Outcome.OVER_LIMIT, "Tool output limit exceeded")
+
     with log.open("wb") as output:
         process = subprocess.Popen(
             [
@@ -44,20 +49,25 @@ def run_tool(args: list[str], budget) -> str:
         try:
             while process.poll() is None:
                 budget.check()
+                check_log()
                 time.sleep(0.1)
+            check_log()
             if process.returncode:
-                raise PreviewError(
-                    Outcome.INVALID, f"{args[0]} failed: {log.read_text(errors='replace')[-1500:]}"
-                )
+                with log.open("rb") as diagnostic:
+                    diagnostic.seek(max(0, log.stat().st_size - 1500))
+                    tail = diagnostic.read(1500).decode(errors="replace")
+                raise PreviewError(Outcome.INVALID, f"{args[0]} failed: {tail}")
         finally:
-            if process.poll() is None:
-                if own_group:
+            if own_group:
+                # A failed launcher can exit while descendants keep running.
+                # Always reap its process group, including after normal exit.
+                try:
                     os.killpg(process.pid, signal.SIGKILL)
-                else:
-                    process.kill()
-                process.wait()
-    if log.stat().st_size > 8 << 20:
-        raise PreviewError(Outcome.OVER_LIMIT, "Tool output limit exceeded")
+                except ProcessLookupError:
+                    pass
+            elif process.poll() is None:
+                process.kill()
+            process.wait()
     return log.read_text(errors="replace")
 
 

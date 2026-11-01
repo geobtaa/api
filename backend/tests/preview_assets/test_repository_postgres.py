@@ -81,6 +81,16 @@ def test_publication_retention_and_source_withdrawal(monkeypatch):
                     return connection.execute(query)
 
             assert asyncio.run(published_for("test", Session()))["status"] == "ready"
+            for field in ("gbl_wxsIdentifier_s", "dct_title_s"):
+                connection.execute(
+                    resources.update().where(resources.c.id == "test").values({field: "changed"})
+                )
+                assert asyncio.run(published_for("test", Session())) is None
+                connection.execute(
+                    resources.update().where(resources.c.id == "test").values({field: None})
+                )
+            assert asyncio.run(published_for("test", Session()))["status"] == "ready"
+
             connection.execute(
                 resources.insert().values(
                     id="child", dct_accessRights_s="Public", publication_state="published"

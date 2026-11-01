@@ -26,6 +26,8 @@ def record_signature(record):
         "gbl_suppressed_b",
         "locn_geometry",
         "dcat_bbox",
+        "gbl_wxsidentifier_s",
+        "dct_title_s",
         "_preview_sources",
     )
     return fingerprint({k: lower.get(k) for k in keys})
@@ -127,6 +129,8 @@ async def published_for(resource_id, session):
                     resources.c.dct_references_s,
                     resources.c.locn_geometry,
                     resources.c.dcat_bbox,
+                    resources.c.gbl_wxsIdentifier_s,
+                    resources.c.dct_title_s,
                 )
                 .join(resources, resources.c.id == resource_preview_assets.c.resource_id)
                 .where(resource_preview_assets.c.resource_id == resource_id)
@@ -195,9 +199,9 @@ async def attach_preview(resource, record, session=None):
     if manifest and manifest.get("coverage_url"):
         ui["static_map"] = manifest["coverage_url"]
     if manifest:
-        ui["preview"] = {
-            k: v for k, v in manifest.items() if k not in {"coverage", "thumbnail_key"}
-        }
+        from .presentation import public_preview
+
+        ui["preview"] = public_preview(manifest)
         # Curated and successful native thumbnails retain priority. Resolver URLs
         # may represent missing/failed captures and can use the prepared image.
         current = ui.get("thumbnail_url") or ""

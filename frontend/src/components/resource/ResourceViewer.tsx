@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react';
 import { readyTableLayers } from '../../utils/preparedPreview';
-const TabularPreview = lazy(() => import('./TabularPreview'));
 import {
   attachPreparedPreview,
   readyPreparedLayers,
@@ -20,6 +19,8 @@ import type {
   PreviewSelection,
 } from '../../utils/iiifSelection';
 import type { OgmRecord } from 'ogm-viewer/lib';
+
+const TabularPreview = lazy(() => import('./TabularPreview'));
 
 interface ResourceViewerProps {
   standalone?: boolean;
@@ -49,10 +50,11 @@ type OgmViewerElement = HTMLElement & {
 export function ResourceViewer(props: ResourceViewerProps) {
   const { data, onImageSelectionChange } = props;
   const hasContent = hasOgmContentPreview(data);
-  useEffect(() => {
-    if (!hasContent) onImageSelectionChange?.(null);
-  }, [hasContent, onImageSelectionChange]);
   const tables = readyTableLayers(data);
+  const isTable = tables.length > 0;
+  useEffect(() => {
+    if (!hasContent || isTable) onImageSelectionChange?.(null);
+  }, [hasContent, isTable, onImageSelectionChange]);
   if (tables.length)
     return (
       <Suspense fallback={<p>Loading table…</p>}>
