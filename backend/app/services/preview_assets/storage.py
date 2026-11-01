@@ -10,8 +10,14 @@ from urllib.parse import quote
 
 from .models import Outcome, PreviewError
 
-KEY = re.compile(r"^[a-f0-9]{64}\.(tif|pmtiles|png)$")
-MIME = {".tif": "image/tiff", ".pmtiles": "application/vnd.pmtiles", ".png": "image/png"}
+KEY = re.compile(r"^[a-f0-9]{64}\.(tif|pmtiles|png|jpg|json)$")
+MIME = {
+    ".jpg": "image/jpeg",
+    ".json": "application/json",
+    ".tif": "image/tiff",
+    ".pmtiles": "application/vnd.pmtiles",
+    ".png": "image/png",
+}
 
 
 def asset_url(resource_id: str, key: str) -> str:

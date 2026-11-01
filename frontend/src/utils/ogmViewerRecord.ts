@@ -1,11 +1,44 @@
 import { readyPreparedLayers, type PreviewHost } from './preparedPreview';
 import type { GeoBlacklightSchemaAardvark } from 'ogm-viewer/lib';
-export function toAardvarkRecord(data: {
-  id?: string;
-  attributes: { ogm?: object };
-}) {
+export function toAardvarkRecord(
+  data: PreviewHost & {
+    id?: string;
+    attributes: { ogm?: object };
+  }
+) {
   const ogm = (data.attributes.ogm ?? {}) as Record<string, unknown>;
-  const references = ogm.dct_references_s;
+  let references = ogm.dct_references_s;
+  const preview = data.meta?.ui?.preview;
+  const hosted =
+    preview?.status === 'ready' && preview.version === '1'
+      ? preview.layers.find(
+          (layer) =>
+            ['iiif', 'iiif-manifest'].includes(layer.format) && layer.url
+        )
+      : undefined;
+  if (hosted) {
+    let parsed: Record<string, unknown> = {};
+    try {
+      const value =
+        typeof references === 'string' ? JSON.parse(references) : references;
+      if (value && typeof value === 'object' && !Array.isArray(value))
+        parsed = { ...value };
+    } catch {
+      /* A ready hosted preview can replace malformed source references. */
+    }
+    for (const key of Object.keys(parsed)) {
+      if (
+        /^https?:\/\/iiif.io\/api\/(image|presentation#manifest)\/?$/.test(key)
+      )
+        delete parsed[key];
+    }
+    parsed[
+      hosted.format === 'iiif'
+        ? 'http://iiif.io/api/image'
+        : 'http://iiif.io/api/presentation#manifest'
+    ] = hosted.url;
+    references = parsed;
+  }
 
   return {
     ...ogm,
@@ -29,6 +62,15 @@ export function hasOgmContentPreview(
   }
 ): boolean {
   if (readyPreparedLayers(data).length) return true;
+  const preview = data.meta?.ui?.preview;
+  if (
+    preview?.status === 'ready' &&
+    preview.version === '1' &&
+    preview.layers.some(
+      (layer) => ['iiif', 'iiif-manifest'].includes(layer.format) && layer.url
+    )
+  )
+    return true;
   const ogm = (data.attributes.ogm ?? {}) as Record<string, unknown>;
   let references = ogm.dct_references_s;
   if (typeof references === 'string') {

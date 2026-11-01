@@ -11,6 +11,7 @@ from PIL import Image, ImageColor, ImageDraw
 from rasterio.enums import Resampling
 from rio_tiler.colormap import cmap
 
+from .image_encoding import optimize_png
 from .models import Outcome, PreviewError
 
 
@@ -128,10 +129,16 @@ def quality(path: Path):
         image.save(path, optimize=True)
         rgba = np.asarray(image.convert("RGBA"))
         pixels = rgba[:, :, :3][rgba[:, :, 3] > 0]
-    if path.stat().st_size > 512 * 1024:
-        # Bound the thumbnail size with palette quantization.
-        with Image.open(path) as image:
-            image.convert("RGBA").quantize(colors=256).save(path, optimize=True)
+    optimize_png(path)
+    # High-entropy images may not admit a small, accurate palette. Reduce only
+    # the display thumbnail dimensions instead of accepting unbounded color loss.
+    while path.stat().st_size > 512 * 1024:
+        with Image.open(path) as current:
+            if max(current.size) <= 128:
+                break
+            current.thumbnail((int(current.width * 0.85), int(current.height * 0.85)))
+            current.save(path, optimize=True)
+        optimize_png(path)
     if path.stat().st_size > 512 * 1024:
         raise PreviewError(Outcome.OVER_LIMIT, "Thumbnail exceeds 512 KB")
     if (

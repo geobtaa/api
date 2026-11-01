@@ -35,7 +35,7 @@ def allowed_asset(manifest, key):
     )
 
 
-@router.options("/resources/{id}/preview-assets/{key}")
+@router.options("/resources/{id}/preview-assets/{key:path}")
 async def asset_options(id: str, key: str):
     return Response(
         status_code=204,
@@ -48,16 +48,19 @@ async def asset_options(id: str, key: str):
 
 
 @router.api_route(
-    "/resources/{id}/preview-assets/{key}", methods=["GET", "HEAD"], response_class=Response
+    "/resources/{id}/preview-assets/{key:path}", methods=["GET", "HEAD"], response_class=Response
 )
 async def preview_asset(id: str, key: str, request: Request):
+    async with async_session() as session:
+        manifest = await published_for(id, session)
+    bundle_key = (manifest or {}).get("iiif_assets", {}).get(key)
+    if bundle_key and manifest.get("status") == "ready":
+        key = bundle_key
     try:
         check_key(key)
     except ValueError as exc:
         raise HTTPException(404, "Preview asset not found") from exc
-    async with async_session() as session:
-        manifest = await published_for(id, session)
-    if not allowed_asset(manifest, key):
+    if not (bundle_key and manifest.get("status") == "ready") and not allowed_asset(manifest, key):
         raise HTTPException(404, "Preview asset not found")
     store = storage()
     if isinstance(store, LocalStorage):

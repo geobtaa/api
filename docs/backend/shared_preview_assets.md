@@ -233,3 +233,73 @@ Custom GeoTIFF projections measured in feet use their recorded linear units for
 projection offsets in the viewer. This preserves source georeferencing; it does
 not stretch a raster to a catalog extent. Raster units remain unspecified when
 neither the source nor an explicit recipe provides them.
+
+## Hosted IIIF level 0 derivatives
+
+IIIF image services and Presentation 2/3 manifests can now be prepared as owned,
+static Image API 2 level 0 derivatives. Ready previews override IIIF references
+only in the runtime OGM Viewer record; harvested metadata and original downloads
+remain unchanged. No viewer package update is required for ImageService2.
+
+The worker downloads the full public painting image, verifies the declared pixel
+dimensions, and produces optimized progressive JPEG quality-82 tiles (512 pixels, power-of-two scale
+factors), advertised whole-image sizes, a full-image JPEG and `info.json`.
+Full images reuse a smaller source JPEG when available. Chroma remains 4:4:4 to
+protect fine colored map labels. Dimensions and ICC profiles are retained; JPEG is a lossy preview representation,
+not a preservation master. Temporary provider downloads are not archived.
+
+For manifests, every supported embedded canvas is prepared in order. Labels,
+canvas identifiers, ranges, rights and attribution remain in the manifest snapshot;
+painting image/service URLs are replaced, and upstream thumbnail references on
+images/canvases/the manifest are removed. Other descriptive links and external
+annotation/search services are not mirrored. Manifests with composition, choices,
+selectors, authentication or nonembedded painting pages require review. A failed
+manifest does not silently fall back to its first image reference.
+
+Limits extend the existing byte, memory and execution budgets:
+
+| Environment setting | Default |
+| --- | --- |
+| `PREVIEW_IIIF_JPEG_QUALITY` | 82 (configurable 60–95) |
+| `PREVIEW_IIIF_CANVASES` | 32 per manifest |
+| `PREVIEW_IIIF_PIXELS` | 80,000,000 per image |
+| `PREVIEW_IIIF_FILES` | 10,000 output paths per resource |
+
+Oversized sources receive `over-limit`; inconsistent dimensions, unknown color
+conversion, nonstandard orientation or unsupported painting structure receive a
+reviewable outcome. Providers that cannot supply the full image may be unavailable;
+this implementation does not reconstruct originals by scraping provider tiles.
+
+All files are generated and decoded for validation before upload; the published
+manifest becomes active only after the job succeeds. Failed refreshes retain the
+last valid manifest. Publication/access checks apply to every nested image request,
+including `info.json`, JSON manifests, full images, sizes and tiles; unknown paths
+return 404 and no dynamic transforms are generated. CORS and HEAD/Range behavior
+use the existing asset route. Source withdrawal disables the bundle through the
+same resource gate. An interrupted upload can leave unreferenced immutable objects;
+retention/garbage collection must respect active manifests and `iiif_assets` values.
+
+`meta.ui.preview.iiif_assets` maps exact bundle-relative request paths to immutable
+content-addressed object keys; the new `iiif-manifest` layer format points to the
+hosted manifest. Static paths currently resolve through the API, including with
+S3-compatible storage. Direct CDN/object serving requires exporting this mapping
+or an equivalent edge resolver, plus withdrawal/purge enforcement; uploading hashed
+objects alone does not create an independently routable static directory tree.
+
+Metrics include canvas count, logical output-file count and IIIF bytes. Physical
+storage can be smaller through identical-file deduplication. Budget by unique
+images/canvases, measured pyramid bytes and retained versions, not catalog rows
+alone. Include per-tile PUT/GET operations; one manifest is not one stored object.
+
+
+Display PNGs (thumbnails and coverage maps) are compressed and tested with 64,
+128 and 256-color palettes. The smallest candidate is retained only if alpha is
+unchanged and RGB error stays within 3/255 RMS and 48/255 maximum. Otherwise the
+optimized truecolor PNG is retained. This is not applied to COG pixel values,
+class identifiers or PMTiles attributes. IIIF JPEG quantization uses the versioned
+quality setting above; dimensions are not reduced. Full images and tile aliases
+share content-addressed storage when their bytes match. This optimizes storage
+subject to readable content, rather than claiming a universally smallest encoding.
+
+High-entropy thumbnails that still exceed 512 KB are reduced in display dimensions
+(within the existing 512-pixel maximum), rather than accepting arbitrary color error.

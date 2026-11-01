@@ -61,4 +61,7 @@ def render_coverage(coverage, target, budget):
     label = coverage.label + (" - regional views at different scales" if len(regions) > 1 else "")
     ImageDraw.Draw(canvas).text((14, 575), label, fill="#334155")
     canvas.save(target, optimize=True)
+    from .image_encoding import optimize_png
+
+    optimize_png(target)
     return True

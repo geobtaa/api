@@ -35,7 +35,6 @@ from .sources import (
     Source,
     arcgis_export,
     discover,
-    iiif_manifest_image,
     query_url,
     urls,
     wms_image,
@@ -103,6 +102,8 @@ class Pipeline:
                             }
                         )
                         result.status, result.detail = Outcome.UNAVAILABLE, str(exc)
+                        if candidate.kind == "iiif-manifest":
+                            break
                     except PreviewError as exc:
                         attempts.append(
                             {
@@ -113,11 +114,13 @@ class Pipeline:
                             }
                         )
                         result.status, result.detail = exc.status, str(exc)
-                        if exc.status == Outcome.OVER_LIMIT:
+                        if exc.status == Outcome.OVER_LIMIT or candidate.kind == "iiif-manifest":
                             break
                 result.metrics["source_attempts"] = attempts
             except PreviewError as exc:
                 result.status, result.detail = exc.status, str(exc)
+            except Image.DecompressionBombError as exc:
+                result.status, result.detail = Outcome.OVER_LIMIT, str(exc)
             except (OSError, ValueError, KeyError, TypeError) as exc:
                 result.status, result.detail = Outcome.INVALID, str(exc)
             result.coverage = display_coverage(result.coverage)
@@ -166,6 +169,7 @@ class Pipeline:
                             "locn_geometry": member["geometry"],
                             "dcat_bbox": None,
                             "_preview_sample": True,
+                            "_preview_owner_id": record["id"],
                         }
                         prepared = self._source(
                             child,
@@ -192,7 +196,11 @@ class Pipeline:
                         child = self.child_lookup(identifier)
                         if not child or not eligible(child):
                             raise PreviewError(Outcome.UNAVAILABLE, "Child record unavailable")
-                        child = {**child, "_preview_sample": True}
+                        child = {
+                            **child,
+                            "_preview_sample": True,
+                            "_preview_owner_id": record["id"],
+                        }
                         sources = discover(child)
                         if not sources:
                             raise PreviewError(
@@ -255,7 +263,11 @@ class Pipeline:
                 coverage=coverage,
                 detail="; ".join(errors),
             )
-        if source.kind in {"arcgis", "wms", "iiif", "iiif-manifest"}:
+        if source.kind in {"iiif", "iiif-manifest"}:
+            from .iiif import prepare_iiif
+
+            return prepare_iiif(self, record, source, directory, budget)
+        if source.kind in {"arcgis", "wms"}:
             return self._service(record, source, directory, budget)
         suffix = Path(urlsplit(source.url).path).suffix.lower()
         supplied = Recipe.model_validate(recipe) if isinstance(recipe, dict) else recipe
@@ -558,12 +570,6 @@ class Pipeline:
             manifest.thumbnail_url = asset_url(record["id"], key)
 
     def _service(self, record, source, directory, budget):
-        origin = source
-        sample, manifest_hash = False, None
-        if source.kind == "iiif-manifest":
-            manifest_path = directory / "manifest.json"
-            manifest_hash = self.fetch(source.url, manifest_path, budget)
-            source, sample = iiif_manifest_image(json.loads(manifest_path.read_text()))
         thumb_url = source.url
         if source.kind == "wms":
             thumb_url = wms_image(source, record)
@@ -571,10 +577,6 @@ class Pipeline:
             metadata_path = directory / "service.json"
             self.fetch(query_url(source.url, {"f": "pjson"}), metadata_path, budget)
             thumb_url = arcgis_export(source.url, json.loads(metadata_path.read_text()))
-        elif source.kind == "iiif":
-            thumb_url = (
-                source.url.rstrip("/").removesuffix("/info.json") + "/full/!512,512/0/default.jpg"
-            )
         target = directory / "response-image"
         digest = self.fetch(thumb_url, target, budget)
         thumbnail = directory / "thumbnail.png"
@@ -583,10 +585,8 @@ class Pipeline:
             image.convert("RGBA").save(thumbnail)
         result = Manifest(
             status=Outcome.READY,
-            source_url=origin.url,
-            source_fingerprint=fingerprint([manifest_hash, digest]) if manifest_hash else digest,
-            scope="sample" if sample else "resource",
-            transformations=["First IIIF canvas is representative content"] if sample else [],
+            source_url=source.url,
+            source_fingerprint=digest,
             coverage=metadata_coverage(record),
             layers=[
                 Layer(

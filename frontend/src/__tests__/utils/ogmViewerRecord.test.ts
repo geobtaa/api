@@ -63,3 +63,43 @@ describe('hasOgmContentPreview', () => {
     }
   });
 });
+
+it('uses ready hosted IIIF without mutating harvested references', async () => {
+  const { toAardvarkRecord } = await import('../../utils/ogmViewerRecord');
+  const original = {
+    'http://iiif.io/api/image': 'https://provider/image',
+    'http://schema.org/downloadUrl': 'https://provider/original',
+  };
+  const data = {
+    ...record(original),
+    meta: {
+      ui: {
+        preview: {
+          version: '1',
+          status: 'ready',
+          layers: [
+            {
+              id: 'iiif',
+              name: 'Hosted',
+              format: 'iiif-manifest',
+              url: 'https://ours/manifest.json',
+            },
+          ],
+        },
+      },
+    },
+  };
+  const refs = JSON.parse(toAardvarkRecord(data).dct_references_s as string);
+  expect(refs['http://iiif.io/api/presentation#manifest']).toBe(
+    'https://ours/manifest.json'
+  );
+  expect(refs['http://iiif.io/api/image']).toBeUndefined();
+  expect(refs['http://schema.org/downloadUrl']).toBe(
+    original['http://schema.org/downloadUrl']
+  );
+  expect(data.attributes.ogm.dct_references_s).toEqual(original);
+  data.meta.ui.preview.status = 'needs-review';
+  expect(JSON.parse(toAardvarkRecord(data).dct_references_s as string)).toEqual(
+    original
+  );
+});

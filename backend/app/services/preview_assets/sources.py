@@ -66,8 +66,8 @@ def discover(record):
         (COG, "cog"),
         (PMTILES, "pmtiles"),
         (INDEX, "index"),
-        ("http://iiif.io/api/image", "iiif"),
         ("http://iiif.io/api/presentation#manifest", "iiif-manifest"),
+        ("http://iiif.io/api/image", "iiif"),
         (WMS, "wms"),
     ):
         candidates.extend(

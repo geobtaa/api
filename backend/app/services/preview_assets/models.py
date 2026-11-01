@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-PIPELINE_VERSION = "2"
+PIPELINE_VERSION = "3"
 
 
 class Outcome(StrEnum):
@@ -35,6 +35,10 @@ class Limits(BaseModel):
     extracted_bytes: int = Field(default=4 << 30, gt=0)
     archive_entries: int = Field(default=10000, gt=0)
     layers: int = Field(default=8, gt=0)
+    iiif_jpeg_quality: int = Field(default=82, ge=60, le=95)
+    iiif_canvases: int = Field(default=32, gt=0)
+    iiif_pixels: int = Field(default=80_000_000, gt=0)
+    iiif_files: int = Field(default=10000, gt=0)
     seconds: int = Field(default=900, gt=0)
     memory_bytes: int = Field(default=4 << 30, gt=0)
     temporary_bytes: int = Field(default=10 << 30, gt=0)
@@ -101,7 +105,7 @@ class Layer(BaseModel):
     id: str
     name: str
     url: str
-    format: Literal["cog", "pmtiles", "geojson", "wms", "arcgis", "iiif", "image"]
+    format: Literal["cog", "pmtiles", "geojson", "wms", "arcgis", "iiif", "iiif-manifest", "image"]
     source_layer: str | None = None
     bounds: list[float] | None = None
     recipe: Recipe | None = None
@@ -110,6 +114,7 @@ class Layer(BaseModel):
 
 
 class Manifest(BaseModel):
+    iiif_assets: dict[str, str] = Field(default_factory=dict)
     version: str = "1"
     status: Outcome
     layers: list[Layer] = Field(default_factory=list)
