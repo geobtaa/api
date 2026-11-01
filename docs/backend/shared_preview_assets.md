@@ -105,6 +105,10 @@ for review independently of whether the live layer remains usable.
 
 ## API additions
 
+API clients can discover published derivatives through resource-level `meta.assets`.
+See the [asset discovery and rendering contract](preview_asset_api.md) for formats,
+roles, recipes, coverage, and client examples. Existing `meta.ui` fields remain compatible.
+
 `meta.ui.preview` and `meta.ui.coverage` are optional. Existing viewer fields and download
 links are retained. A version-1 preview includes `status`, `layers`, `scope`, source
 fingerprint, generation time, processing version, transformations, thumbnail status,

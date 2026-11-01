@@ -623,6 +623,7 @@ class Pipeline:
                     name=source.layer or "Source layer",
                     url=source.url,
                     format=source.kind,
+                    source_layer=source.layer,
                 )
             ],
         )

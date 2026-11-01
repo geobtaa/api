@@ -198,9 +198,10 @@ async def attach_preview(resource, record, session=None):
         ui.pop("static_map", None)
     if manifest and manifest.get("coverage_url"):
         ui["static_map"] = manifest["coverage_url"]
-    if manifest:
-        from .presentation import public_preview
+    from .presentation import public_assets, public_preview
 
+    resource["meta"]["assets"] = public_assets(manifest, ui["coverage"])
+    if manifest:
         ui["preview"] = public_preview(manifest)
         # Curated and successful native thumbnails retain priority. Resolver URLs
         # may represent missing/failed captures and can use the prepared image.
