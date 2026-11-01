@@ -1,3 +1,4 @@
+import { readyTableLayers } from './preparedPreview';
 import { readyPreparedLayers, type PreviewHost } from './preparedPreview';
 import type { GeoBlacklightSchemaAardvark } from 'ogm-viewer/lib';
 export function toAardvarkRecord(
@@ -55,13 +56,14 @@ export function toAardvarkRecord(
   } as unknown as GeoBlacklightSchemaAardvark;
 }
 
-/** Content references supported by pinned OGM Viewer 1.7; geometry alone is not a preview. */
+/** Resource content includes prepared tables and OGM layers; geometry alone is not a preview. */
 export function hasOgmContentPreview(
   data: PreviewHost & {
     attributes: { ogm?: object };
   }
 ): boolean {
-  if (readyPreparedLayers(data).length) return true;
+  if (readyTableLayers(data).length || readyPreparedLayers(data).length)
+    return true;
   const preview = data.meta?.ui?.preview;
   if (
     preview?.status === 'ready' &&

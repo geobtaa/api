@@ -5,6 +5,10 @@ The preview pipeline prepares content once for an interactive OGM Viewer layer a
 provenance. The feature is disabled by default and is not a replacement download
 service. Harvested records, curated images, and original downloads remain authoritative.
 
+Tabular CSV, TSV, and Parquet sources also support a searchable table through
+[Parquet derivatives and DuckDB WASM](shared_preview_tables.md). Table rows are
+searched within the opened dataset; collection-wide search remains unchanged.
+
 ## Local workflow
 
 Start from the OGM Viewer integration branch. Install the backend dependencies and

@@ -605,6 +605,22 @@ def test_object_asset_range_validators_and_missing_objects(monkeypatch):
         assert response.status_code == 200
         assert store.ranges[-1] is None
         assert client.head(url).headers["content-length"] == "10"
+        for value, expected, length in [
+            ("bytes=0-", "bytes 0-9/10", "10"),
+            ("bytes=2-5", "bytes 2-5/10", "4"),
+            ("bytes=-3", "bytes 7-9/10", "3"),
+        ]:
+            response = client.head(url, headers={"Range": value})
+            assert response.status_code == 206
+            assert response.headers["content-range"] == expected
+            assert response.headers["content-length"] == length
+            assert response.content == b""
+        assert client.head(url, headers={"Range": "bytes=10-"}).status_code == 416
+        assert client.head(url, headers={"Range": "bytes=-0"}).status_code == 416
+        assert (
+            client.head(url, headers={"Range": "bytes=2-5", "If-Range": '"old"'}).status_code == 200
+        )
+
         store.missing = True
         assert client.head(url).status_code == 404
         assert client.get(url).status_code == 404

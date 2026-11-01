@@ -1,3 +1,6 @@
+import { lazy, Suspense } from 'react';
+import { readyTableLayers } from '../../utils/preparedPreview';
+const TabularPreview = lazy(() => import('./TabularPreview'));
 import {
   attachPreparedPreview,
   readyPreparedLayers,
@@ -49,6 +52,13 @@ export function ResourceViewer(props: ResourceViewerProps) {
   useEffect(() => {
     if (!hasContent) onImageSelectionChange?.(null);
   }, [hasContent, onImageSelectionChange]);
+  const tables = readyTableLayers(data);
+  if (tables.length)
+    return (
+      <Suspense fallback={<p>Loading table…</p>}>
+        <TabularPreview layers={tables} />
+      </Suspense>
+    );
   return hasContent ? <ContentViewer {...props} /> : null;
 }
 

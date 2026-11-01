@@ -19,6 +19,8 @@ export interface PreparedLayer {
   url: string;
   format: string;
   source_layer?: string | null;
+  columns?: { name: string; type: string }[];
+  row_count?: number;
   bounds?: [number, number, number, number];
   recipe?: PreviewRecipe;
 }
@@ -70,4 +72,12 @@ export function attachPreparedPreview(record: OgmRecord, data: PreviewHost) {
     record as OgmRecord & { preparedPreviews?: PreparedMapLayer[] }
   ).preparedPreviews = layers;
   return record;
+}
+
+export function readyTableLayers(data: PreviewHost): PreparedLayer[] {
+  const preview = data.meta?.ui?.preview;
+  if (preview?.status !== 'ready' || preview.version !== '1') return [];
+  return preview.layers.filter(
+    (layer) => layer.format === 'parquet' && layer.url && layer.columns?.length
+  );
 }

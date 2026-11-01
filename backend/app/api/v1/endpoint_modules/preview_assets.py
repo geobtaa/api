@@ -79,13 +79,29 @@ async def preview_asset(id: str, key: str, request: Request):
         if request.method == "HEAD" or request.headers.get("if-range"):
             item = await run_in_threadpool(store.head, key)
             if request.method == "HEAD":
+                length = item["ContentLength"]
+                range_headers = {}
+                if byte_range and request.headers.get("if-range", item["ETag"]) == item["ETag"]:
+                    start_text, end_text = byte_range.removeprefix("bytes=").split("-")
+                    start = int(start_text) if start_text else max(0, length - int(end_text))
+                    end = min(int(end_text), length - 1) if start_text and end_text else length - 1
+                    if start > end or start >= length:
+                        raise HTTPException(
+                            416,
+                            "Unsatisfiable byte range",
+                            headers={"Content-Range": f"bytes */{length}"},
+                        )
+                    range_headers = {"Content-Range": f"bytes {start}-{end}/{length}"}
+                    length = end - start + 1
                 return Response(
                     headers={
                         **HEADERS,
-                        "Content-Length": str(item["ContentLength"]),
+                        "Content-Length": str(length),
                         "ETag": item["ETag"],
+                        **range_headers,
                     },
                     media_type=MIME[Path(key).suffix],
+                    status_code=206 if range_headers else 200,
                 )
             # A mismatched/unsupported validator requires the entire response.
             if request.headers["if-range"] != item["ETag"]:

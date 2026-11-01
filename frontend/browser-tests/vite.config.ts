@@ -21,7 +21,16 @@ export default defineConfig({
     fs: { allow: [path.resolve(root, '..')] },
   },
   preview: { host: '127.0.0.1', port: 4181, strictPort: true },
-  build: { outDir: '../.viewer-browser-build', emptyOutDir: true },
+  build: {
+    outDir: '../.viewer-browser-build',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(root, 'index.html'),
+        table: path.resolve(root, 'table.html'),
+      },
+    },
+  },
   optimizeDeps: { exclude: ['ogm-viewer', 'ogm-viewer/lib'] },
   worker: { format: 'es' },
 });

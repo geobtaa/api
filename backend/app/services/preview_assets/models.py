@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-PIPELINE_VERSION = "3"
+PIPELINE_VERSION = "4"
 
 
 class Outcome(StrEnum):
@@ -105,12 +105,16 @@ class Layer(BaseModel):
     id: str
     name: str
     url: str
-    format: Literal["cog", "pmtiles", "geojson", "wms", "arcgis", "iiif", "iiif-manifest", "image"]
+    format: Literal[
+        "cog", "pmtiles", "geojson", "wms", "arcgis", "iiif", "iiif-manifest", "image", "parquet"
+    ]
     source_layer: str | None = None
     bounds: list[float] | None = None
     recipe: Recipe | None = None
     asset_key: str | None = None
     byte_size: int = 0
+    columns: list[dict[str, str]] = Field(default_factory=list)
+    row_count: int | None = None
 
 
 class Manifest(BaseModel):

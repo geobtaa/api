@@ -332,10 +332,39 @@ class Pipeline:
             ".png",
             ".jpg",
             ".jpeg",
+            ".csv",
+            ".tsv",
+            ".parquet",
         }:
             raise PreviewError(Outcome.UNSUPPORTED, "Download format is not supported")
         local = directory / ("source" + suffix)
         source_hash = self.fetch(source.url, local, budget)
+        if suffix in {".csv", ".tsv", ".parquet"}:
+            from .tabular import prepare_table
+
+            output, metadata = prepare_table(local, budget)
+            key = self._put(output, budget)
+            return Manifest(
+                status=Outcome.READY,
+                source_url=source.url,
+                source_fingerprint=source_hash,
+                coverage=coverage,
+                transformations=[
+                    "ZSTD Parquet; CSV/TSV values retained as text, including leading zeros; "
+                    "no geographic inference or numeric quantization"
+                ],
+                layers=[
+                    Layer(
+                        id="table",
+                        name="Data table",
+                        format="parquet",
+                        url=asset_url(str(record["id"]), key),
+                        asset_key=key,
+                        byte_size=output.stat().st_size,
+                        **metadata,
+                    )
+                ],
+            )
         if suffix in {".png", ".jpg", ".jpeg"}:
             image = directory / "thumbnail.png"
             with Image.open(local) as src:

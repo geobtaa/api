@@ -10,8 +10,9 @@ from urllib.parse import quote
 
 from .models import Outcome, PreviewError
 
-KEY = re.compile(r"^[a-f0-9]{64}\.(tif|pmtiles|png|jpg|json)$")
+KEY = re.compile(r"^[a-f0-9]{64}\.(tif|pmtiles|png|jpg|json|parquet)$")
 MIME = {
+    ".parquet": "application/vnd.apache.parquet",
     ".jpg": "image/jpeg",
     ".json": "application/json",
     ".tif": "image/tiff",
