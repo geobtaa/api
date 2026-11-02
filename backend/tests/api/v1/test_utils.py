@@ -6,9 +6,11 @@ from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi.responses import JSONResponse
+from starlette.requests import Request
 
 from app.api.v1.utils import (
     _hot_resource_class_icon_url,
@@ -773,6 +775,83 @@ class TestCreateJsonapiResource:
 
 class TestCreatePaginationLinks:
     """Test cases for create_pagination_links function."""
+
+    @pytest.fixture(autouse=True)
+    def clear_application_url(self, monkeypatch):
+        monkeypatch.delenv("APPLICATION_URL", raising=False)
+
+    @pytest.mark.parametrize(
+        "application_url", ["https://api.example.org/", "https://api.example.org/api/v1/"]
+    )
+    @pytest.mark.parametrize(
+        ("pagination_type", "current_page", "expected_pages"),
+        [
+            ("page", 2, {"self": 2, "next": 3, "prev": 1, "first": 1, "last": 5}),
+            ("offset", 2, {"self": 2, "next": 4, "prev": 0, "first": 0, "last": 8}),
+        ],
+    )
+    def test_pagination_uses_public_origin(
+        self, monkeypatch, application_url, pagination_type, current_page, expected_pages
+    ):
+        monkeypatch.setenv("APPLICATION_URL", application_url)
+        request = Request(
+            {
+                "type": "http",
+                "scheme": "http",
+                "server": ("backend", 8000),
+                "path": "/api/v1/search",
+                "query_string": b"q=roads+%26+rivers&fq[]=Maps&fq[]=Data&limit=2&ignored=yes",
+                "headers": [],
+            }
+        )
+
+        links = create_pagination_links(
+            request, current_page, 5, pagination_type, allowed_params=["q", "fq[]", "limit"]
+        )
+
+        assert links.keys() == expected_pages.keys()
+        for relation, value in expected_pages.items():
+            url = urlsplit(links[relation])
+            assert (url.scheme, url.netloc, url.path) == (
+                "https",
+                "api.example.org",
+                "/api/v1/search",
+            )
+            assert parse_qs(url.query) == {
+                "q": ["roads & rivers"],
+                "fq[]": ["Maps", "Data"],
+                "limit": ["2"],
+                pagination_type: [str(value)],
+            }
+
+    @pytest.mark.parametrize(
+        ("application_url", "scheme", "expected_origin"),
+        [
+            (None, "http", "http://localhost:8000"),
+            ("", "https", "https://localhost:8000"),
+            (None, "https", "https://localhost:8000"),
+            ("http://localhost:9000/", "http", "http://localhost:9000"),
+        ],
+    )
+    def test_pagination_supports_local_and_unconfigured_urls(
+        self, monkeypatch, application_url, scheme, expected_origin
+    ):
+        if application_url is not None:
+            monkeypatch.setenv("APPLICATION_URL", application_url)
+        request = Request(
+            {
+                "type": "http",
+                "scheme": scheme,
+                "server": ("localhost", 8000),
+                "path": "/api/v1/search",
+                "query_string": b"",
+                "headers": [],
+            }
+        )
+
+        assert create_pagination_links(request, 1, 1) == {
+            "self": f"{expected_origin}/api/v1/search?page=1"
+        }
 
     def test_create_pagination_links_first_page(self):
         """Test creating pagination links for first page."""
