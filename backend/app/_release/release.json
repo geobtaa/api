@@ -1,5 +1,5 @@
 {
-  "version": "0.12.1",
-  "release_date": "2026-10-29",
-  "summary": "Fix PMTiles loading for valid polygon geometry with duplicate vertices and add a bounding-box fallback when viewer geometry is unavailable."
+  "version": "0.12.2",
+  "release_date": "2026-11-02",
+  "summary": "Restore the homepage news banner after the November live demo and fix pagination links to use the configured public API origin."
 }
