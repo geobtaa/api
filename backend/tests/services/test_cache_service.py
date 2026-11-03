@@ -3,7 +3,7 @@ Tests for CacheService - comprehensive coverage using real fixtures and data.
 """
 
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -67,6 +67,53 @@ class FakeRedis:
         pipe = FakeRedisPipeline()
         self.pipelines.append((transaction, pipe))
         return pipe
+
+
+@pytest.mark.asyncio
+async def test_endpoint_version_isolates_old_payloads_and_reuses_current_cache(monkeypatch):
+    from fastapi.responses import JSONResponse
+    from starlette.requests import Request
+
+    records = {}
+    service = AsyncMock()
+    service.get_record.side_effect = records.get
+
+    async def store(key, record, **kwargs):
+        records[key] = record
+
+    service.set_record.side_effect = store
+    monkeypatch.setattr("app.services.cache_service.ENDPOINT_CACHE", True)
+    factory = MagicMock(return_value=service)
+    factory.generate_cache_key = CacheService.generate_cache_key
+    monkeypatch.setattr("app.services.cache_service.CacheService", factory)
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/resources/1",
+            "headers": [],
+            "query_string": b"",
+            "scheme": "http",
+            "server": ("test", 80),
+        }
+    )
+    calls = 0
+
+    async def endpoint(request):
+        nonlocal calls
+        calls += 1
+        return JSONResponse({"generation": calls})
+
+    original = await cached_endpoint()(endpoint)(request)
+    previous = await cached_endpoint(version="previous")(endpoint)(request)
+    current = cached_endpoint(version="current")(endpoint)
+    fresh = await current(request)
+    cached = await current(request)
+
+    assert calls == 3
+    assert len(records) == 3
+    assert original.body != previous.body != fresh.body
+    assert fresh.body == cached.body
 
 
 def test_resource_cache_tags_from_jsonapi_body():

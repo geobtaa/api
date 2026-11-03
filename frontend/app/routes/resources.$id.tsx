@@ -30,7 +30,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         `/resources/${id}?format=json`
       ),
       serverFetchJson<Record<string, unknown>>(
-        `/resources/${id}/citation/json-ld`
+        `/resources/${id}/citation/json-ld`,
+        { headers: { Accept: 'application/ld+json' } }
       ).catch(() => null),
     ]);
 

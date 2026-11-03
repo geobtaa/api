@@ -426,3 +426,15 @@ the `map` cache tag if any older responses have already been cached.
 - **Redis latency**:
   - tune `REDIS_TIMEOUT_SECONDS`
   - keep Redis close to the API network-wise
+
+## Response contract versions
+
+`cached_endpoint(..., version="contract-version")` adds a version to that
+endpoint's cache namespace. Change it when the serialized response contract
+changes, so Redis and durable response caches cannot serve an older shape.
+Unversioned endpoints retain their existing cache keys.
+
+Resource detail/list and GET/POST search use `linked-data-links-v1` for the
+response shape that links to standalone JSON-LD without embedding a graph.
+The resource representation and semantic search cache defaults are also bumped
+(`v5` and `v4`, respectively) so every response-building layer uses this shape.

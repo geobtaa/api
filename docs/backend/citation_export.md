@@ -18,12 +18,20 @@ The JSON-LD endpoint returns Schema.org structured data suitable for:
 - **Future Zotero support** – when native JSON-LD import is added
 - **Semantic web** – machine-readable metadata for aggregation and linking
 
-Resource types are mapped to Schema.org:
-- Datasets / Web services → `Dataset`
-- Maps / Imagery → `Map`
-- Other → `CreativeWork`
+Resource classes are mapped to Schema.org:
 
-The JSON-LD is also embedded in the `<head>` of each resource page via a `<script type="application/ld+json">` tag for crawlers and tools that parse page HTML.
+- Datasets → `Dataset`
+- Maps → `Map`
+- Collections → `Collection`
+- Other classes (including services alone) → `CreativeWork`
+
+JSON API resources link to this endpoint through `links.alternate`, including
+its `application/ld+json` type. They do not embed a duplicate graph. The dedicated
+representation uses an inline context, absolute identifiers and explicit
+reference objects. See [Consuming linked data](linked_data.md) for discovery,
+field semantics, limitations and migration from the former metadata markers.
+
+The dedicated JSON-LD endpoint can be consumed directly by RDF tooling.
 
 ## RIS Format
 
@@ -61,8 +69,16 @@ Datasets and web services use the `[Data set]` descriptor in APA; maps use `[Map
 
 ## Frontend
 
-The **Cite & Reference** section on each resource page includes:
-- Style selector: Generic, APA 7th, MLA 9th, Chicago
+The **Citation** section on each resource page includes:
+- Style selector: APA 7th, MLA 9th, Chicago
 - Copy citation (formatted text for selected style)
 - Copy permalink
-- Export links: RIS, BibTeX, JSON-LD
+- Export links: RIS, BibTeX
+
+The visible citation panel consumes the formatted strings in `meta.ui.citation`
+and `meta.ui.citations`. It does not format citations from JSON-LD nodes.
+The page loader separately requests `/citation/json-ld` with
+`Accept: application/ld+json` and passes the complete object to React Router's
+JSON-LD metadata renderer. Inline contexts and multivalued publishers, licenses,
+descriptions and languages are preserved in the page's structured-data script.
+Failure of that optional request does not prevent the resource page from loading.

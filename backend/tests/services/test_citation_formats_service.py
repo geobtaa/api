@@ -31,13 +31,14 @@ class TestCitationFormatsServiceJsonLd:
             doc, distribution_context=ctx, base_url="https://geo.example.org"
         )
         ld = svc.to_json_ld("test-uuid-123")
-        assert ld["@context"] == "https://schema.org"
+        assert ld["@context"]["@vocab"] == "https://schema.org/"
         assert ld["@type"] == "Dataset"
         assert ld["name"] == "Test Dataset"
         assert ld["description"] == "A test dataset."
         assert ld["url"] == "https://geo.example.org/resources/test-uuid-123"
         assert ld["@id"] == ld["url"]
-        assert ld["publisher"]["name"] == "University of Test"
+        assert ld["provider"][0]["name"] == "University of Test"
+        assert "publisher" not in ld
         assert ld["includedInDataCatalog"]["name"] == "Big Ten Academic Alliance Geoportal"
 
     def test_json_ld_map_type(self):

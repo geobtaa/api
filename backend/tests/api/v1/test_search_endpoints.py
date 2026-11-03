@@ -527,12 +527,11 @@ async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
 
     monkeypatch.setattr(search_module, "CacheService", FakeSemanticCache)
 
-    cached_resource = {
-        "type": "resource",
-        "id": "test-doc",
-        "attributes": {"ogm": {"dct_title_s": "Cached Resource"}},
-        "meta": {"ui": {}},
-    }
+    from app.api.v1.presenters import ResourcePresenter
+
+    cached_resource = ResourcePresenter.serialize_jsonapi_resource(
+        {"id": "test-doc", "dct_title_s": "Cached Resource"}
+    )
     search_mock = AsyncMock(
         return_value={
             "data": [{"id": "test-doc", "score": 12.5}],
@@ -593,6 +592,12 @@ async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
     second_payload = json.loads(second.body)
     assert first_payload["data"][0]["meta"]["score"] == 12.5
     assert "meta" not in second_payload["data"][0]
+
+    assert "jsonld" not in first_payload["data"][0]["meta"]
+    assert first_payload["data"][0]["links"] == second_payload["data"][0]["links"]
+    assert second_payload["data"][0]["links"]["alternate"]["href"] == (
+        "/api/v1/resources/test-doc/citation/json-ld"
+    )
 
 
 @pytest.mark.asyncio

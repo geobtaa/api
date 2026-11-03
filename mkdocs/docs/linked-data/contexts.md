@@ -1,139 +1,64 @@
-# Contexts
+# JSON-LD contexts and discovery
 
-{% include-markdown "includes/wip.md" %}
+The public JSON API keeps source metadata in `attributes` without embedding a
+second representation. Follow a resource's `links.alternate.href` to retrieve
+its JSON-LD 1.1 document. The link advertises `type: application/ld+json` and its
+origin-relative URL resolves against the API response URL. The dedicated
+`/api/v1/resources/{id}/citation/json-ld` endpoint supplies an inline context
+and absolute `@id`, so RDF processing needs no remote context files.
 
-JSON-LD contexts provide mappings between terms used in JSON documents and IRIs. They are essential for creating interoperable linked data and ensuring consistent data interpretation across different systems.
+```python
+from urllib.parse import urljoin
 
-## Overview
+import requests
+from pyld import jsonld
 
-Contexts in this repository define:
-
-- **Term mappings**: Short names for IRIs used in metadata records
-- **Type coercions**: Automatic type conversion for dates, booleans, and other data types
-- **Container specifications**: How arrays and sets should be handled
-- **Namespace prefixes**: Short prefixes for common vocabularies and ontologies
-
-## Available Contexts
-
-### BTAA Aardvark Context
-
-The primary context for GeoBTAA metadata records, extending the OpenGeoMetadata Aardvark schema with BTAA-specific elements.
-
-**File**: [`https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld`](https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld)
-
-This context provides mappings for:
-
-#### Core Aardvark Elements
-- **Identifiers**: `id_` → `dct:identifier`
-- **Titles & Descriptions**: `dct_title_s`, `dct_alternative_sm`, `dct_description_sm`
-- **Agents**: `dct_creator_sm`, `dct_publisher_sm`, `schema_provider_s`
-- **Subjects & Keywords**: `dct_subject_sm`, `dcat_keyword_sm`
-- **Languages**: `dct_language_sm`
-
-#### Resource Classification
-- **Resource Types**: `gbl_resourceClass_sm`, `gbl_resourceType_sm`
-- **Formats & Themes**: `dct_format_s`, `dcat_theme_sm`
-
-#### Temporal Coverage
-- **Temporal**: `dct_temporal_sm`, `gbl_indexYear_im`, `gbl_dateRange_drsim`
-
-#### Spatial Coverage
-- **Spatial**: `dct_spatial_sm`
-- **Geometry**: `locn_geometry` (WKT), `dcat_bbox`, `dcat_centroid`
-
-#### Relationships
-- **Part/Whole**: `dct_ispartof_sm`, `pcdm_memberOf_sm`
-- **Versions**: `dct_isVersionOf_sm`, `dct_replaces_sm`, `dct_isReplacedBy_sm`
-- **Sources**: `dct_source_sm`, `dct_relation_sm`
-
-#### Rights & Access
-- **Rights**: `dct_rights_sm`, `dct_license_sm`, `dct_rightsHolder_sm`
-- **Access**: `dct_accessRights_s`
-
-#### BTAA Custom Elements
-- **Institutional**: `b1g_code_s`, `b1g_status_s`, `b1g_publication_state_s`
-- **Dates**: `b1g_dateAccessioned_s`, `b1g_dateRetired_s`
-- **Accrual**: `b1g_dct_accrualMethod_s`, `b1g_dct_accrualPeriodicity_s`
-- **Access Control**: `b1g_access_s` (JSON map), `b1g_child_record_b`
-- **Geographic**: `b1g_geonames_sm` (URIs), `b1g_dcat_spatialResolutionInMeters_sm`
-- **Administrative**: `b1g_adminTags_sm`, `b1g_dct_provenanceStatement_sm`
-
-### OGM UI Context
-
-A specialized context for OpenGeoMetadata UI components and viewer integrations.
-
-**File**: [`https://gin.btaa.org/api/v1/ld/contexts/ogm-ui.context.jsonld`](https://gin.btaa.org/api/v1/ld/contexts/ogm-ui.context.jsonld)
-
-This context provides mappings for:
-
-- **UI Components**: `ui`, `citation`, `viewer`
-- **Protocols**: `protocol`
-- **Endpoints**: `endpoint` (typed as IRI)
-- **Geometry**: `geometry` (typed as JSON)
-
-## Usage
-
-### Including Contexts in Metadata Records
-
-```json
-{
-  "@context": "https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld",
-  "@type": "Dataset",
-  "dct_title_s": "Example Geospatial Dataset",
-  "dct_creator_sm": ["University of Example"],
-  "dct_spatial_sm": ["United States"],
-  "b1g_code_s": "EXAMPLE"
-}
+response = requests.get("http://localhost:8000/api/v1/search?per_page=2", timeout=30)
+response.raise_for_status()
+graphs = []
+for resource in response.json()["data"]:
+    url = urljoin(response.url, resource["links"]["alternate"]["href"])
+    document = requests.get(url, headers={"Accept": "application/ld+json"}, timeout=30)
+    document.raise_for_status()
+    graphs.append(document.json())
+triples = jsonld.to_rdf(graphs, {"format": "application/n-quads"})
 ```
 
-### Using Multiple Contexts
+The extra request per resource is needed only by linked-data consumers.
+Ordinary clients use the source attributes without receiving duplicate values.
 
-```json
-{
-  "@context": [
-    "https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld",
-    "https://gin.btaa.org/api/v1/ld/contexts/ogm-ui.context.jsonld"
-  ],
-  "@type": "Dataset",
-  "dct_title_s": "Example Dataset",
-  "viewer": {
-    "protocol": "wms",
-    "endpoint": "https://example.org/geoserver/wms"
-  }
-}
-```
+The inline context defaults to `https://schema.org/`. `url` and `contentUrl`
+are IRI-valued properties. Licenses and resource relationships use explicit
+`@id` objects. Dublin Core and PCDM predicates use full IRIs. No arbitrary
+resource label is interpreted as an external vocabulary term.
 
-## Namespace Prefixes
+Nodes without `@id` are RDF blank nodes. Agent names are labels, not stable
+identities, and matching names do not establish that two agents are the same.
+The batch example lets the processor allocate distinct blank-node labels.
+For separately converted responses, use an RDF merge that standardizes blank
+nodes apart; concatenating N-Quads may accidentally merge unrelated nodes whose
+generated labels overlap. See [RDF blank nodes](https://www.w3.org/TR/rdf11-concepts/#section-blank-nodes).
 
-The contexts include mappings for these common vocabularies:
+Arrays represent unordered RDF values, not ordered RDF lists. They do not assert
+author order or download preference. Missing properties are unasserted, not
+negative statements about a resource.
 
-- **dct**: Dublin Core Terms (`http://purl.org/dc/terms/`)
-- **dcat**: Data Catalog Vocabulary (`http://www.w3.org/ns/dcat#`)
-- **schema**: Schema.org (`https://schema.org/`)
-- **gsp**: GeoSPARQL (`http://www.opengis.net/ont/geosparql#`)
-- **gbl**: GeoBlacklight (`https://geo.blacklight.org/terms#`)
-- **b1g**: BTAA GIN (`https://gin.btaa.org/terms/b1g#`)
-- **ogm**: OpenGeoMetadata (`https://opengeometadata.org/ogm/terms#`)
+`attributes.ogm` and `attributes.b1g` preserve source metadata. `meta.ui`, scores,
+facets and timelines are ordinary JSON and are not members of the graph.
+`meta=false` removes the resource's UI metadata but retains the alternate link.
 
-## Type Coercions
+## Legacy draft contexts
 
-The contexts automatically handle type conversions:
+The files under `v1/ld/contexts/` are retained as legacy draft artifacts for
+existing integrations. They are **not** used by the standalone graph and
+must not be applied to the whole JSON API response. They do not transform the
+nested envelope, resolve local relationship identifiers, normalize ENVELOPE or
+comma-separated bounds to WKT, or parse JSON-encoded reference strings.
+Consumers needing RDF should use the dedicated JSON-LD endpoint.
 
-- **Dates**: `xsd:date` for accessioned/retired dates
-- **DateTimes**: `xsd:dateTime` for modification timestamps
-- **Booleans**: `xsd:boolean` for flags like `georeferenced`, `suppressed`
-- **Decimals**: `xsd:decimal` for spatial resolution values
-- **JSON**: `@json` for complex objects like references and access maps
-- **IRIs**: `@id` for URIs and identifiers
+The previous `meta.@context` URL returned 404, and a context inside `meta`
+could not describe sibling `attributes` even with the URL corrected. Both that
+marker and the undefined `meta.@type` marker have been removed. A typed
+alternate link now makes the separate JSON-LD representation discoverable.
 
-## Container Specifications
-
-- **Sets**: `@container: @set` for multi-valued properties
-- **Arrays**: Standard JSON arrays for ordered collections
-- **Language Maps**: Automatic language tagging for internationalized content
-
-## Related Documentation
-
-- [Contexts](contexts.md) - JSON-LD context definitions
-- [Profiles](profiles.md) - Profile specifications and constraints
-- [Schemas](schemas.md) - JSON Schema validation
+See [Profiles](profiles.md) for the response contract and migration details.

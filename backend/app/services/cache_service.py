@@ -696,7 +696,12 @@ class CacheService:
 
 
 # Create decorator for caching endpoint responses
-def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str]] = None):
+def cached_endpoint(
+    ttl: int = DEFAULT_CACHE_TTL,
+    *,
+    tags: Optional[Iterable[str]] = None,
+    version: str | None = None,
+):
     """Decorator to cache endpoint responses (binary-safe, versioned keys)."""
 
     def decorator(func):
@@ -815,6 +820,8 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
             cache_args = {k: v for k, v in bound_args.arguments.items() if k != "request"}
 
             namespace = f"{func.__module__}.{func.__name__}"
+            if version:
+                namespace = f"{namespace}:{version}"
             cache_key = (
                 build_cache_key(request=request, namespace=namespace, params=cache_args)
                 if request is not None

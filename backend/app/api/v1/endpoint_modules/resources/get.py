@@ -21,7 +21,7 @@ from . import RESOURCE_CACHE_TTL, filter_resource_fields, get_async_session, log
 
 
 @router.get("/resources/{id}", response_model=ResourceResponse)
-@cached_endpoint(ttl=RESOURCE_CACHE_TTL)
+@cached_endpoint(ttl=RESOURCE_CACHE_TTL, version="linked-data-links-v1")
 async def get_resource(
     request: Request,
     id: str,

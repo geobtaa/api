@@ -1,5 +1,5 @@
 site_name: BTAA Geospatial API & Linked Data
-site_url: https://geobtaa.github.io/data-api/
+site_url: https://gin.btaa.org/api/
 site_description: "BTAA Geospatial API and linked data assets: contexts, profiles, schemas, etc."
 copyright: "&copy; 2026 BTAA GIN"
 repo_url: https://github.com/geobtaa/data-api
