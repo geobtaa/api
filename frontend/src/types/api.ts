@@ -1,3 +1,4 @@
+import type { PreviewDescription } from '../utils/preparedPreview';
 export interface DataDictionaryEntry {
   id: number;
   resource_data_dictionary_id: number;
@@ -85,6 +86,13 @@ export interface GeoDocument {
   };
   meta?: {
     ui?: {
+      preview?: PreviewDescription;
+      coverage?: {
+        geometry: GeoJSON.Geometry | null;
+        kind: string;
+        label: string;
+        provenance: string;
+      };
       thumbnail_url?: string | null;
       resource_class_icon_url?: string | null;
       citation?: string;
@@ -98,6 +106,12 @@ export interface GeoDocument {
         generated?: boolean;
         generation_path?: string;
         download_type?: string;
+        source?: string;
+        canvas_id?: string;
+        canvas_label?: string;
+        image_source?: string;
+        image_occurrences?: number[];
+        iiif_resource_url?: string;
       }>;
       licensed_accesses?: Array<{
         institution_code: string;

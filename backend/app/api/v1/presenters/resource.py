@@ -257,6 +257,9 @@ class ResourcePresenter:
                 resource, resource_dict, self.session
             )
 
+        from app.services.preview_assets.repository import attach_preview
+
+        await attach_preview(resource, resource_dict, self.session)
         return resource
 
     async def present_homepage(
@@ -316,6 +319,9 @@ class ResourcePresenter:
         )
         self._attach_allmaps(resource, allmaps_attributes)
 
+        from app.services.preview_assets.repository import attach_preview
+
+        await attach_preview(resource, resource_dict, self.session)
         return resource
 
     async def present_search_result(
@@ -393,6 +399,9 @@ class ResourcePresenter:
         self._attach_allmaps(resource, allmaps_attributes)
         self._attach_static_map(resource, resource_dict)
 
+        from app.services.preview_assets.repository import attach_preview
+
+        await attach_preview(resource, resource_dict, self.session)
         return resource
 
     async def _attach_data_dictionaries(
@@ -493,6 +502,10 @@ class ResourcePresenter:
                 thumbnail_asset_url=thumb_asset_url,
             )
             if hot_thumbnail_url or allow_resource_fallback:
+                from app.services.preview_assets.models import enabled
+
+                if enabled():
+                    resource.setdefault("meta", {}).setdefault("ui", {})["thumbnail_curated"] = True
                 resource.setdefault("meta", {})
                 resource["meta"].setdefault("ui", {})
                 resource["meta"]["ui"]["thumbnail_url"] = (

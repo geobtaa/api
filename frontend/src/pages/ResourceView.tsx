@@ -15,6 +15,8 @@ import { isGeoportalErrorStatus } from './errorPageContent';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useApi } from '../context/ApiContext';
+import type { ImageSelection, ImageNavigation } from '../utils/iiifSelection';
+import { hasOgmContentPreview } from '../utils/ogmViewerRecord';
 import { ResourceViewer } from '../components/resource/ResourceViewer';
 import { ResourceBreadcrumbs } from '../components/resource/ResourceBreadcrumbs';
 import { ResourceSubtitle } from '../components/resource/ResourceSubtitle';
@@ -134,39 +136,6 @@ function IndexMap() {
   return <div className="viewer-information" aria-live="polite"></div>;
 }
 
-// New component for the attribute table
-function AttributeTable() {
-  return (
-    <div id="table-container" className="w-full">
-      <table id="attribute-table" className="w-full table-auto border-collapse">
-        <thead className="bg-gray-50">
-          <tr>
-            <th
-              scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Attribute
-            </th>
-            <th
-              scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Value
-            </th>
-          </tr>
-        </thead>
-        <tbody className="attribute-table-body bg-white divide-y divide-gray-200">
-          <tr className="hover:bg-gray-50">
-            <td className="border px-4 py-2" colSpan={2}>
-              <em>Click on map to inspect values</em>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 export function ResourceView({
   prefetchedResource,
   currentUrl,
@@ -199,6 +168,9 @@ export function ResourceView({
   const [visitedOverlayResource, setVisitedOverlayResource] = useState<
     string | null
   >(null);
+  const [imageNavigation, setImageNavigation] =
+    useState<ImageNavigation | null>(null);
+  const [viewerImage, setViewerImage] = useState<ImageSelection | null>(null);
   const [activeViewerTab, setActiveViewerTab] = useState<'item' | 'allmaps'>(
     'item'
   );
@@ -535,14 +507,17 @@ export function ResourceView({
   // const geometry = data?.data?.meta?.ui?.viewer?.geometry;
 
   // Extract data from the new structure
-  const viewerProtocol = data?.meta?.ui?.viewer?.protocol;
+  const viewerProtocol = hasOgmContentPreview(data)
+    ? (data?.meta?.ui?.viewer?.protocol ?? 'prepared')
+    : undefined;
   const dataDictionaries = data?.attributes?.b1g?.data_dictionaries || [];
   const hasAllmapsViewer = Boolean(getAllmapsViewerUrl(allmapsAttributes));
-  const resourceGeometry =
-    data?.meta?.ui?.viewer?.geometry ||
-    data?.attributes?.ogm?.locn_geometry_original ||
-    data?.attributes?.ogm?.locn_geometry ||
-    null;
+  const resourceGeometry = data?.meta?.ui?.coverage
+    ? data.meta.ui.coverage.geometry
+    : data?.meta?.ui?.viewer?.geometry ||
+      data?.attributes?.ogm?.locn_geometry_original ||
+      data?.attributes?.ogm?.locn_geometry ||
+      null;
   const showViewerTabs = Boolean(viewerProtocol && hasAllmapsViewer);
   const showItemViewer =
     Boolean(viewerProtocol) && (!showViewerTabs || activeViewerTab === 'item');
@@ -673,9 +648,8 @@ export function ResourceView({
                       viewerUrl={
                         showAllmapsViewer
                           ? getAllmapsViewerUrl(allmapsAttributes)
-                          : viewerProtocol === 'iiif_manifest' &&
-                              data.meta?.ui?.viewer?.endpoint
-                            ? `/mirador?manifest=${encodeURIComponent(data.meta.ui.viewer.endpoint)}`
+                          : viewerProtocol
+                            ? `/ogm-viewer?resource=${encodeURIComponent(data.id)}`
                             : null
                       }
                       tabs={
@@ -736,7 +710,12 @@ export function ResourceView({
                               : undefined
                           }
                         >
-                          <ResourceViewer data={data} pageValue="SHOW" />
+                          <ResourceViewer
+                            key={data.id}
+                            data={data}
+                            onImageSelectionChange={setViewerImage}
+                            imageNavigation={imageNavigation}
+                          />
                         </div>
                       )}
 
@@ -759,12 +738,6 @@ export function ResourceView({
                     </AllmapsViewerFrame>
                   )}
 
-                  {/* Conditionally render the attribute table if the protocol is 'wms' or 'arcgis_feature_layer' */}
-                  {showItemViewer &&
-                    (viewerProtocol === 'wms' ||
-                      viewerProtocol === 'arcgis_feature_layer') && (
-                      <AttributeTable />
-                    )}
                   {showItemViewer && viewerProtocol === 'open_index_map' && (
                     <IndexMap />
                   )}
@@ -779,6 +752,17 @@ export function ResourceView({
                 <div className="lg:col-span-4">
                   <div className="lg:sticky lg:top-[88px] space-y-6">
                     {/* Location Map - using geometry from viewer, original geometry, or locn_geometry */}
+                    {data.meta?.ui?.preview?.scope === 'sample' && (
+                      <p className="text-sm text-gray-600">
+                        Preview shows a representative item from this
+                        collection.
+                      </p>
+                    )}
+                    {data.meta?.ui?.coverage && (
+                      <p className="text-sm text-gray-600">
+                        {data.meta.ui.coverage.label}
+                      </p>
+                    )}
                     {resourceGeometry && (
                       <LocationMap
                         geometry={
@@ -794,14 +778,21 @@ export function ResourceView({
                     )}
 
                     {/* Downloads section */}
-                    {data?.meta?.ui?.downloads &&
-                      data.meta.ui.downloads.length > 0 && (
-                        <DownloadsTable
-                          downloads={data.meta.ui.downloads}
-                          resourceId={data.id}
-                          searchId={searchState?.searchId}
-                        />
-                      )}
+                    <DownloadsTable
+                      key={data.id}
+                      downloads={data.meta?.ui?.downloads ?? []}
+                      resourceId={data.id}
+                      searchId={searchState?.searchId}
+                      followViewer
+                      onImageNavigate={setImageNavigation}
+                      activeImage={
+                        showItemViewer &&
+                        viewerImage?.resourceId ===
+                          String(data.attributes.ogm?.id ?? data.id)
+                          ? viewerImage
+                          : null
+                      }
+                    />
 
                     {/* Licensed access section */}
                     {data?.meta?.ui?.licensed_accesses &&

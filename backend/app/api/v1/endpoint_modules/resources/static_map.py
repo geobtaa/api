@@ -39,6 +39,20 @@ async def get_resource_static_map(
 ):
     """Compatibility route for the geometry-overlay static map asset."""
     try:
+        from app.services.preview_assets.models import enabled
+        from app.services.preview_assets.repository import published_for
+
+        if enabled():
+            async with async_session() as preview_session:
+                prepared = await published_for(id, preview_session)
+            if prepared:
+                if prepared.get("coverage_url"):
+                    return RedirectResponse(
+                        prepared["coverage_url"], headers={"Cache-Control": "no-store"}
+                    )
+                return _svg_placeholder(
+                    title="Location map unavailable", subtitle="Coverage has not been rendered"
+                )
         map_service = StaticMapService()
         hot_map_hash = await map_service.materialize_cached_variant(
             id,

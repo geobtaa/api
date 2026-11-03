@@ -1,0 +1,103 @@
+import React, { useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { AllmapsViewerFrame } from '../src/components/resource/AllmapsViewerFrame';
+import { ResourceViewer } from '../src/components/resource/ResourceViewer';
+import { DownloadsTable } from '../src/components/resource/DownloadsTable';
+import type { ImageNavigation, ImageSelection } from 'ogm-viewer/lib';
+import '../src/index.css';
+
+function Fixture() {
+  const [scenario, setScenario] = useState(
+    new URLSearchParams(location.search).get('fixture') ?? 'good'
+  );
+  const [selection, setSelection] = useState<ImageSelection | null>(null);
+  const [navigation, setNavigation] = useState<ImageNavigation | null>(null);
+  const data = useMemo(() => {
+    const references: Record<string, string> = {};
+    if (!['arcgis', 'location', 'framing'].includes(scenario)) {
+      references['http://iiif.io/api/image'] =
+        `${location.origin}/fixtures/iiif/single/info.json`;
+      references['http://iiif.io/api/presentation#manifest'] =
+        `${location.origin}/fixtures/manifest/${scenario === 'mixed' ? 'good' : scenario}`;
+    }
+    if (['arcgis', 'mixed'].includes(scenario))
+      references['urn:x-esri:serviceType:ArcGIS#FeatureLayer'] =
+        `${location.origin}/fixtures/FeatureServer/0`;
+    if (scenario === 'framing')
+      references['http://geojson.org/geojson-spec.html'] =
+        `${location.origin}/fixtures/framing.json`;
+    return {
+      id: scenario,
+      attributes: {
+        ogm: {
+          id: scenario,
+          dct_title_s: `Fixture ${scenario}`,
+          gbl_resourceClass_sm: ['Maps'],
+          gbl_mdVersion_s: 'Aardvark',
+          dct_accessRights_s: 'Public',
+          locn_geometry: 'ENVELOPE(-2,2,2,-2)',
+          ...(scenario === 'framing'
+            ? { dcat_bbox: 'ENVELOPE(-180,180,84,-15)' }
+            : {}),
+          dct_references_s: references,
+        },
+      },
+    };
+  }, [scenario]);
+  return (
+    <main className="p-6">
+      <h1 className="text-xl mb-4">Viewer and Downloads integration</h1>
+      <label>
+        Fixture{' '}
+        <select
+          aria-label="Fixture"
+          value={scenario}
+          onChange={(event) => setScenario(event.target.value)}
+        >
+          {[
+            'good',
+            'v2',
+            'duplicate',
+            'multi-image',
+            'first-fails',
+            'later-fails',
+            'mixed',
+            'arcgis',
+            'location',
+            'framing',
+          ].map((value) => (
+            <option key={value}>{value}</option>
+          ))}
+        </select>
+      </label>
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] gap-6 mt-4">
+        <AllmapsViewerFrame tabs={null} viewerUrl="/ogm-viewer">
+          <div role="tabpanel">
+            <ResourceViewer
+              data={data}
+              onImageSelectionChange={setSelection}
+              imageNavigation={navigation}
+            />
+          </div>
+        </AllmapsViewerFrame>
+        <DownloadsTable
+          downloads={[
+            {
+              label: 'Publisher download',
+              url: '/fixtures/publisher.zip',
+              type: 'application/zip',
+            },
+          ]}
+          resourceId={scenario}
+          followViewer
+          activeImage={selection}
+          onImageNavigate={setNavigation}
+        />
+      </div>
+      <output data-testid="selection" className="sr-only">
+        {JSON.stringify(selection)}
+      </output>
+    </main>
+  );
+}
+createRoot(document.getElementById('root')!).render(<Fixture />);

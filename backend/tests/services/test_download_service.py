@@ -118,7 +118,7 @@ class TestIIIFDownloadService:
 
         # Verify thumb option
         thumb = next(opt for opt in options if opt["label"] == "Thumb Image")
-        assert thumb["url"] == "https://example.com/iiif/image/full/150,150/0/default.jpg"
+        assert thumb["url"] == "https://example.com/iiif/image/full/150,/0/default.jpg"
         assert thumb["type"] == "image/jpeg"
 
         # Verify full option

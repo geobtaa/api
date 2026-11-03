@@ -253,7 +253,7 @@ describe('LocationMap', () => {
     });
 
     it('handles undefined geometry gracefully', () => {
-      render(<LocationMap geometry={undefined as any} />);
+      render(<LocationMap geometry={undefined as never} />);
 
       expect(screen.getByText('Location')).toBeInTheDocument();
       const mapContainer = document.querySelector('.h-\\[300px\\]');

@@ -54,10 +54,9 @@ describe('MonthlyComparison', () => {
         name: 'Tracked interactions monthly daily averages',
       })
     ).toHaveTextContent('701.7');
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Metric' }),
-      { target: { value: 'requests' } }
-    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Metric' }), {
+      target: { value: 'requests' },
+    });
     expect(
       screen.getByRole('figure', {
         name: 'API requests monthly daily averages',

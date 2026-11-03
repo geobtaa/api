@@ -5,7 +5,7 @@
 # - SSR upstream: 127.0.0.1:3000 (react-router-serve)
 #
 
-FROM node:20-bookworm-slim AS frontend_npm_base
+FROM node:22-bookworm-slim AS frontend_npm_base
 WORKDIR /frontend
 # Python + build tools required for @appsignal/nodejs native extension (node-gyp).
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -14,16 +14,14 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     g++ \
     && rm -rf /var/lib/apt/lists/*
 COPY frontend/package.json frontend/package-lock.json* ./
-# Remove lockfile first to avoid npm optional deps edge-cases (mirrors frontend/Dockerfile).
-RUN rm -f package-lock.json 2>/dev/null || true
 
 FROM frontend_npm_base AS frontend_deps
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 FROM frontend_npm_base AS frontend_prod_deps
-RUN npm install --omit=dev --legacy-peer-deps
+RUN npm ci --omit=dev --legacy-peer-deps
 
-FROM node:20-bookworm-slim AS frontend_builder
+FROM node:22-bookworm-slim AS frontend_builder
 WORKDIR /frontend
 COPY --from=frontend_deps /frontend/node_modules ./node_modules
 COPY frontend/ ./
@@ -48,7 +46,7 @@ ENV VITE_KAMAL_DEST=${VITE_KAMAL_DEST}
 RUN VITE_APP_VERSION="$(node -p 'require("/release.json").version')" \
     VITE_TURNSTILE_SITE_KEY="${VITE_TURNSTILE_PUBLIC_SITE}" npm run build
 
-FROM node:20-bookworm-slim AS python_deps
+FROM node:22-bookworm-slim AS python_deps
 WORKDIR /app/backend
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     python3 \
@@ -78,7 +76,7 @@ RUN mkdir -p app db \
     && uv pip install -e . \
     && rm -rf app db
 
-FROM node:20-bookworm-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 # Runtime deps only. Build tooling lives in python_deps/frontend_* stages so it

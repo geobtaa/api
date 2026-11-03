@@ -71,6 +71,10 @@ def _chunk_list(values: list[str], batch_size: int) -> Iterable[list[str]]:
 
 
 def durable_resource_representations_enabled() -> bool:
+    from app.services.preview_assets.models import enabled
+
+    if enabled():
+        return False
     return RESOURCE_REPRESENTATION_DURABLE_STORE == "database"
 
 
@@ -410,6 +414,10 @@ async def get_cached_resource_representations(
     read_durable: bool = True,
 ) -> dict[str, dict[str, Any]]:
     """Return cached JSON:API resource objects keyed by resource id."""
+    from app.services.preview_assets.models import enabled
+
+    if enabled():
+        return {}
     ids = list(dict.fromkeys(str(resource_id) for resource_id in resource_ids if resource_id))
     if not ids:
         return {}
@@ -456,6 +464,10 @@ async def store_resource_representation(
     source_updated_at: datetime | None = None,
 ) -> None:
     """Store a resource representation and tag it for resource invalidation."""
+    from app.services.preview_assets.models import enabled
+
+    if enabled():
+        return
     if not resource_id or not isinstance(resource, dict):
         return
 
@@ -487,6 +499,10 @@ async def store_resource_representations(
     source_updated_at_by_id: dict[str, datetime | None] | None = None,
 ) -> None:
     """Bulk store generated representations in durable storage and Redis."""
+    from app.services.preview_assets.models import enabled
+
+    if enabled():
+        return
     valid_payloads = {
         str(resource_id): _json_safe_resource(resource)
         for resource_id, resource in resources_by_id.items()

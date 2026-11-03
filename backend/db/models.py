@@ -913,3 +913,18 @@ gin_blog_posts = Table(
     Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
     UniqueConstraint("slug", name="uq_gin_blog_posts_slug"),
 )
+
+# Large derivative bytes live in file/object storage; this table only publishes
+# validated manifests and records the most recent attempt independently.
+resource_preview_assets = Table(
+    "resource_preview_assets",
+    metadata,
+    Column(
+        "resource_id", String(255), ForeignKey("resources.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column("status", String(32), nullable=False),
+    Column("record_signature", String(64), nullable=False),
+    Column("active_manifest", JSON, nullable=True),
+    Column("last_attempt", JSON, nullable=False),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)

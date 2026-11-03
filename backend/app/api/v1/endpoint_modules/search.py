@@ -262,7 +262,9 @@ async def _get_cached_search_response_core(
     cache_key: str,
     timings: dict[str, float | int | str],
 ) -> tuple[dict | None, str]:
-    if not SEARCH_RESULT_CACHE_ENABLED or not ENDPOINT_CACHE:
+    from app.services.preview_assets.models import enabled
+
+    if enabled() or not SEARCH_RESULT_CACHE_ENABLED or not ENDPOINT_CACHE:
         timings["semanticCacheLookupMs"] = 0
         return None, "disabled"
 

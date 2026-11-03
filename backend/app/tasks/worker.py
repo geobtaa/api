@@ -92,6 +92,7 @@ celery_app.conf.update(
         "app.tasks.analytics_events",
         "app.tasks.api_usage_enrichment",
         "app.tasks.static_maps",
+        "app.tasks.preview_assets",
         "app.tasks.ogm_harvest",
         "app.tasks.bridge_sync",
         "app.tasks.gin_blog_sync",
