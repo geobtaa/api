@@ -59,7 +59,7 @@ def test_ogc_items(mock_search_service_class):
     mock_search_service_class.return_value = mock_service_instance
 
     mock_service_instance.search.return_value = {
-        "meta": {"totalCount": 1, "totalPages": 1},
+        "meta": {"pages": {"total_count": 1, "total_pages": 1}},
         "data": [
             {
                 "id": "test-123",
@@ -78,6 +78,8 @@ def test_ogc_items(mock_search_service_class):
 
     assert data["type"] == "FeatureCollection"
     assert len(data["features"]) == 1
+    assert data["numberMatched"] == 1
+    assert response.headers["content-type"] == "application/geo+json"
     assert data["features"][0]["id"] == "test-123"
     assert data["features"][0]["properties"]["title"] == "Test Item"
 
@@ -96,7 +98,7 @@ def test_ogc_item(mock_search_service_class):
         "data": {
             "type": "resource",
             "id": "test-123",
-            "attributes": {"id": "test-123", "dct_title_s": "Test Item"},
+            "attributes": {"ogm": {"id": "test-123", "dct_title_s": "Test Item"}},
         }
     }
 
