@@ -103,7 +103,7 @@ describe('August analytics reconciliation', () => {
     ]) {
       expect(
         selectedAnalyticsReport(new URLSearchParams({ report })).period
-      ).toBe('September 2026');
+      ).toBe('October 2026');
       expect(
         selectedAnalyticsReport(
           new URLSearchParams({ report, month: '2026-08' })
@@ -118,12 +118,12 @@ describe('August analytics reconciliation', () => {
         selectedAnalyticsReport(
           new URLSearchParams({ report, month: 'invalid' })
         ).period
-      ).toBe('September 2026');
+      ).toBe('October 2026');
     }
     expect(
       selectedAnalyticsReport(
         new URLSearchParams({ report: 'comparison', month: '2026-07' })
       ).period
-    ).toBe('July 2026 – September 2026');
+    ).toBe('July 2026 – October 2026');
   });
 });

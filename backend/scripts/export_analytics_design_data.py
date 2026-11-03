@@ -25,6 +25,13 @@ from app.services.analytics_reporting.reports import build_report  # noqa: E402
 from app.services.analytics_reporting.storage import checksum  # noqa: E402
 
 COLORS = ["#003C5B", "#1E40AF", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"]
+ENDPOINT_METHOD = (
+    "July and August retain their saved route coverage and unlisted remainder. "
+    "Later months use preserved request aggregates. Each period shows up to 100 leading "
+    "request paths; remaining requests and server errors are combined under "
+    "Other / unlisted routes. All time is ranked before this limit is applied, "
+    "not by adding the displayed monthly rankings. Browse 15 rows per page."
+)
 
 
 def counts(row):
@@ -121,6 +128,26 @@ def endpoint_rows(rows):
         dict(label=k, requests=v["requests"], errors=v["errors"])
         for k, v in sorted(result.items(), key=lambda x: -x[1]["requests"])
     ]
+
+
+def compact_endpoint_rows(rows, limit=100):
+    """Bound dashboard payload size without discarding request or error totals."""
+    other_label = "Other / unlisted routes"
+    ranked = sorted(
+        (row for row in rows if row["label"] != other_label),
+        key=lambda row: (-row["requests"], row["label"]),
+    )
+    remainder = ranked[limit:] + [row for row in rows if row["label"] == other_label]
+    result = ranked[:limit]
+    if remainder:
+        result.append(
+            dict(
+                label=other_label,
+                requests=sum(row["requests"] for row in remainder),
+                errors=sum(row["errors"] for row in remainder),
+            )
+        )
+    return result
 
 
 def outcomes(report, details):
@@ -741,6 +768,10 @@ def run(archives, public, output, supplemental, period=None):
     endpoints["periods"]["all"] = [
         dict(label=k, **v) for k, v in sorted(totals.items(), key=lambda x: -x[1]["requests"])
     ]
+    endpoints["periods"] = {
+        key: compact_endpoint_rows(rows) for key, rows in endpoints["periods"].items()
+    }
+    endpoints["method"] = ENDPOINT_METHOD
     historical_outcomes = json.loads((output / "outcomes2026.json").read_text())["periods"]
     for historical_period in ("2026-07", "2026-08"):
         for ranking in ("outlinks", "downloads"):

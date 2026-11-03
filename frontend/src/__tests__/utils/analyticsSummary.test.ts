@@ -152,14 +152,17 @@ describe('summary reporting windows', () => {
     });
   });
   it('uses only resource counts for the exact selected window', () => {
-    const sample =
-      buildAnalyticsSummary(analyticsSnapshot).recordAccessPatterns;
+    const sample = buildAnalyticsSummary(
+      analyticsSnapshot,
+      '2026-10',
+      'all'
+    ).recordAccessPatterns;
     expect(sample?.fewerClicks).toHaveLength(5);
     expect(sample?.moreClicks).toHaveLength(5);
     expect(sample?.moreClicks[0]).toMatchObject({
-      title: 'Rivers, Nepal, 2013',
-      views: 57,
-      clicks: 26,
+      title: 'Towns [United States]',
+      views: 146,
+      clicks: 142,
     });
     expect(
       buildAnalyticsSummary(analyticsSnapshot, '2026-09', 'month')
@@ -169,13 +172,13 @@ describe('summary reporting windows', () => {
   it('compares catalog capture dates independently of activity months', () => {
     const catalog = buildAnalyticsSummary(analyticsSnapshot).catalog;
     expect(catalog).toMatchObject({
-      total: 148196,
-      date: '2026-10-09',
-      previousTotal: 147665,
-      previousDate: '2026-09-10',
-      change: 531,
+      total: 149337,
+      date: '2026-11-03',
+      previousTotal: 148196,
+      previousDate: '2026-10-09',
+      change: 1141,
     });
-    expect(catalog?.percentChange).toBeCloseTo(0.3596, 4);
+    expect(catalog?.percentChange).toBeCloseTo(0.7699, 4);
     expect(
       buildAnalyticsSummary(analyticsSnapshot, '2026-08', 'month').catalog
     ).toMatchObject({
@@ -190,11 +193,15 @@ describe('summary reporting windows', () => {
     snapshot['monthlySnapshots.json'].default[
       '2026-09'
     ].provider.totals.catalogRecords = 147000;
-    expect(buildAnalyticsSummary(snapshot).catalog?.change).toBe(-665);
+    expect(
+      buildAnalyticsSummary(snapshot, '2026-09', 'month').catalog?.change
+    ).toBe(-665);
     for (const period of ['2026-07', '2026-08'])
       snapshot.providers2026.providerSnapshots[period].totals.catalogRecords =
         0;
-    expect(buildAnalyticsSummary(snapshot).catalog).toMatchObject({
+    expect(
+      buildAnalyticsSummary(snapshot, '2026-09', 'month').catalog
+    ).toMatchObject({
       change: 147000,
       percentChange: null,
     });
@@ -220,31 +227,31 @@ describe('summary reporting windows', () => {
     expect(data.views).toBe(12200);
   });
   it('uses all published days and the complete rankings for all time', () => {
-    const data = buildAnalyticsSummary(analyticsSnapshot, '2026-09', 'all');
-    expect(data.daily).toHaveLength(92);
-    expect(data.searches).toBe(19538);
+    const data = buildAnalyticsSummary(analyticsSnapshot, '2026-10', 'all');
+    expect(data.daily).toHaveLength(123);
+    expect(data.searches).toBe(27511);
     expect(data.queries).toEqual(
       analyticsSnapshot['allTimeCurrent.json'].default.queries
     );
   });
-  it('uses the complete three-month window for discovery chart totals', () => {
-    const data = buildAnalyticsSummary(analyticsSnapshot);
+  it('uses the complete four-month cumulative window for discovery chart totals', () => {
+    const data = buildAnalyticsSummary(analyticsSnapshot, '2026-10', 'all');
     expect(data.window).toEqual({
       start: '2026-07-01',
-      end: '2026-09-30',
-      endExclusive: '2026-10-01',
-      months: ['2026-07', '2026-08', '2026-09'],
+      end: '2026-10-31',
+      endExclusive: '2026-11-01',
+      months: ['2026-07', '2026-08', '2026-09', '2026-10'],
     });
-    expect(data.daily).toHaveLength(92);
-    expect(data.searches).toBe(19538);
-    expect(data.visits).toBe(27892);
+    expect(data.daily).toHaveLength(123);
+    expect(data.searches).toBe(27511);
+    expect(data.visits).toBe(34516);
     expect(data.views).toBe(
       Object.entries(analyticsSnapshot.outcomes.outcomes.periods)
-        .filter(([period]) => /^2026-(07|08|09)$/.test(period))
+        .filter(([period]) => /^2026-(07|08|09|10)$/.test(period))
         .reduce((total, [, period]) => total + period.totals.views, 0)
     );
-    expect(data.sources).toBe(2869);
-    expect(data.downloads).toBe(2621);
+    expect(data.sources).toBe(3918);
+    expect(data.downloads).toBe(3172);
     expect(data.estimatedVisits).toBe(true);
   });
   it('handles year boundaries and leap years in UTC', () => {

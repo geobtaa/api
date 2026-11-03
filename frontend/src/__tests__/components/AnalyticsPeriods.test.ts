@@ -12,10 +12,10 @@ import { monthlySnapshots } from '../../data/analytics/september2026';
 import allTime from '../../data/analytics/allTimeCurrent.json';
 
 describe('monthly publication contract', () => {
-  it('offers three months when the cumulative aggregate covers exactly that window', () => {
-    expect(summaryHasThreeMonths).toBe(true);
-    expect(selectedSummaryPeriod(null)).toBe('3months');
-    expect(selectedSummaryPeriod('3months')).toBe('3months');
+  it('uses the latest month when all time exceeds the three-month window', () => {
+    expect(summaryHasThreeMonths).toBe(false);
+    expect(selectedSummaryPeriod(null)).toBe(latestMonth);
+    expect(selectedSummaryPeriod('3months')).toBe(latestMonth);
     expect(selectedSummaryPeriod('2026-08')).toBe('2026-08');
     expect(selectedSummaryPeriod('all')).toBe('all');
   });
@@ -29,6 +29,24 @@ describe('monthly publication contract', () => {
     expect(selectedSnapshotPeriod('all')).toBe('all');
     for (const month of publishedMonths)
       expect(selectedSnapshotPeriod(month)).toBe(month);
+  });
+  it('matches the independently counted October source totals', () => {
+    expect(monthlySnapshots['2026-10'].summary).toMatchObject({
+      requests: 3208142,
+      searches: 7973,
+      events: 15191,
+      resourceViews: 10577,
+      downloadClicks: 551,
+      impressions: 130889,
+      uniqueEngagedVisits: 6390,
+    });
+    expect(allTime.daily).toHaveLength(123);
+    expect(allTime.daily.reduce((sum, row) => sum + row.requests, 0)).toBe(
+      4896112
+    );
+    expect(allTime.daily.reduce((sum, row) => sum + row.searches, 0)).toBe(
+      27511
+    );
   });
   it('handles year transitions and leap years', () => {
     expect(monthLabel('2027-01')).toBe('January 2027');

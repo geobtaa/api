@@ -70,7 +70,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     return screen.getByRole('button', { name });
   }
 
-  it.each(['2026-07', '2026-08', '2026-09', 'all'])(
+  it.each(['2026-07', '2026-08', '2026-09', '2026-10', 'all'])(
     'preserves search controls and contexts for %s',
     (month) => {
       const { container } = renderPage(`discovery&month=${month}`);
@@ -90,7 +90,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         hidden: true,
       });
       expect(within(daily).getAllByRole('row', { hidden: true }).length).toBe(
-        month === 'all' ? 93 : month === '2026-09' ? 31 : 32
+        month === 'all' ? 124 : month === '2026-09' ? 31 : 32
       );
       expect(container.querySelector('.analytics-zero-results')).not.toBeNull();
       expect(
@@ -113,7 +113,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       const selector = screen.getByRole('combobox', {
         name: 'Reporting month',
       });
-      for (const month of ['2026-08', '2026-09', 'all', '2026-07']) {
+      for (const month of ['2026-08', '2026-09', '2026-10', 'all', '2026-07']) {
         fireEvent.change(selector, { target: { value: month } });
         expect(selector).toHaveValue(month);
         expect(structure()).toEqual(initial);
@@ -149,12 +149,12 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     }
   );
 
-  it('defaults to September and carries All time across reports with monthly switching', () => {
+  it('defaults to October and carries All time across reports with monthly switching', () => {
     renderPage('overview&month=');
     const month = screen.getByRole('combobox', { name: 'Reporting month' });
-    expect(month).toHaveValue('2026-09');
+    expect(month).toHaveValue('2026-10');
     fireEvent.change(month, { target: { value: 'all' } });
-    expect(screen.getByText('19.5K')).toBeInTheDocument();
+    expect(screen.getByText('27.5K')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Analytics dashboard' })
     ).toBeInTheDocument();
@@ -166,7 +166,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(within(table).getAllByRole('article').length).toBe(50);
     expect(
       within(table).getByRole('link', { name: 'sanborn' }).closest('article')
-    ).toHaveTextContent('89');
+    ).toHaveTextContent('133');
     fireEvent.change(
       screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-07' } }
@@ -204,12 +204,12 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         )
       ) {
         expect(
-          screen.getAllByText(/July 1, 2026 – September 30, 2026/).length
+          screen.getAllByText(/July 1, 2026 – October 31, 2026/).length
         ).toBeGreaterThan(0);
       } else {
         expect(
           screen.getAllByText(
-            /July 1,? ?[–—-].*September 30, 2026|July 1, 2026 – September 30, 2026/
+            /July 1,? ?[–—-].*October 31, 2026|July 1, 2026 – October 31, 2026/
           ).length
         ).toBeGreaterThan(0);
       }
@@ -229,7 +229,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     }
   );
 
-  it.each(['2026-07', '2026-08', '2026-09', 'all'])(
+  it.each(['2026-07', '2026-08', '2026-09', '2026-10', 'all'])(
     'combines Overview charts for %s',
     (month) => {
       renderPage(`overview&month=${month}`);
@@ -295,7 +295,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).not.toBeInTheDocument();
   });
 
-  it.each(['2026-07', '2026-08', '2026-09', 'all'])(
+  it.each(['2026-07', '2026-08', '2026-09', '2026-10', 'all'])(
     'keeps Popular content sections and filtering consistent for %s',
     (month) => {
       const { container } = renderPage(`content&month=${month}`);
@@ -332,7 +332,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         ).not.toBeInTheDocument();
         expect(screen.queryByText('Daily trend')).not.toBeInTheDocument();
         expect(
-          screen.getByText('2,621 across all resources')
+          screen.getByText('3,172 across all resources')
         ).toBeInTheDocument();
       }
     }

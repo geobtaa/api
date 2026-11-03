@@ -100,7 +100,7 @@ describe('campus brief', () => {
     expect(screen.getAllByText('No prior-period comparison')).toHaveLength(4);
     expect(
       screen.getByRole('img', { name: /Daily resource views/ })
-    ).toHaveAccessibleName(/across 92 days/);
+    ).toHaveAccessibleName(/across 123 days/);
   });
 
   it('ranks collections using the selected campus and period', () => {

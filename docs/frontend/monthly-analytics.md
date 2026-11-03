@@ -8,30 +8,67 @@ Report links preserve selection in the URL and support reloads and browser histo
 
 | URL                                       | Report                                               | Period           |
 | ----------------------------------------- | ---------------------------------------------------- | ---------------- |
-| `/analytics`                              | Overview, daily activity, and traffic peaks          | September 2026   |
-| `/analytics/comparison`            | Monthly totals, chart, CSV/JSON downloads         | July–September 2026 |
-| `/analytics/content`               | Popular resources, collections, downloads  | September 2026   |
+| `/analytics`                              | Overview, daily activity, and traffic peaks          | October 2026   |
+| `/analytics/comparison`            | Monthly totals, chart, CSV/JSON downloads         | July–October 2026 |
+| `/analytics/content`               | Popular resources, collections, downloads  | October 2026   |
 | `/analytics/content?month=2026-07` | Preserved popular-content report                     | July 2026        |
-| `/analytics/members`               | Alliance and campus detail                           | September 2026   |
-| `/analytics/activity`              | Legacy alias for Overview                            | September 2026   |
-| `/analytics/discovery`             | Search terms, filters, zero results                  | September 2026   |
-| `/analytics/clients`               | Clients, channels, key attribution, MCP/QGIS signals | September 2026   |
-| `/analytics/platform`              | API traffic and reliability                          | September 2026   |
+| `/analytics/members`               | Alliance and campus detail                           | October 2026   |
+| `/analytics/activity`              | Legacy alias for Overview                            | October 2026   |
+| `/analytics/discovery`             | Search terms, filters, zero results                  | October 2026   |
+| `/analytics/clients`               | Clients, channels, key attribution, MCP/QGIS signals | October 2026   |
+| `/analytics/platform`              | API traffic and reliability                          | October 2026   |
 
 Unknown report paths return 404. Legacy `?report=...` links redirect to report paths,
 preserving the month and other query parameters. `/analytics` is Overview;
 `/analytics/overview` and `/analytics/activity` redirect there. Navigation marks the current report and
 wraps on small screens; a skip link leads to the report. Single-month reports
-default to September. Use `month=2026-07`, `month=2026-08`, or `month=2026-09`
-to select a month, or `month=all` for July–September. Navigation preserves the
+default to October. Use `month=2026-07`, `month=2026-08`, `month=2026-09`, or `month=2026-10`
+to select a month, or `month=all` for July–October. Navigation preserves the
 selected period. Unpublished periods show an unavailable message. The comparison
-report shows all three months.
+report shows all four months.
 
-The page uses checked-in aggregates, not live database queries. September and
+The page uses checked-in aggregates, not live database queries. October and
 refreshed cumulative reports include full CSV/JSON table downloads in ZIP files.
-See the [September update](#september-2026-update) for their source coverage and
+See the [October update](#october-2026-update) for their source coverage and
 local regeneration workflow. The sections below describe the original July and
 August snapshot definitions and presentations, which remain available.
+
+## October 2026 update
+
+The November 3 export covers October 1 inclusive through November 1 exclusive
+(UTC), with
+records on all 31 days in each of the four analytics source tables. Source counts
+are 3,208,142 API requests, 7,973 searches, 130,889 search appearances, and 15,191
+interaction events, including 10,577 resource views, 1,049 source-site clicks,
+and 551 download clicks. The supplemental aggregate records 6,390 distinct non-null
+event visit tokens and 2,477 searches with non-empty query text. Catalog metadata
+was captured November 3, not at October month-end. Visits describe
+recorded tokens, not unique people.
+
+The month comparison table marks October’s API request count with an asterisk.
+Its footnote explains that Geoportal server-side requests began being recorded on
+October 14, so most of the increase reflects expanded logging coverage rather
+than equivalent growth in usage. Earlier monthly request totals are not directly
+comparable.
+
+October and July–October cumulative reports use the existing monthly refresh
+workflow with `THROUGH=2026-11-01`. Preserve the July–September archive revisions;
+rebuild cumulative rankings from complete inputs, rather than adding monthly
+rankings. Historical July coverage gaps remain disclosed in All time. The Summary
+page defaults to October because the four-month cumulative report no longer
+matches the latest three calendar months.
+
+API endpoint tables retain up to 100 leading request paths per period. Additional
+paths are combined under “Other / unlisted routes,” preserving every request and
+server error in the totals. Cumulative leaders are selected from the full combined
+counts before limiting the table, not from the displayed monthly top lists. This
+bounds dashboard payload size when automated traffic requests many distinct paths.
+Complete inputs remain in the private archives.
+
+Private source archives and supplemental counts stay outside tracked files.
+Source extraction and preservation procedures belong in restricted operations
+documentation. Counts reconciled to source tables establish reproducibility;
+they do not prove that every real-world interaction was recorded.
 
 ## Summary widget styling
 
@@ -600,6 +637,10 @@ make analytics-monthly-update ARCHIVES='/path/to/verified/*.json.gz' SUPPLEMENTA
 make analytics-monthly-check
 cd frontend && npm run build
 ```
+
+The monthly check includes download privacy and stale-revision checks, route
+metadata, and dashboard navigation across published months and All time. Remove
+superseded report directories so only manifest-listed revisions ship.
 
 The default boundary is the first day of the current UTC month, so only completed
 months are included. For a reproducible rerun, add `THROUGH=2026-10-01` to regenerate
