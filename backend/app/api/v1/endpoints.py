@@ -20,6 +20,7 @@ from .endpoint_modules.root import router as root_router
 from .endpoint_modules.search import router as search_router
 from .endpoint_modules.shapefiles import router as shapefiles_router
 from .endpoint_modules.slack import router as slack_router
+from .endpoint_modules.sources import router as sources_router
 from .endpoint_modules.static_maps import router as static_maps_router
 from .endpoint_modules.thumbnails import router as thumbnails_router
 from .endpoint_modules.turnstile import router as turnstile_router
@@ -37,6 +38,7 @@ router.include_router(analytics_reports_router, tags=["analytics"])
 router.include_router(feedback_router, tags=["feedback"], include_in_schema=False)
 router.include_router(home_router, tags=["home"])
 router.include_router(resources_router, tags=["resources"])
+router.include_router(sources_router, tags=["sources"])
 router.include_router(thumbnails_router, tags=["thumbnails"])
 router.include_router(static_maps_router, tags=["static-maps"])
 router.include_router(map_router, tags=["map"])
