@@ -638,6 +638,10 @@ make analytics-monthly-check
 cd frontend && npm run build
 ```
 
+The monthly check includes download privacy and stale-revision checks, route
+metadata, and dashboard navigation across published months and All time. Remove
+superseded report directories so only manifest-listed revisions ship.
+
 The default boundary is the first day of the current UTC month, so only completed
 months are included. For a reproducible rerun, add `THROUGH=2026-10-01` to regenerate
 through September. Supply exactly one reconciled, checksummed archive for every
