@@ -336,6 +336,7 @@ class OGCConformanceResponse(PublicAPIModel):
 
 class OGCCollectionResponse(PublicAPIModel):
     id: str
+    type: Literal["Catalog"] = "Catalog"
     title: str
     description: str | None = None
     itemType: str | None = None
@@ -385,7 +386,7 @@ class OGCFeatureResponse(PublicAPIModel):
 
 class OGCFeatureCollectionResponse(PublicAPIModel):
     type: Literal["FeatureCollection"] = "FeatureCollection"
-    timeStamp: datetime | str | int | float | None = None
+    timeStamp: datetime
     numberMatched: int = 0
     numberReturned: int = 0
     features: list[OGCFeatureResponse] = Field(default_factory=list)
