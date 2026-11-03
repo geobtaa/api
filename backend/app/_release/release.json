@@ -1,5 +1,5 @@
 {
-  "version": "0.12.2",
-  "release_date": "2026-11-02",
-  "summary": "Restore the homepage news banner after the November live demo and fix pagination links to use the configured public API origin."
+  "version": "0.13.0",
+  "release_date": "2026-11-03",
+  "summary": "Add October 2026 analytics and explain request logging changes, and correct OGC record projection and query contracts."
 }
