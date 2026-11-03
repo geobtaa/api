@@ -76,6 +76,7 @@ COPY backend/app/_release ./app/_release
 RUN mkdir -p app db \
     && touch app/__init__.py db/__init__.py \
     && uv pip install -e . \
+    && python -c "from kombu.transport.redis import Channel; from types import SimpleNamespace; Channel._get_client(SimpleNamespace(global_keyprefix=''))" \
     && rm -rf app db
 
 FROM node:20-bookworm-slim AS runner

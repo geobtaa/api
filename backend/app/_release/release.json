@@ -1,5 +1,5 @@
 {
-  "version": "0.13.0",
+  "version": "0.13.1",
   "release_date": "2026-11-03",
-  "summary": "Add October 2026 analytics and explain request logging changes, and correct OGC record projection and query contracts."
+  "summary": "Retain October 2026 analytics and OGC API contract improvements, and pin compatible worker dependencies with an image-build compatibility check."
 }
