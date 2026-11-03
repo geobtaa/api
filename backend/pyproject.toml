@@ -53,7 +53,6 @@ dependencies = [
     "pandas>=2.3.0",
     "mcp>=1.28.1",
     "user-agents>=2.2.0",
-    "py-staticmaps[cairo]>=0.4.0",
     "rio-tiler>=8.0.0",
     "pmtiles>=3.0.0",
     "mapbox-vector-tile>=2.0.0",

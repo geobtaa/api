@@ -1,0 +1,18 @@
+import type React from 'react';
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'ogm-viewer': React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
+        theme?: 'light' | 'dark';
+        'omit-location'?: string;
+        'prefer-manifest'?: string;
+        'hide-single-tab'?: string;
+        'hide-menubar'?: string;
+      };
+    }
+  }
+}

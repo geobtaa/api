@@ -1,20 +1,20 @@
 import React, { useEffect, useRef } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
+
 import {
   normalizeGeometry,
   type DisplayGeometry,
 } from '../../utils/geometryUtils';
 import { attachBasemapSwitcher } from '../../config/basemaps';
-import { leafletGestureMapOptions } from '../../config/leafletConfig';
-import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+import { mapInteractionOptions } from '../../config/mapConfig';
 
 interface LocationMapProps {
   geometry: string | DisplayGeometry | { wkt: string } | null; // Accept any format, we'll normalize it
 }
 
 export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<MapTypes.Map | null>(null);
   const mapContainer = useRef<HTMLDivElement>(null);
   const basemapCleanupRef = useRef<(() => void) | null>(null);
 
@@ -32,12 +32,16 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
 
       // Initialize map if it doesn't exist
       if (!mapRef.current) {
-        registerLeafletGestureHandling(L);
         if (cancelled || !mapContainer.current) return;
-        mapRef.current = L.map(
-          mapContainer.current,
-          leafletGestureMapOptions
-        ).setView([0, 0], 2);
+        try {
+          mapRef.current = L.map(mapContainer.current, {
+            ...mapInteractionOptions,
+            collapsedAttribution: true,
+          }).setView([0, 0], 2);
+        } catch {
+          L.showMapError(mapContainer.current);
+          return;
+        }
         basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
       }
 

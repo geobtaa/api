@@ -12,14 +12,14 @@ vi.mock('../../../services/api', () => ({
     fetchNominatimSearchMock(...args),
 }));
 
-vi.mock('leaflet', () => ({
+vi.mock('../../../mapping/maplibre', () => ({
   default: {
     Control: {
       extend: (props: { onAdd: () => HTMLDivElement }) =>
         class {
           private container: HTMLDivElement | null = null;
 
-          constructor(_options?: unknown) {}
+          constructor() {}
 
           addTo() {
             this.container = props.onAdd();
@@ -49,8 +49,12 @@ describe('MapGeosearchControl', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     controlCorner.innerHTML = '';
-    controlCorner.className = 'leaflet-top leaflet-left';
-    zoomControl.className = 'leaflet-control-zoom';
+    controlCorner.className = 'maplibregl-ctrl-top-right';
+    zoomControl.className = 'maplibregl-ctrl-group';
+    zoomControl.innerHTML = '<button class="geo-map-zoom-button">+</button>';
+    const fullscreenControl = document.createElement('div');
+    fullscreenControl.className = 'maplibregl-ctrl-group';
+    controlCorner.appendChild(fullscreenControl);
     controlCorner.appendChild(zoomControl);
     document.body.appendChild(controlCorner);
 
@@ -104,15 +108,15 @@ describe('MapGeosearchControl', () => {
       ],
     });
 
-    render(<MapGeosearchControl mapInstance={mapInstance as any} />);
+    render(<MapGeosearchControl mapInstance={mapInstance as never} />);
 
     const toggleButton = screen.getByRole('button', {
       name: 'Search places on map',
     });
-    const controlContainer = toggleButton.closest('.leaflet-control');
+    const controlContainer = toggleButton.closest('.maplibregl-ctrl');
 
-    expect(controlCorner.children[0]).toBe(zoomControl);
-    expect(controlCorner.children[1]).toBe(controlContainer);
+    expect(controlCorner.children[1]).toBe(zoomControl);
+    expect(controlCorner.children[2]).toBe(controlContainer);
 
     fireEvent.click(toggleButton);
 

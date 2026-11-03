@@ -105,7 +105,7 @@ async def test_search_success(monkeypatch):
         async def __aexit__(self, exc_type, exc, tb):
             pass
 
-    se.async_session = lambda: DummySession()
+    monkeypatch.setattr(se, "async_session", lambda: DummySession())
 
     resp = await se.search(DummyRequest(), q="a", page=1, per_page=10, sort=None, callback=None)
     assert hasattr(resp, "body")

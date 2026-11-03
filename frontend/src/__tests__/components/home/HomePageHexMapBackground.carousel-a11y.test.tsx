@@ -22,7 +22,7 @@ vi.mock('../../../components/map/MapGeosearchControl', () => ({
 }));
 
 const mockPane = document.createElement('div');
-vi.mock('react-leaflet', () => ({
+vi.mock('../../../mapping/react', () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="map-container">{children}</div>
   ),
@@ -40,6 +40,7 @@ vi.mock('react-leaflet', () => ({
       getSouthWest: () => ({ lat: 30, lng: -100 }),
     }),
     getZoom: () => 5,
+    getCenter: () => ({ lat: 44, lng: -9.6875 }),
     whenReady: (cb: () => void) => cb(),
     on: () => {},
     off: () => {},
