@@ -1,7 +1,30 @@
 import csv
 import io
 
+from scripts.export_analytics_design_data import compact_endpoint_rows
 from scripts.export_analytics_snapshots import RANKINGS, preview, table_csv
+
+
+def test_endpoint_display_limit_preserves_tail_errors_and_existing_remainder():
+    rows = [
+        {"label": f"/resource/{i:03}", "requests": 10, "errors": 1} for i in reversed(range(105))
+    ]
+    rows.append({"label": "Other / unlisted routes", "requests": 7, "errors": 2})
+    compact = compact_endpoint_rows(rows)
+    assert len(compact) == 101
+    assert compact[0]["label"] == "/resource/000"
+    assert compact[99]["label"] == "/resource/099"
+    assert compact[-1] == {"label": "Other / unlisted routes", "requests": 57, "errors": 7}
+    assert sum(row["requests"] for row in compact) == 1057
+    assert sum(row["errors"] for row in compact) == 107
+    assert compact_endpoint_rows(compact) == compact
+    assert len(rows) == 106
+
+
+def test_small_endpoint_list_has_no_invented_remainder():
+    rows = [{"label": "/api/docs", "requests": 12, "errors": 0}]
+    assert compact_endpoint_rows(rows) == rows
+    assert compact_endpoint_rows([]) == []
 
 
 def test_preview_limits_rankings_but_keeps_distinct_member_leaders():

@@ -19,15 +19,25 @@ describe('MonthlyComparison', () => {
   it('reports verified totals and changes without export links', () => {
     render(<MonthlyComparison />);
     const table = screen.getByRole('table', { name: /portal totals/i });
+    const requests = within(table).getByRole('row', { name: /^API requests/ });
+    const octoberRequests = within(requests).getByRole('cell', {
+      name: '3,208,142',
+    });
+    expect(octoberRequests).toHaveTextContent('3,208,142*');
+    expect(octoberRequests).toHaveAttribute('data-sort-value', '3208142');
+    expect(octoberRequests).toHaveAccessibleDescription(
+      /began being recorded on October 14, 2026.*not directly comparable/
+    );
     const views = within(table).getByRole('row', { name: /Resource views/ });
     expect(views).toHaveTextContent('12,200');
     expect(views).toHaveTextContent('17,440');
     expect(views).toHaveTextContent('10,497');
-    expect(views).toHaveTextContent('-6,943');
-    expect(views).toHaveTextContent('-39.8%');
+    expect(views).toHaveTextContent('10,577');
+    expect(views).toHaveTextContent('+80');
+    expect(views).toHaveTextContent('+0.8%');
     expect(
       within(table).getByRole('row', { name: /Download clicks/ })
-    ).toHaveTextContent('+7.9%');
+    ).toHaveTextContent('-37.1%');
     expect(
       screen.queryByRole('link', { name: /Download comparison/ })
     ).not.toBeInTheDocument();
@@ -54,10 +64,9 @@ describe('MonthlyComparison', () => {
         name: 'Tracked interactions monthly daily averages',
       })
     ).toHaveTextContent('701.7');
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Metric' }),
-      { target: { value: 'requests' } }
-    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Metric' }), {
+      target: { value: 'requests' },
+    });
     expect(
       screen.getByRole('figure', {
         name: 'API requests monthly daily averages',
@@ -72,7 +81,7 @@ describe('MonthlyComparison', () => {
     });
     expect(
       screen.getByRole('img', {
-        name: /API requests for July, August, and September/,
+        name: /API requests for July, August, September, and October/,
       })
     ).toBeInTheDocument();
     fireEvent.click(screen.getByText('Daily values: API requests'));

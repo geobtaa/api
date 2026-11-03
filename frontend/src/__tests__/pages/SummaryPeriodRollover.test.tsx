@@ -24,11 +24,13 @@ vi.mock(
         latest: '2026-10',
         throughExclusive: '2026-11-01',
         periods: [
-          ...manifest.periods.map((period) =>
-            period.id === 'all'
-              ? { ...period, endExclusive: '2026-11-01' }
-              : period
-          ),
+          ...manifest.periods
+            .filter((period) => period.id !== '2026-10')
+            .map((period) =>
+              period.id === 'all'
+                ? { ...period, endExclusive: '2026-11-01' }
+                : period
+            ),
           { id: '2026-10', start: '2026-10-01', endExclusive: '2026-11-01' },
         ],
       },

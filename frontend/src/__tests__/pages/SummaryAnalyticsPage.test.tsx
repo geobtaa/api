@@ -230,29 +230,29 @@ describe('Summary tab', () => {
     const growth = screen
       .getByRole('heading', { name: 'Collection growth' })
       .closest('section')!;
-    expect(within(growth).getByText('148,196')).toBeInTheDocument();
-    expect(within(growth).getByText('As of Oct 9, 2026')).toBeInTheDocument();
-    expect(within(growth).getByText('+531')).toBeInTheDocument();
+    expect(within(growth).getByText('149,337')).toBeInTheDocument();
+    expect(within(growth).getByText('As of Nov 3, 2026')).toBeInTheDocument();
+    expect(within(growth).getByText('+1,141')).toBeInTheDocument();
     expect(
-      within(growth).getByText(/\+0.36% · Since Sep 10, 2026/)
+      within(growth).getByText(/\+0.77% · Since Oct 9, 2026/)
     ).toBeInTheDocument();
-    expect(screen.getByText('27,892')).toBeInTheDocument();
-    expect(screen.getByText('19,538')).toBeInTheDocument();
+    expect(screen.getByText('6,827')).toBeInTheDocument();
+    expect(screen.getByText('7,973')).toBeInTheDocument();
     const access = screen
       .getByRole('heading', { name: 'Successful access' })
       .closest('section')!;
-    expect(within(access).getByText('2,869')).toBeInTheDocument();
-    expect(within(access).getByText('2,621')).toBeInTheDocument();
+    expect(within(access).getAllByText('1,049').length).toBeGreaterThan(0);
+    expect(within(access).getAllByText('551').length).toBeGreaterThan(0);
     expect(within(access).getByRole('note')).toHaveTextContent(
       'Outlinks do not yet include clicks on Licensed Access links. This also affects the resource rankings below.'
     );
     expect(within(access).getAllByRole('img')).toHaveLength(2);
     expect(
       within(access).getByRole('img', { name: /^Outlinks by month:/ })
-    ).toHaveAccessibleName(expect.stringContaining('Jul 2026: 1,129'));
+    ).toHaveAccessibleName(expect.stringContaining('Oct 2026: 1,049'));
     expect(
       screen.getByRole('combobox', { name: 'Reporting period' })
-    ).toHaveValue('3months');
+    ).toHaveValue('2026-10');
   });
   it('switches chart totals, access totals, and rankings between periods', () => {
     renderSummary();
@@ -285,19 +285,19 @@ describe('Summary tab', () => {
       screen.getByRole('img', { name: /Daily searches/ })
     ).toHaveAccessibleName('Daily searches, Jul 1, 2026 – Jul 31, 2026');
     fireEvent.change(picker, { target: { value: 'all' } });
-    expect(screen.getByText('19,538')).toBeInTheDocument();
+    expect(screen.getByText('27,511')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Summary' })).toHaveAttribute(
       'href',
       '/analytics/summary?month=all'
     );
-    fireEvent.change(picker, { target: { value: '3months' } });
+    fireEvent.change(picker, { target: { value: '2026-10' } });
     expect(screen.getByRole('link', { name: 'Summary' })).toHaveAttribute(
       'href',
-      '/analytics/summary?month=3months'
+      '/analytics/summary?month=2026-10'
     );
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute(
       'href',
-      '/analytics'
+      '/analytics?month=2026-10'
     );
   });
   it('restores a month from a shared URL', () => {

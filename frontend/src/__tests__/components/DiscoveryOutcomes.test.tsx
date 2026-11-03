@@ -11,13 +11,13 @@ import {
   withheldSearchContexts,
 } from '../../data/analytics/outcomes';
 import zero from '../../data/analytics/zeroResultQueries2026.json';
-import all from '../../data/analytics/allTimeThroughSeptember2026.json';
+import all from '../../data/analytics/allTimeCurrent.json';
 import september from '../../data/analytics/september2026.json';
 
 describe('discovery outcomes', () => {
   it('reconciles access totals, daily history and independently ranked resources', () => {
-    expect(outcomes.periods.all.totals.sources).toBe(2869);
-    expect(outcomes.periods.all.totals.downloads).toBe(2621);
+    expect(outcomes.periods.all.totals.sources).toBe(3918);
+    expect(outcomes.periods.all.totals.downloads).toBe(3172);
     for (const period of ['2026-07', '2026-08', '2026-09', 'all'] as const) {
       const report = outcomes.periods[period];
       for (const metric of ['sources', 'downloads', 'views'] as const)
@@ -44,22 +44,26 @@ describe('discovery outcomes', () => {
           searchContexts(period, term.term).reduce((n, c) => n + c.count, 0) +
             withheldSearchContexts(period, term.term)
         ).toBe(term.count);
-      expect(report.clients.filter((row) => row.records > 0)).toEqual([
-        {
-          client: 'geoportal-web',
-          channel: 'browser',
-          records: report.audience.activityRecords,
-        },
-      ]);
+      expect(report.clients.reduce((sum, row) => sum + row.records, 0)).toBe(
+        report.audience.activityRecords
+      );
+      if (period !== 'all')
+        expect(report.clients.filter((row) => row.records > 0)).toEqual([
+          {
+            client: 'geoportal-web',
+            channel: 'browser',
+            records: report.audience.activityRecords,
+          },
+        ]);
     }
   });
   it('deduplicates full-period visits instead of summing monthly distinct counts', () => {
-    expect(outcomes.periods.all.audience.trackedVisits).toBe(27892);
+    expect(outcomes.periods.all.audience.trackedVisits).toBe(34516);
     expect(
       outcomes.periods['2026-07'].audience.trackedVisits +
         outcomes.periods['2026-08'].audience.trackedVisits
     ).toBe(20749);
-    expect(outcomes.periods.all.audience.recordsWithoutToken).toBe(128);
+    expect(outcomes.periods.all.audience.recordsWithoutToken).toBe(144);
     expect(outcomes.periods.all.totals.pageViews).toBe(0);
   });
   it('renders and filters the independent outlink ranking with shared rows', () => {

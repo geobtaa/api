@@ -23,7 +23,7 @@ function load(path: string, report?: string) {
 }
 
 describe('analytics report routes', () => {
-  it('keeps the three-month range on Summary links only', async () => {
+  it('keeps legacy three-month links on Summary and falls back to the latest month', async () => {
     expect(analyticsReportHref('summary', '3months')).toBe(
       '/analytics/summary?month=3months'
     );
@@ -36,7 +36,7 @@ describe('analytics report routes', () => {
     }
     expect(
       await load('/analytics/summary?month=3months', 'summary')
-    ).toHaveProperty('data.report.period', 'Past 3 months');
+    ).toHaveProperty('data.report.period', 'October 2026');
     const legacy = (await load(
       '/analytics?report=summary&month=3months'
     )) as Response;

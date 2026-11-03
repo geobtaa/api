@@ -19,6 +19,7 @@ describe('top 50 search snapshots', () => {
     ['2026-07', 6457, 2124, 559],
     ['2026-08', 7545, 3021, 652],
     ['2026-09', 5536, 1706, 478],
+    ['2026-10', 7973, 2477, 819],
   ] as const)(
     'preserves complete %s rankings and coverage',
     (month, searches, withQuery, ranked) => {
@@ -52,6 +53,7 @@ it('categorizes all saved queries without changing case-specific counts', () => 
           '-sanborn',
           'indiana field survey iran hardin i 38l',
           'comparative',
+          'wright',
         ].includes(query.term)
       );
     }
