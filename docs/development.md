@@ -70,6 +70,11 @@ Then hard-refresh the browser or use a fresh private/incognito window.
 
 ## Local Development Without Full Docker
 
+Celery and Kombu are pinned together to remain compatible with the Redis Python
+client. Update and validate these dependencies as a set. The application image
+build checks that Kombu can select its Redis transport client without requiring
+a running Redis server.
+
 Most developers still run infrastructure services in Docker, even when editing
 backend or frontend code on the host.
 
