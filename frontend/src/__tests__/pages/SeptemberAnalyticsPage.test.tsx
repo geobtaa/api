@@ -44,6 +44,7 @@ vi.mock('recharts', async () => ({
 
 import { september } from '../../data/analytics/september2026';
 import cumulative from '../../data/analytics/allTimeThroughSeptember2026.json';
+import { allTimeRange } from '../../config/analyticsPeriods';
 
 describe(
   'September in the established dashboard design',
@@ -140,7 +141,7 @@ describe(
         within(example)
           .getAllByRole('definition')
           .map((row) => row.textContent)
-      ).toEqual(['57', '1', '25', '45.6%']);
+      ).toEqual(['64', '2', '29', '48.4%']);
       const outlinks = container.querySelector('#outlinked-resources');
       expect(outlinks).not.toBeNull();
       expect(
@@ -171,7 +172,7 @@ describe(
       expect(
         screen.getByRole('heading', { name: 'Analytics dashboard' })
       ).toBeInTheDocument();
-      expect(container.textContent).toContain('September 30, 2026');
+      expect(container.textContent).toContain(allTimeRange);
       expect(
         screen.getByLabelText('Overview chart metric')
       ).toBeInTheDocument();

@@ -1,6 +1,28 @@
 /** Editorial classifications of the saved top queries, inferred from text only. */
 export const groups: Record<string, string[]> = {
   'Places & regions': [
+    // October: classifications describe wording, not verified intent.
+    'towns alaska',
+    'turkey',
+    'russia',
+    'Pennsylvania',
+    'caucasus',
+    'seattle',
+    'morocco',
+    'China',
+    'mali',
+    "cote d'ivoire",
+    'Alexandria, indiana',
+    'pittsburgh',
+    'Washtenaw',
+    'qatar',
+    'Le Sueur',
+    'Syria',
+    'alaska towns',
+    'sri lanka',
+    'Champaign',
+    'Hibernia',
+
     'michigan',
     'siberia russia',
     'asia minor',
@@ -79,6 +101,13 @@ export const groups: Record<string, string[]> = {
     'johnson county iowa',
   ],
   'Maps & imagery': [
+    // October: classifications describe wording, not verified intent.
+    'gila and salt river meridian',
+    'T045N R25W',
+    'minneapolis map',
+    'national map',
+    'insurance maps of minneapolis 1912',
+
     'turkey maps',
     'caucasus maps',
     'sanborn',
@@ -106,6 +135,12 @@ export const groups: Record<string, string[]> = {
     'index map',
   ],
   'Environment & land use': [
+    // October: classifications describe wording, not verified intent.
+    'tree',
+    'forest',
+    'urban heat',
+    'tree canopy',
+
     'water',
     'Land Cover',
     'Wisconsin Cropland Data Layer',
@@ -120,6 +155,9 @@ export const groups: Record<string, string[]> = {
     'lower freeport',
   ],
   'Society & history': [
+    // October: classifications describe wording, not verified intent.
+    'Lgbt',
+
     'redlining',
     'crime',
     'business license',
@@ -127,13 +165,28 @@ export const groups: Record<string, string[]> = {
     'campus',
     'indiana population',
   ],
-  'Transport & infrastructure': ['amtrak stations', 'highways'],
+  'Transport & infrastructure': [
+    // October: classifications describe wording, not verified intent.
+    'street',
+    'cta bus',
+    'amtrak stations',
+    'highways',
+  ],
   'People & institutions': [
     'American Geographical Society of New York',
     'Kitchin, Thomas',
     '"indiana university"',
   ],
-  'Catalogs & tools': ['pasda', 'openindexmap', '08d-03', 'WMS'],
+  'Catalogs & tools': [
+    // October: classifications describe wording, not verified intent.
+    '4c5e3281-5087-4e2f-9722-c471e437f043',
+    '05d-04',
+    'b1g_26_03000',
+    'pasda',
+    'openindexmap',
+    '08d-03',
+    'WMS',
+  ],
   'Addresses & coordinates': [
     '14.271281, 44.702708',
     '37.117777, 50.081111',
@@ -145,6 +198,9 @@ export const groups: Record<string, string[]> = {
     'Main st childa pa',
   ],
   'Mixed or unclear': [
+    // October: classifications describe wording, not verified intent.
+    'wright',
+
     '-sanborn',
     'indiana field survey iran hardin i 38l',
     'comparative',

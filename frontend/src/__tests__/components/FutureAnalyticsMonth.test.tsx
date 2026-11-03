@@ -11,8 +11,8 @@ vi.mock(
     return {
       default: {
         ...original,
-        latest: '2026-10',
-        periods: [...original.periods, { id: '2026-10' }],
+        latest: '2026-11',
+        periods: [...original.periods, { id: '2026-11' }],
       },
     };
   }
@@ -23,15 +23,15 @@ vi.mock(
     const { default: original } = await importOriginal<{
       default: typeof import('../../data/analytics/monthlySnapshots.json');
     }>();
-    const october = {
+    const november = {
       ...original['2026-09'],
-      summary: { ...original['2026-09'].summary, month: 'October 2026' },
-      dailyActivity: [
-        ...original['2026-09'].dailyActivity,
-        { day: '2026-10-31', requests: 0, searches: 0, events: 0 },
-      ],
+      summary: { ...original['2026-09'].summary, month: 'November 2026' },
+      dailyActivity: original['2026-09'].dailyActivity.map((day) => ({
+        ...day,
+        day: day.day.replace('2026-09', '2026-11'),
+      })),
     };
-    return { default: { ...original, '2026-10': october } };
+    return { default: { ...original, '2026-11': november } };
   }
 );
 vi.mock(
@@ -42,25 +42,25 @@ import { ReportingPeriodPicker } from '../../components/analytics/ReportingPerio
 import { MonthlyComparison } from '../../components/analytics/MonthlyComparison';
 import { selectedAnalyticsReport } from '../../config/analyticsReports';
 
-it('adds a fourth month to navigation, defaults, comparisons, and daily columns', () => {
+it('adds a fifth month to navigation, defaults, comparisons, and daily columns', () => {
   expect(selectedAnalyticsReport(new URLSearchParams()).period).toBe(
-    'October 2026'
+    'November 2026'
   );
   render(
     <>
-      <ReportingPeriodPicker id="month" value="2026-10" onChange={() => {}} />
+      <ReportingPeriodPicker id="month" value="2026-11" onChange={() => {}} />
       <MonthlyComparison />
     </>
   );
   expect(
-    screen.getByRole('option', { name: 'October 2026' })
+    screen.getByRole('option', { name: 'November 2026' })
   ).toBeInTheDocument();
   expect(
     screen.getByRole('heading', { name: 'Monthly activity' })
   ).toBeInTheDocument();
   const table = screen.getByRole('table', { name: /portal totals/i });
   expect(
-    within(table).getByRole('columnheader', { name: 'October 2026' })
+    within(table).getByRole('columnheader', { name: 'November 2026' })
   ).toBeInTheDocument();
   expect(
     within(table).getByRole('columnheader', { name: 'September 2026' })

@@ -210,10 +210,21 @@ export function MonthlyComparison() {
                   <tr key={key}>
                     <th scope="row">{label}</th>
                     {months.map((m) => (
-                      <td key={m.period}>
+                      <td
+                        key={m.period}
+                        data-sort-value={m.summary[key] ?? undefined}
+                        aria-describedby={
+                          key === 'requests' && m.period === '2026-10'
+                            ? 'october-request-coverage-note'
+                            : undefined
+                        }
+                      >
                         {m.summary[key] === null
                           ? 'Not available'
                           : number.format(m.summary[key])}
+                        {key === 'requests' && m.period === '2026-10' && (
+                          <sup aria-hidden="true">*</sup>
+                        )}
                       </td>
                     ))}
                     <td>
@@ -227,6 +238,18 @@ export function MonthlyComparison() {
             </tbody>
           </AnalyticsTable>
         </div>
+        {months.some((month) => month.period === '2026-10') && (
+          <p
+            id="october-request-coverage-note"
+            className="analytics-comparison-note"
+          >
+            * October API requests include Geoportal server-side requests that
+            began being recorded on October 14, 2026. Earlier months omitted
+            these requests. This logging change accounts for most of October’s
+            increase, so the totals are not directly comparable and should not
+            be interpreted as equivalent growth in usage.
+          </p>
+        )}
         <p className="analytics-comparison-note">
           API requests include bots and probes. Engaged visits are distinct
           visit tokens with a tracked interaction, not unique people. Download
