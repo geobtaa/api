@@ -320,3 +320,11 @@ operations documentation.
 Without `ARCHIVES`, generation is limited to report integrity and arithmetic and
 cannot replace archive-backed evidence. See the
 [report evidence contract](frontend/analytics-runtime-reporting.md#report-evidence-packets).
+
+## Email transport checks
+
+`make smtp-check` validates a configured local SMTP connection without sending a
+message. Sending requires both `--send` and `--to` in `SMTP_ARGS`.
+`make test-smtp` runs the isolated transport and diagnostic tests.
+See [Application email delivery](backend/email_delivery.md) for synthetic examples.
+Deployed relay registration and cutover procedures belong in restricted operations docs.

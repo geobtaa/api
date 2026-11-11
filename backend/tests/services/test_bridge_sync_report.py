@@ -230,3 +230,28 @@ def test_send_bridge_sync_report_email_supports_sendmail(monkeypatch):
     assert calls[0]["cmd"] == ["/usr/local/bin/sendmail", "-t", "-i"]
     assert b"Nightly Bridge Sync Report" in calls[0]["input"]
     assert calls[0]["check"] is True
+
+
+def test_bridge_uses_shared_smtp_transport(monkeypatch):
+    from app.services.bridge_sync import report
+
+    monkeypatch.setenv("BRIDGE_SYNC_REPORT_ENABLED", "true")
+    monkeypatch.setenv("KAMAL_DEST", "prd")
+    monkeypatch.setenv("BRIDGE_SYNC_REPORT_DELIVERY", "smtp")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.test")
+    calls = []
+    monkeypatch.setattr(
+        report,
+        "send_smtp_message",
+        lambda message: calls.append(message)
+        or {
+            "sent": True,
+            "delivery": "smtp",
+            "relay_accepted": True,
+            "recipient_delivery_confirmed": False,
+        },
+    )
+    result = report.send_bridge_sync_report_email(_sample_run())
+    assert result["sent"] and result["relay_accepted"]
+    assert result["recipient_delivery_confirmed"] is False
+    assert len(calls) == 1

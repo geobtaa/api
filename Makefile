@@ -1950,3 +1950,10 @@ analytics-evidence: ## Generate screened evidence for existing analytics snapsho
 
 analytics-evidence-check: ## Reproduce and verify evidence packets without changing published files
 	python backend/scripts/export_analytics_evidence.py frontend/private-analytics-reports --check $(if $(ARCHIVES),--archives $(ARCHIVES),)
+
+.PHONY: smtp-check test-smtp
+smtp-check: ## Check local SMTP connection without sending; use SMTP_ARGS for an explicit test send
+	cd backend && python scripts/check_smtp_relay.py $(SMTP_ARGS)
+
+test-smtp: ## Test SMTP transport and diagnostics without external services
+	cd backend && BTAA_SKIP_TEST_DB=1 REDIS_PORT=1 python -m pytest --tb=short tests/services/test_smtp_transport.py tests/services/test_feedback_service.py tests/services/test_bridge_sync_report.py tests/scripts/test_check_smtp_relay.py

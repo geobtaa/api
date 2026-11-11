@@ -17,6 +17,10 @@ services:
       - ANALYTICS_BASE_URL=${ANALYTICS_BASE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       - APP_ENV=development
       - FEEDBACK_DELIVERY=${FEEDBACK_DELIVERY:-preview}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_ENVELOPE_FROM=${SMTP_ENVELOPE_FROM:-}
+      - SMTP_SSL=${SMTP_SSL:-false}
+      - SMTP_TIMEOUT_SECONDS=${SMTP_TIMEOUT_SECONDS:-20}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_STARTTLS=${SMTP_STARTTLS:-true}
