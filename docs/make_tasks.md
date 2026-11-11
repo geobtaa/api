@@ -15,6 +15,22 @@ Makefile.
 | `make lint-check` | CI-style backend formatting and lint checks with no edits. |
 | `make lint-test` | Run `lint-check` followed by the default backend test suite. |
 
+The lint targets also check database modules, examples, and Python files directly
+in `backend/data/` and `backend/data/fixtures/` with Ruff's Pyflakes (`F`) rules,
+including unused imports, unused local variables, and undefined names.
+`make format` applies safe fixes for those rules in these auxiliary files. Their
+formatting and other lint rule families are not yet enforced by these targets.
+`backend/conftest.py` uses the full backend lint and formatting checks.
+The data-file globs intentionally avoid traversing downloaded fixture datasets.
+
+GitHub Code Quality scores reflect the highest remaining finding severity:
+clearing all maintainability warnings moves Fair to Good; clearing the remaining
+notes moves Good to Excellent. Prioritize warnings, then review unused code and
+import consistency findings. Ruff and CodeQL have different coverage, so passing
+local lint does not mean the CodeQL backlog is empty. Verify resolved findings
+after the changes merge to `develop` and its Code Quality scan completes. See
+[GitHub's score definitions](https://docs.github.com/en/code-security/reference/code-quality/metrics-and-ratings).
+
 ## Backend Tests
 
 Backend tests expect Docker database services to be available. The default test

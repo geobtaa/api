@@ -336,7 +336,6 @@ def provider_request_slot(url: str | None, *, action: str = "thumbnail request")
         yield ProviderLease(origin=origin or "unknown", waited_seconds=0.0)
         return
 
-    waited_seconds = 0.0
     redis_slot: tuple[str, str] | None = None
     local_slot: threading.Lock | None = None
 

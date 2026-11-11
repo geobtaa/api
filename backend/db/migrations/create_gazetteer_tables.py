@@ -3,7 +3,7 @@ import sys
 import os
 from pathlib import Path
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, inspect
 
 # Add the project root directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))

@@ -5,12 +5,9 @@ Appends /raw to each link and downloads the files.
 """
 
 import csv
-import os
-import sys
 from pathlib import Path
 from urllib.parse import urlparse
 import requests
-from urllib.parse import quote
 
 
 def sanitize_filename(url, index):
@@ -129,7 +126,7 @@ def main():
             failed += 1
     
     print(f"\n{'='*60}")
-    print(f"Download complete!")
+    print("Download complete!")
     print(f"Successful: {successful}")
     print(f"Failed: {failed}")
     print(f"Total: {len(links)}")

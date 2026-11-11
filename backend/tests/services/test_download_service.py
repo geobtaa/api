@@ -3,11 +3,6 @@ import json
 import pytest
 
 import app.services.download_service as download_module
-from app.services.download_service import (
-    DownloadOption,
-    DownloadService,
-    IIIFDownloadService,
-)
 
 
 @pytest.fixture
@@ -102,7 +97,7 @@ class TestIIIFDownloadService:
             "http://iiif.io/api/image": "https://example.com/iiif/image/info.json",
             "http://iiif.io/api/presentation#manifest": "https://example.com/iiif/manifest",
         }
-        service = IIIFDownloadService(references)
+        service = download_module.IIIFDownloadService(references)
 
         assert service.image_api_endpoint == "https://example.com/iiif/image/info.json"
         assert service.manifest_url == "https://example.com/iiif/manifest"
@@ -110,7 +105,7 @@ class TestIIIFDownloadService:
     def test_get_download_options(self):
         """Test generating download options for IIIF images."""
         references = {"http://iiif.io/api/image": "https://example.com/iiif/image/info.json"}
-        service = IIIFDownloadService(references)
+        service = download_module.IIIFDownloadService(references)
         options = service.get_download_options()
 
         # Should have options for thumb, small, medium, large, and full
@@ -128,7 +123,7 @@ class TestIIIFDownloadService:
 
     def test_no_image_endpoint(self):
         """Test behavior when no image endpoint is available."""
-        service = IIIFDownloadService({})
+        service = download_module.IIIFDownloadService({})
         options = service.get_download_options()
         assert options == []
 
@@ -138,7 +133,7 @@ class TestDownloadService:
 
     def test_parse_references(self, mock_item_with_iiif):
         """Test parsing references from item."""
-        service = DownloadService(mock_item_with_iiif)
+        service = download_module.DownloadService(mock_item_with_iiif)
         refs = service._parse_references()
 
         assert "http://iiif.io/api/image" in refs
@@ -147,14 +142,14 @@ class TestDownloadService:
     def test_parse_references_with_invalid_json(self):
         """Test parsing references with invalid JSON."""
         doc = {"dct_references_s": "{invalid json}"}
-        service = DownloadService(doc)
+        service = download_module.DownloadService(doc)
         refs = service._parse_references()
 
         assert refs == {}
 
     def test_get_direct_downloads_url_string(self, mock_item_with_direct_download):
         """Test getting direct download URL as string."""
-        service = DownloadService(mock_item_with_direct_download)
+        service = download_module.DownloadService(mock_item_with_direct_download)
         downloads = service._get_direct_downloads()
 
         assert len(downloads) == 1
@@ -164,7 +159,7 @@ class TestDownloadService:
 
     def test_get_direct_downloads_list(self, mock_item_with_download_info_list):
         """Test getting direct downloads as list."""
-        service = DownloadService(mock_item_with_download_info_list)
+        service = download_module.DownloadService(mock_item_with_download_info_list)
         downloads = service._get_direct_downloads()
 
         assert len(downloads) == 2
@@ -175,7 +170,7 @@ class TestDownloadService:
 
     def test_get_direct_downloads_dict(self, mock_item_with_download_info_dict):
         """Test getting direct downloads as dict."""
-        service = DownloadService(mock_item_with_download_info_dict)
+        service = download_module.DownloadService(mock_item_with_download_info_dict)
         downloads = service._get_direct_downloads()
 
         assert len(downloads) == 1
@@ -184,7 +179,7 @@ class TestDownloadService:
 
     def test_guess_format(self):
         """Test guessing format from URL."""
-        service = DownloadService({})
+        service = download_module.DownloadService({})
 
         assert service._guess_format("file.pdf") == "pdf"
         assert service._guess_format("data.zip") == "zip"
@@ -194,7 +189,7 @@ class TestDownloadService:
 
     def test_get_service_url(self, mock_item_with_service):
         """Test getting service URL by type."""
-        service = DownloadService(mock_item_with_service)
+        service = download_module.DownloadService(mock_item_with_service)
 
         wms_url = service._get_service_url("wms")
         assert wms_url == "https://example.com/geoserver/wms"
@@ -208,10 +203,10 @@ class TestDownloadService:
 
     def test_build_download_url(self, mock_item_with_service):
         """Test building download URL with parameters."""
-        service = DownloadService(mock_item_with_service)
+        service = download_module.DownloadService(mock_item_with_service)
 
         # Test WMS GetMap option
-        wms_option = DownloadOption(
+        wms_option = download_module.DownloadOption(
             label="WMS Preview",
             type="image",
             extension="png",
@@ -238,7 +233,7 @@ class TestDownloadService:
         assert "LAYERS=test_layer" in url
 
         # Test with reflect option
-        reflect_option = DownloadOption(
+        reflect_option = download_module.DownloadOption(
             label="WFS GeoJSON",
             type="data",
             extension="json",
@@ -261,7 +256,7 @@ class TestDownloadService:
 
     def test_get_download_options_iiif(self, mock_item_with_iiif):
         """Test getting download options for IIIF item."""
-        service = DownloadService(mock_item_with_iiif)
+        service = download_module.DownloadService(mock_item_with_iiif)
         options = service.get_download_options()
 
         # Should have options from IIIF service
@@ -274,7 +269,7 @@ class TestDownloadService:
 
     def test_get_download_options_direct(self, mock_item_with_direct_download):
         """Test getting download options for direct download item."""
-        service = DownloadService(mock_item_with_direct_download)
+        service = download_module.DownloadService(mock_item_with_direct_download)
         options = service.get_download_options()
 
         assert len(options) == 1
@@ -284,10 +279,10 @@ class TestDownloadService:
 
     def test_build_download_url_no_service_url(self):
         """Test building download URL when service URL is not available."""
-        service = DownloadService({"id": "test"})
+        service = download_module.DownloadService({"id": "test"})
 
         # Create a download option with a service type that won't have a URL
-        option = DownloadOption(
+        option = download_module.DownloadOption(
             label="Test Download",
             type="test",
             extension="test",
@@ -302,7 +297,7 @@ class TestDownloadService:
 
     def test_get_generated_download_options(self):
         """Generated links are added when WFS/WMS and layer metadata are present."""
-        service = DownloadService(
+        service = download_module.DownloadService(
             {
                 "id": "stanford-bs024ty5255",
                 "gbl_wxsIdentifier_s": "druid:bs024ty5255",
@@ -351,7 +346,7 @@ class TestDownloadService:
         monkeypatch.setattr(download_module.requests, "get", fake_get)
         monkeypatch.setenv("DOWNLOAD_PATH", str(tmp_path))
 
-        service = DownloadService(
+        service = download_module.DownloadService(
             {
                 "id": "stanford-bs024ty5255",
                 "gbl_wxsIdentifier_s": "druid:bs024ty5255",
@@ -395,7 +390,7 @@ class TestDownloadService:
         monkeypatch.setattr(download_module.requests, "get", fake_get)
         monkeypatch.setenv("DOWNLOAD_PATH", str(tmp_path))
 
-        service = DownloadService(
+        service = download_module.DownloadService(
             {
                 "id": "stanford-bs024ty5255",
                 "gbl_wxsIdentifier_s": "druid:bs024ty5255",
@@ -453,7 +448,7 @@ class TestDownloadService:
         monkeypatch.setattr(download_module.requests, "get", fake_get)
         monkeypatch.setenv("DOWNLOAD_PATH", str(tmp_path))
 
-        service = DownloadService(
+        service = download_module.DownloadService(
             {
                 "id": "stanford-bs024ty5255",
                 "schema_provider_s": "Stanford",
@@ -496,7 +491,7 @@ class TestBridgeAssetDownloads:
 
         monkeypatch.setattr(download_module, "database", FakeDB())
 
-        service = DownloadService({"id": "b1g_test_resource"})
+        service = download_module.DownloadService({"id": "b1g_test_resource"})
         downloads = await service.get_download_options_with_bridge_asset_downloads()
 
         assert downloads, "Expected at least one bridge asset download"

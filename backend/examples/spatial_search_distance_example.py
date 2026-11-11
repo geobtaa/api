@@ -1,5 +1,4 @@
 import requests
-import json
 from IPython.display import HTML, display
 
 url = 'https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/search'
@@ -24,7 +23,7 @@ if response_step1.status_code == 200:
     data_step1 = response_step1.json()
     total_count_step1 = data_step1.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='water'")
+    print("\nQuery: q='water'")
     print(f"\nTotal number of resources found: {total_count_step1}")
     
     titles_step1 = [item['attributes'].get('dct_title_s', 'N/A') for item in data_step1.get('data', [])]
@@ -67,12 +66,12 @@ if response_step2.status_code == 200:
     data_step2 = response_step2.json()
     total_count_step2 = data_step2.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='water'")
-    print(f"Geo filter: Distance/radius search from Minneapolis")
-    print(f"  - Type: distance")
-    print(f"  - Field: dcat_centroid")
-    print(f"  - Center: 44.9778°N, -93.2650°W (Minneapolis)")
-    print(f"  - Distance: 50km radius")
+    print("\nQuery: q='water'")
+    print("Geo filter: Distance/radius search from Minneapolis")
+    print("  - Type: distance")
+    print("  - Field: dcat_centroid")
+    print("  - Center: 44.9778°N, -93.2650°W (Minneapolis)")
+    print("  - Distance: 50km radius")
     print(f"\nTotal number of resources found: {total_count_step2}")
     
     # Show comparison with previous step

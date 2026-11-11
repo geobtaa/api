@@ -6,13 +6,14 @@ Focus on basic functionality without complex mocking to avoid hanging.
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import app.api.v1.endpoint_modules.root as root_module
+
 # Create test app
-from app.api.v1.endpoint_modules.root import router
 from app.version import APP_VERSION
 from tests.utils.route_helpers import route_by_path, route_paths
 
 app = FastAPI()
-app.include_router(router)
+app.include_router(root_module.router)
 client = TestClient(app)
 
 
@@ -21,29 +22,25 @@ class TestRootModuleStructure:
 
     def test_module_imports(self):
         """Test that module imports are working."""
-        from app.api.v1.endpoint_modules.root import api_root, logger, router
 
-        assert router is not None
-        assert logger is not None
-        assert callable(api_root)
+        assert root_module.router is not None
+        assert root_module.logger is not None
+        assert callable(root_module.api_root)
 
     def test_router_configuration(self):
         """Test router configuration."""
-        from app.api.v1.endpoint_modules.root import router
 
-        assert router is not None
-        assert len(router.routes) >= 1  # Should have the root route
+        assert root_module.router is not None
+        assert len(root_module.router.routes) >= 1  # Should have the root route
 
     def test_logger_configuration(self):
         """Test logger configuration."""
-        from app.api.v1.endpoint_modules.root import logger
 
-        assert logger is not None
-        assert hasattr(logger, "name")
+        assert root_module.logger is not None
+        assert hasattr(root_module.logger, "name")
 
     def test_import_structure(self):
         """Test that all required imports are available."""
-        import app.api.v1.endpoint_modules.root as root_module
 
         # Check key imports
         assert hasattr(root_module, "logging")
@@ -53,9 +50,8 @@ class TestRootModuleStructure:
 
     def test_utility_dependencies(self):
         """Test that utility functions are properly imported."""
-        from app.api.v1.endpoint_modules.root import create_jsonapi_response
 
-        assert callable(create_jsonapi_response)
+        assert callable(root_module.create_jsonapi_response)
 
 
 class TestRootEndpoints:
@@ -186,19 +182,16 @@ class TestRootEndpoints:
         """Test function signature for root endpoint."""
         import inspect
 
-        from app.api.v1.endpoint_modules.root import api_root
-
         # Test that function is async
-        assert inspect.iscoroutinefunction(api_root)
+        assert inspect.iscoroutinefunction(root_module.api_root)
 
         # Test function parameters
-        sig = inspect.signature(api_root)
+        sig = inspect.signature(root_module.api_root)
         params = list(sig.parameters.keys())
         assert "request" in params
 
     def test_module_docstrings(self):
         """Test that module has proper structure."""
-        import app.api.v1.endpoint_modules.root as root_module
 
         # Check that the module exists and can be imported
         assert root_module is not None
@@ -272,11 +265,10 @@ class TestRootEndpoints:
     def test_api_root_without_request_parameter(self):
         """Test API root function behavior without request parameter."""
         # This tests the internal logic when request is None
-        from app.api.v1.endpoint_modules.root import api_root
 
         # We can't easily test the async function directly without an event loop,
         # but we can verify the function exists and is callable
-        assert callable(api_root)
+        assert callable(root_module.api_root)
 
         # Test that the endpoint still works (which indirectly tests the None case)
         response = client.get("/")

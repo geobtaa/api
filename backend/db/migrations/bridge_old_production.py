@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, text
 
 # Add the project root directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -388,7 +388,7 @@ def verify_field_mapping():
                 unmapped_keys.append(key)
         
         logger.info(f"\n{'='*80}")
-        logger.info(f"Field Mapping Verification Results")
+        logger.info("Field Mapping Verification Results")
         logger.info(f"{'='*80}")
         logger.info(f"Total JSON keys found: {len(all_json_keys)}")
         logger.info(f"Keys matching new schema: {len(matching_keys)}")

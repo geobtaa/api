@@ -24,7 +24,6 @@ DISPLAY_NOTE_PREFIX_REGRESSION_BODY = (
     "This dataset is a historical version held by the BTAA-GIN. "
     "For the most current layer, consult Open Data Minneapolis"
 )
-_LAST_LIVE_REQUEST_AT: float | None = None
 LIVE_REQUEST_ATTEMPTS = 3
 
 
@@ -36,26 +35,31 @@ def _live_request_interval_seconds() -> float:
     return float(os.getenv("PRODUCTION_SMOKE_MIN_REQUEST_INTERVAL_SECONDS", "0"))
 
 
-def _pace_live_request() -> None:
-    global _LAST_LIVE_REQUEST_AT
+@dataclass
+class _LiveRequestPacer:
+    last_request_at: float | None = None
 
-    interval = _live_request_interval_seconds()
-    if interval <= 0:
-        return
+    def wait(self) -> None:
+        interval = _live_request_interval_seconds()
+        if interval <= 0:
+            return
 
-    now = time.monotonic()
-    if _LAST_LIVE_REQUEST_AT is not None:
-        elapsed = now - _LAST_LIVE_REQUEST_AT
-        if elapsed < interval:
-            time.sleep(interval - elapsed)
-    _LAST_LIVE_REQUEST_AT = time.monotonic()
+        now = time.monotonic()
+        if self.last_request_at is not None:
+            elapsed = now - self.last_request_at
+            if elapsed < interval:
+                time.sleep(interval - elapsed)
+        self.last_request_at = time.monotonic()
+
+
+_live_request_pacer = _LiveRequestPacer()
 
 
 def _live_get(url: str, **kwargs) -> requests.Response:
     last_error: requests.RequestException | None = None
     for attempt in range(1, LIVE_REQUEST_ATTEMPTS + 1):
         try:
-            _pace_live_request()
+            _live_request_pacer.wait()
             return requests.get(url, **kwargs)
         except requests.RequestException as exc:
             last_error = exc
@@ -64,6 +68,38 @@ def _live_get(url: str, **kwargs) -> requests.Response:
             time.sleep(min(2 * attempt, 5))
 
     raise last_error or RuntimeError(f"Unable to request {url}")
+
+
+@pytest.mark.parametrize("elapsed, expected_sleep", [(0.5, 1.5), (3.0, 0.0)])
+def test_live_request_pacer_retains_state_between_requests(monkeypatch, elapsed, expected_sleep):
+    clock = [10.0]
+    sleeps = []
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        clock[0] += seconds
+
+    monkeypatch.setenv("PRODUCTION_SMOKE_MIN_REQUEST_INTERVAL_SECONDS", "2")
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", sleep)
+    pacer = _LiveRequestPacer()
+
+    pacer.wait()
+    assert sleeps == []
+    assert pacer.last_request_at == 10.0
+
+    clock[0] += elapsed
+    pacer.wait()
+    assert sleeps == ([expected_sleep] if expected_sleep else [])
+    assert pacer.last_request_at == 10.0 + elapsed + expected_sleep
+
+
+@pytest.mark.parametrize("interval", ["0", "-1"])
+def test_live_request_pacer_can_be_disabled(monkeypatch, interval):
+    monkeypatch.setenv("PRODUCTION_SMOKE_MIN_REQUEST_INTERVAL_SECONDS", interval)
+    pacer = _LiveRequestPacer()
+    pacer.wait()
+    assert pacer.last_request_at is None
 
 
 @dataclass(frozen=True)

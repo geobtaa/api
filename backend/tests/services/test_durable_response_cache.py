@@ -1,7 +1,6 @@
 import pytest
 
 import app.services.durable_response_cache as durable_cache
-from app.services.durable_response_cache import delete_durable_api_responses_for_tags
 
 
 @pytest.mark.asyncio
@@ -40,7 +39,7 @@ async def test_delete_durable_api_responses_for_tags_chunks_large_tag_lists(monk
     monkeypatch.setattr(durable_cache, "API_RESPONSE_DURABLE_DELETE_BATCH_SIZE", 2)
     monkeypatch.setattr(durable_cache, "async_session_factory", lambda: fake_session)
 
-    deleted = await delete_durable_api_responses_for_tags(
+    deleted = await durable_cache.delete_durable_api_responses_for_tags(
         ["resource:r3", "resource:r1", "resource:r2"]
     )
 
