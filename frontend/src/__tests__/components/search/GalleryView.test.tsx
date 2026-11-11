@@ -24,6 +24,7 @@ vi.mock('../../../context/BookmarkContext', () => ({
 }));
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -45,6 +46,11 @@ type GalleryViewProps = ComponentProps<typeof GalleryView>;
 describe('GalleryView', () => {
   beforeEach(() => {
     vi.useRealTimers();
+    // Happy DOM 21 does not load these fixture URLs. Model a pending image;
+    // cached-image tests override this getter and error tests dispatch events.
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(
+      false
+    );
   });
 
   const renderGallery = (props: Partial<GalleryViewProps> = {}) => {

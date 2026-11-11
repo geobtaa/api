@@ -20,6 +20,11 @@ describe('ThumbnailImage', () => {
   const fetchMock = vi.fn();
   beforeEach(() => {
     vi.useFakeTimers();
+    // Fixture blob URLs are not decoded by Happy DOM 21. Keep gallery images
+    // pending until the test explicitly exercises their load/error behavior.
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(
+      false
+    );
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockReset();
     vi.spyOn(URL, 'createObjectURL')
