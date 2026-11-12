@@ -56,4 +56,4 @@ async def mcp_websocket_endpoint(websocket: WebSocket):
         try:
             await websocket.close()
         except Exception:
-            pass
+            logging.debug("WebSocket cleanup failed after the connection error", exc_info=True)

@@ -91,7 +91,8 @@ def _coerce_date(value):
         if len(text) == 7 and text[4] == "-":
             dt = datetime.strptime(text, "%Y-%m")
             return dt.strftime("%Y-%m-01")
-    except Exception:
+    except ValueError:
+        # An invalid year-month may still match one of the full-date formats below.
         pass
     # YYYY-MM-DD (or full ISO)
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
@@ -358,13 +359,6 @@ async def process_resource(resource_dict):
         processed_dict["geo_county"] = spatial_facets.get("geo_county")
 
     _compute_h3_cells(processed_dict)
-
-    # Get resource classes, ensuring it's a list and has at least one value
-    resource_classes = processed_dict.get("gbl_resourceClass_sm", [])
-    if isinstance(resource_classes, str):
-        resource_classes = [resource_classes]
-    if not resource_classes:
-        resource_classes = ["none"]
 
     # Add suggestion field with cleaned data - removed contexts
     processed_dict["suggest"] = {"input": build_suggest_inputs(processed_dict)}
@@ -683,6 +677,9 @@ def process_geometry(geometry):
         logger.warning(f"Error processing geometry {geometry}: {e} - skipping")
         return None
 
+    # Unsupported input types have no geometry representation.
+    return None
+
 
 def _normalize_envelope(minx, maxx, maxy, miny):
     """
@@ -899,7 +896,10 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
                     )
                 )
             except Exception:
-                pass
+                logger.warning(
+                    "Could not write indexing failure details; continuing with the next document",
+                    exc_info=True,
+                )
             # Continue with next document instead of failing completely
 
     # Final refresh to make all indexed documents searchable

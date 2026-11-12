@@ -163,7 +163,6 @@ async def search_all_gazetteers(
         for gazetteer_name, response in results.items():
             if hasattr(response, "body"):
                 # Extract the JSON content from the response
-                import json
 
                 response_data = json.loads(response.body.decode())
                 combined_results[gazetteer_name] = response_data

@@ -22,6 +22,7 @@ class GeodataSearchPlugin:
         try:
             self.iface.addToolBarIcon(self.action)
         except AttributeError:
+            # Some host interfaces omit toolbar support; the plugin menu remains available.
             pass
         self.iface.addPluginToMenu("BTAA Geoportal Search", self.action)
 
@@ -31,6 +32,7 @@ class GeodataSearchPlugin:
             try:
                 self.iface.removeToolBarIcon(self.action)
             except AttributeError:
+                # Hosts without toolbar support only need the plugin menu removed.
                 pass
 
     def run(self):

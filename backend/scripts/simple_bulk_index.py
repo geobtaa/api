@@ -221,11 +221,11 @@ async def main():
         try:
             await database.disconnect()
         except Exception:
-            pass
+            logger.debug("Database disconnect failed during bulk indexing cleanup", exc_info=True)
         try:
             await es.close()
         except Exception:
-            pass
+            logger.debug("Search client close failed during bulk indexing cleanup", exc_info=True)
 
 
 if __name__ == "__main__":

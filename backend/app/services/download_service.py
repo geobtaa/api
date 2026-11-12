@@ -660,8 +660,6 @@ class DownloadService:
         raw = self.document.get("dct_references_s")
         if isinstance(raw, str):
             try:
-                import json
-
                 raw = json.loads(raw)
             except Exception:
                 raw = None

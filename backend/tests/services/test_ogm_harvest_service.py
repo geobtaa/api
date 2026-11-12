@@ -136,6 +136,7 @@ class TestOGMHarvestService:
                     delete(resources).where(resources.c.id.in_(["test-ogm-a", "test-ogm-b"]))
                 )
             except Exception:
+                # Preserve the test failure if best-effort fixture deletion also fails.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -302,4 +303,5 @@ class TestOGMHarvestService:
                     delete(resources).where(resources.c.id.in_([parent_id, child_id]))
                 )
             except Exception:
+                # Preserve the test failure if best-effort fixture deletion also fails.
                 pass

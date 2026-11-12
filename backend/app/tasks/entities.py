@@ -120,7 +120,7 @@ async def _identify_geo_entities(resource_id: str, metadata: Dict[str, Any]):
 
         if not text_content:
             logger.warning(f"No metadata content found for resource {resource_id}")
-            return
+            return None
 
         combined_text = "\n".join(text_content)
 

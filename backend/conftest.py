@@ -6,6 +6,7 @@ import signal
 import threading
 import time
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -33,7 +34,8 @@ for env_path in env_paths:
         match = re.search(r'POSTGRES_PASSWORD=["\']?([^"\'\n]+)["\']?', content)
         if match:
             postgres_password = match.group(1)
-    except Exception:
+    except OSError:
+        # An unreadable optional file must not override credentials already in the environment.
         pass
     if postgres_password:
         break
@@ -55,6 +57,7 @@ try:
     load_dotenv(_REPO_ROOT / ".env.test", override=True)
     load_dotenv(".env.test", override=True)
 except (OSError, PermissionError):
+    # Optional test overrides may be unreadable; keep environment/default settings.
     pass
 # Restore POSTGRES_PASSWORD if it was set in .env but not in .env.test
 if postgres_password and not os.getenv("POSTGRES_PASSWORD"):
@@ -131,10 +134,16 @@ SKIP_TEST_DATABASE = os.getenv("BTAA_SKIP_TEST_DB", "").strip().lower() in {
     "on",
 }
 
+
 # The `databases`/asyncpg pool is bound to the event loop that created it.
 # Under pytest-asyncio, it's possible for a session-scoped connect to run on a different
 # loop than individual tests. Track the loop id and reconnect if needed.
-_DB_LOOP_ID: int | None = None
+@dataclass
+class _DatabaseLoopState:
+    loop_id: int | None = None
+
+
+_database_loop_state = _DatabaseLoopState()
 TEST_DB_SETUP_LOCK_ID = 2_026_052_201
 
 
@@ -193,6 +202,7 @@ def pytest_configure(config):
         _HB_THREAD.start()
         atexit.register(lambda: _HB_STOP.set())
     except Exception:
+        # Heartbeat diagnostics are optional and must not prevent tests from running.
         pass
 
     # Ensure application and migrations run in test mode
@@ -382,11 +392,10 @@ async def db_connection(prepared_test_database):
 
     # Connect once for the entire test session
     await database.connect()
-    global _DB_LOOP_ID
     try:
-        _DB_LOOP_ID = id(asyncio.get_running_loop())
+        _database_loop_state.loop_id = id(asyncio.get_running_loop())
     except Exception:
-        _DB_LOOP_ID = None
+        _database_loop_state.loop_id = None
     yield database
     # Disconnect at the end of the session
     await database.disconnect()
@@ -417,23 +426,27 @@ async def db_transaction(db_connection):
     # Ensure the database pool is bound to the currently running event loop.
     # If not, asyncpg will raise "Future attached to a different loop" and can leave
     # the connection in a broken state.
-    global _DB_LOOP_ID
     try:
         current_loop_id = id(asyncio.get_running_loop())
     except Exception:
         current_loop_id = None
 
-    if database.is_connected and current_loop_id is not None and _DB_LOOP_ID is not None:
-        if current_loop_id != _DB_LOOP_ID:
+    if (
+        database.is_connected
+        and current_loop_id is not None
+        and _database_loop_state.loop_id is not None
+    ):
+        if current_loop_id != _database_loop_state.loop_id:
             try:
                 await database.disconnect()
             except Exception:
+                # A pool bound to a closed loop may not disconnect; reconnect on this loop below.
                 pass
             await database.connect()
-            _DB_LOOP_ID = current_loop_id
+            _database_loop_state.loop_id = current_loop_id
     elif not database.is_connected:
         await database.connect()
-        _DB_LOOP_ID = current_loop_id
+        _database_loop_state.loop_id = current_loop_id
 
     # Generate a unique savepoint name
     savepoint_name = f"sp_{uuid.uuid4().hex[:12]}"
@@ -464,5 +477,6 @@ async def db_transaction(db_connection):
             try:
                 await database.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
             except Exception:
+                # Preserve the original test error if savepoint cleanup also fails.
                 pass
         raise

@@ -3,15 +3,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 import app.services.resource_representation_cache as resource_cache
-from app.services.resource_representation_cache import (
-    delete_durable_resource_representations,
-    delete_redis_resource_representations,
-    get_cached_resource_representations,
-    get_or_build_resource_representation,
-    resource_representation_cache_key,
-    store_resource_representation,
-    store_resource_representations,
-)
 
 
 class FakeCacheService:
@@ -49,7 +40,7 @@ class FakeRedis:
 
 @pytest.mark.asyncio
 async def test_get_cached_resource_representations_returns_copies():
-    key = resource_representation_cache_key("r1", profile="api-full")
+    key = resource_cache.resource_representation_cache_key("r1", profile="api-full")
     cache_service = FakeCacheService(
         {
             key: {
@@ -59,14 +50,14 @@ async def test_get_cached_resource_representations_returns_copies():
         }
     )
 
-    first = await get_cached_resource_representations(
+    first = await resource_cache.get_cached_resource_representations(
         ["r1"],
         profile="api-full",
         cache_service=cache_service,
     )
     first["r1"]["meta"]["ui"]["citation"] = "Mutated"
 
-    second = await get_cached_resource_representations(
+    second = await resource_cache.get_cached_resource_representations(
         ["r1"],
         profile="api-full",
         cache_service=cache_service,
@@ -86,7 +77,7 @@ async def test_get_cached_resource_representations_rehydrates_redis_from_durable
             AsyncMock(return_value={"r1": {"id": "r1", "attributes": {"title": "Durable"}}}),
         )
 
-        cached = await get_cached_resource_representations(
+        cached = await resource_cache.get_cached_resource_representations(
             ["r1"],
             cache_service=cache_service,
         )
@@ -94,7 +85,7 @@ async def test_get_cached_resource_representations_rehydrates_redis_from_durable
     assert cached["r1"]["attributes"]["title"] == "Durable"
     assert len(cache_service.set_calls) == 0
     assert len(cache_service.tag_calls) == 1
-    key = resource_representation_cache_key("r1", profile="api-full")
+    key = resource_cache.resource_representation_cache_key("r1", profile="api-full")
     assert cache_service.values[key]["attributes"]["title"] == "Durable"
 
 
@@ -113,7 +104,7 @@ async def test_get_or_build_resource_representation_stores_miss():
             mock_store_durable,
         )
 
-        resource = await get_or_build_resource_representation(
+        resource = await resource_cache.get_or_build_resource_representation(
             {"id": "r1"},
             builder,
             cache_service=cache_service,
@@ -143,7 +134,7 @@ async def test_store_resource_representation_persists_durable_when_redis_set_fai
             mock_store_durable,
         )
 
-        await store_resource_representation(
+        await resource_cache.store_resource_representation(
             "r1",
             {"id": "r1"},
             cache_service=cache_service,
@@ -171,7 +162,7 @@ async def test_store_resource_representations_bulk_persists_and_tags_each_resour
             mock_store_durable,
         )
 
-        await store_resource_representations(
+        await resource_cache.store_resource_representations(
             {
                 "r1": {"id": "r1"},
                 "r2": {"id": "r2"},
@@ -182,9 +173,9 @@ async def test_store_resource_representations_bulk_persists_and_tags_each_resour
     assert len(cache_service.set_many_calls) == 1
     stored_values, ttl = cache_service.set_many_calls[0]
     assert ttl == resource_cache.RESOURCE_REPRESENTATION_CACHE_TTL
-    assert stored_values[resource_representation_cache_key("r1", profile="api-full")] == {
-        "id": "r1"
-    }
+    assert stored_values[
+        resource_cache.resource_representation_cache_key("r1", profile="api-full")
+    ] == {"id": "r1"}
     assert len(cache_service.tag_calls) == 2
     assert {"resource:r1", "resource:r2"} == {
         next(tag for tag in tags if tag.startswith("resource:"))
@@ -197,7 +188,7 @@ async def test_store_resource_representations_bulk_persists_and_tags_each_resour
 async def test_delete_durable_resource_representations_noops_when_disabled(monkeypatch):
     monkeypatch.setattr(resource_cache, "RESOURCE_REPRESENTATION_DURABLE_STORE", "off")
 
-    result = await delete_durable_resource_representations()
+    result = await resource_cache.delete_durable_resource_representations()
 
     assert result is False
 
@@ -234,7 +225,7 @@ async def test_delete_durable_resource_representations_chunks_large_id_lists(mon
     monkeypatch.setattr(resource_cache, "RESOURCE_REPRESENTATION_DELETE_BATCH_SIZE", 2)
     monkeypatch.setattr(resource_cache, "async_session_factory", lambda: fake_session)
 
-    result = await delete_durable_resource_representations(["r1", "r2", "r3"])
+    result = await resource_cache.delete_durable_resource_representations(["r1", "r2", "r3"])
 
     assert result is True
     assert fake_session.batches == [["r1", "r2"], ["r3"]]
@@ -245,13 +236,13 @@ async def test_delete_redis_resource_representations_deletes_known_profiles():
     cache_service = FakeCacheService()
     cache_service._redis_client = FakeRedis()
 
-    deleted = await delete_redis_resource_representations(
+    deleted = await resource_cache.delete_redis_resource_representations(
         ["r1"],
         cache_service=cache_service,
     )
 
     assert deleted == 2
     assert cache_service._redis_client.deleted == [
-        resource_representation_cache_key("r1", profile="api-full"),
-        resource_representation_cache_key("r1", profile="search-result"),
+        resource_cache.resource_representation_cache_key("r1", profile="api-full"),
+        resource_cache.resource_representation_cache_key("r1", profile="search-result"),
     ]

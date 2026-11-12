@@ -80,6 +80,3 @@ def _mask_database_url(url: str | None) -> str:
     port = f":{parsed.port}" if parsed.port else ""
     netloc = f"{username}:***@{hostname}{port}"
     return urlunparse(parsed._replace(netloc=netloc))
-
-
-print("Using configured database connection")

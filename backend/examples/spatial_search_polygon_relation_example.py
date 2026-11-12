@@ -1,5 +1,4 @@
 import requests
-import json
 from IPython.display import HTML, display
 
 url = 'https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/search'
@@ -24,7 +23,7 @@ if response_step1.status_code == 200:
     data_step1 = response_step1.json()
     total_count_step1 = data_step1.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='geology'")
+    print("\nQuery: q='geology'")
     print(f"\nTotal number of resources found: {total_count_step1}")
     
     titles_step1 = [item['attributes'].get('dct_title_s', 'N/A') for item in data_step1.get('data', [])]
@@ -80,17 +79,17 @@ if response_step2.status_code == 200:
     data_step2 = response_step2.json()
     total_count_step2 = data_step2.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='geology'")
-    print(f"Geo filter: Polygon covering Wisconsin state boundaries")
-    print(f"  - Type: polygon")
-    print(f"  - Field: locn_geometry")
-    print(f"  - Relation: within (resource geometry must be completely inside polygon)")
-    print(f"  - Bounding box: 42.5°N to 47.0°N, -92.9°W to -86.8°W")
-    print(f"\nNote: Relation options include:")
-    print(f"  - 'intersects' (default): Resource overlaps with polygon")
-    print(f"  - 'within': Resource is completely inside polygon")
-    print(f"  - 'contains': Resource completely contains polygon")
-    print(f"  - 'disjoint': Resource does not overlap with polygon")
+    print("\nQuery: q='geology'")
+    print("Geo filter: Polygon covering Wisconsin state boundaries")
+    print("  - Type: polygon")
+    print("  - Field: locn_geometry")
+    print("  - Relation: within (resource geometry must be completely inside polygon)")
+    print("  - Bounding box: 42.5°N to 47.0°N, -92.9°W to -86.8°W")
+    print("\nNote: Relation options include:")
+    print("  - 'intersects' (default): Resource overlaps with polygon")
+    print("  - 'within': Resource is completely inside polygon")
+    print("  - 'contains': Resource completely contains polygon")
+    print("  - 'disjoint': Resource does not overlap with polygon")
     print(f"\nTotal number of resources found: {total_count_step2}")
     
     # Show comparison with previous step

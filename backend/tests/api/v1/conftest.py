@@ -37,6 +37,7 @@ async def async_client():
             try:
                 await database.disconnect()
             except Exception:
+                # Cleanup must not replace a test failure when the connection is already unusable.
                 pass
 
 

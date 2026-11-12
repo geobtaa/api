@@ -399,6 +399,7 @@ class ImageService:
                     if isinstance(parsed, list) and parsed:
                         url = parsed[0]
                 except (json.JSONDecodeError, TypeError):
+                    # Malformed thumbnail JSON has no usable URL; return None below.
                     pass
 
         if isinstance(url, str) and url.strip().startswith(("http://", "https://")):

@@ -1,6 +1,5 @@
 import os
 import sys
-from pathlib import Path
 
 from dotenv import load_dotenv
 import pandas as pd
@@ -16,7 +15,7 @@ csv_files = [f for f in os.listdir(fixtures_dir) if f.endswith(".csv")]
 
 if not csv_files:
     print("No CSV files found in the fixtures directory.")
-    exit()
+    sys.exit()
 
 print("Available CSV files:")
 for i, file in enumerate(csv_files, start=1):
@@ -27,7 +26,7 @@ file_choice = int(input("Enter the number of the file you want to import: ")) - 
 
 if file_choice < 0 or file_choice >= len(csv_files):
     print("Invalid choice.")
-    exit()
+    sys.exit()
 
 # Read the selected CSV file
 csv_file_path = os.path.join(fixtures_dir, csv_files[file_choice])

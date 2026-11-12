@@ -476,7 +476,6 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         _log_search_response_timing(**timings)
         return _attach_search_timing_headers(response, timings)
 
-    search_duration_ms = 0.0
     cache_lookup_ms = 0.0
     db_fallback_ms = 0.0
     miss_prefetch_ms = 0.0
@@ -1029,7 +1028,6 @@ async def get_facet(
     for a specific aggregation field. It accepts the same search parameters as /search to
     maintain search context, ensuring facet counts match the current filtered resultset.
     """
-    import json
 
     try:
         include_non_public = _coerce_request_bool(include_non_public)

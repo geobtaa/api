@@ -197,19 +197,22 @@ help:
 # Run both linting and formatting checks (without modifying files)
 lint: ## Check code with ruff (no modifications)
 	@echo "Checking code with ruff..."
-	ruff check backend/app/ backend/tests/ backend/scripts/
+	ruff check backend/app/ backend/tests/ backend/scripts/ backend/conftest.py
+	ruff check --select F backend/db/ backend/examples/ $(wildcard backend/data/*.py backend/data/fixtures/*.py)
 
 # Format code in-place
 format: ## Format and fix code with ruff
 	@echo "Formatting code with ruff..."
-	ruff format backend/app/ backend/tests/ backend/scripts/
-	ruff check --fix backend/app/ backend/tests/ backend/scripts/
+	ruff format backend/app/ backend/tests/ backend/scripts/ backend/conftest.py
+	ruff check --fix backend/app/ backend/tests/ backend/scripts/ backend/conftest.py
+	ruff check --select F --fix backend/db/ backend/examples/ $(wildcard backend/data/*.py backend/data/fixtures/*.py)
 
 # Check formatting only (for CI)
 lint-check: ## CI-style lint/format check (no edits)
 	@echo "Checking formatting with ruff..."
-	ruff format --check backend/app/ backend/tests/ backend/scripts/
-	ruff check backend/app/ backend/tests/ backend/scripts/
+	ruff format --check backend/app/ backend/tests/ backend/scripts/ backend/conftest.py
+	ruff check backend/app/ backend/tests/ backend/scripts/ backend/conftest.py
+	ruff check --select F backend/db/ backend/examples/ $(wildcard backend/data/*.py backend/data/fixtures/*.py)
 
 # Run just the tests with coverage threshold
 test: ## Run tests with coverage threshold

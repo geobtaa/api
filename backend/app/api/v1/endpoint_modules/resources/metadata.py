@@ -131,7 +131,10 @@ async def get_resource_metadata(
                 if legacy_refs:
                     ogm_fields["dct_references_s"] = json.dumps(legacy_refs)
             except Exception:
-                pass
+                logger.warning(
+                    "Could not rebuild metadata references; using stored resource references",
+                    exc_info=True,
+                )
 
             # Apply field filtering if fields parameter is provided
             if fields:
@@ -183,7 +186,10 @@ async def get_resource_metadata_ogm(
                 if legacy_refs:
                     ogm_fields["dct_references_s"] = json.dumps(legacy_refs)
             except Exception:
-                pass
+                logger.warning(
+                    "Could not rebuild OGM references; using stored resource references",
+                    exc_info=True,
+                )
 
             # Apply field filtering if fields parameter is provided
             if fields:

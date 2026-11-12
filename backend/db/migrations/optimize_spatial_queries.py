@@ -3,7 +3,7 @@ import sys
 import os
 from pathlib import Path
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, text
 
 # Add the project root directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -32,7 +32,6 @@ def optimize_spatial_queries():
         
         # Create engine
         engine = create_engine(sync_database_url)
-        inspector = inspect(engine)
 
         logger.info("Starting spatial query optimizations...")
 

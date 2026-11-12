@@ -6,12 +6,13 @@ Focus on basic functionality without complex mocking to avoid hanging.
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import app.api.v1.endpoint_modules.resources as resources_module
+
 # Create test app
-from app.api.v1.endpoint_modules.resources import router
 from tests.utils.route_helpers import route_paths, routes_with_paths
 
 app = FastAPI()
-app.include_router(router)
+app.include_router(resources_module.router)
 client = TestClient(app)
 
 
@@ -20,84 +21,61 @@ class TestResourcesModuleStructure:
 
     def test_module_imports(self):
         """Test that module imports are working."""
-        from app.api.v1.endpoint_modules.resources import (
-            LIST_CACHE_TTL,
-            RESOURCE_CACHE_TTL,
-            async_session,
-            base_url,
-            engine,
-            get_resource,
-            get_resource_links,
-            get_resource_ogm,
-            get_resource_relationships,
-            get_resource_spatial_facets,
-            # get_resource_summaries,  # Temporarily disabled
-            get_resource_viewer,
-            list_resources,
-            logger,
-            router,
-        )
 
-        assert router is not None
-        assert logger is not None
-        assert engine is not None
-        assert async_session is not None
-        assert base_url is not None
-        assert RESOURCE_CACHE_TTL is not None
-        assert LIST_CACHE_TTL is not None
-        assert callable(list_resources)
-        assert callable(get_resource)
-        assert callable(get_resource_ogm)
-        assert callable(get_resource_links)
-        assert callable(get_resource_relationships)
+        assert resources_module.router is not None
+        assert resources_module.logger is not None
+        assert resources_module.engine is not None
+        assert resources_module.async_session is not None
+        assert resources_module.base_url is not None
+        assert resources_module.RESOURCE_CACHE_TTL is not None
+        assert resources_module.LIST_CACHE_TTL is not None
+        assert callable(resources_module.list_resources)
+        assert callable(resources_module.get_resource)
+        assert callable(resources_module.get_resource_ogm)
+        assert callable(resources_module.get_resource_links)
+        assert callable(resources_module.get_resource_relationships)
         # assert callable(get_resource_summaries)  # Temporarily disabled
-        assert callable(get_resource_viewer)
-        assert callable(get_resource_spatial_facets)
+        assert callable(resources_module.get_resource_viewer)
+        assert callable(resources_module.get_resource_spatial_facets)
 
     def test_router_configuration(self):
         """Test router configuration."""
-        from app.api.v1.endpoint_modules.resources import router
 
-        assert router is not None
-        assert len(router.routes) >= 7  # Should have multiple resource routes
+        assert resources_module.router is not None
+        assert len(resources_module.router.routes) >= 7  # Should have multiple resource routes
 
     def test_cache_ttl_configuration(self):
         """Test cache TTL configuration."""
-        from app.api.v1.endpoint_modules.resources import LIST_CACHE_TTL, RESOURCE_CACHE_TTL
 
-        assert isinstance(RESOURCE_CACHE_TTL, int)
-        assert isinstance(LIST_CACHE_TTL, int)
-        assert RESOURCE_CACHE_TTL > 0
-        assert LIST_CACHE_TTL > 0
+        assert isinstance(resources_module.RESOURCE_CACHE_TTL, int)
+        assert isinstance(resources_module.LIST_CACHE_TTL, int)
+        assert resources_module.RESOURCE_CACHE_TTL > 0
+        assert resources_module.LIST_CACHE_TTL > 0
 
     def test_base_url_configuration(self):
         """Test base URL configuration."""
-        from app.api.v1.endpoint_modules.resources import base_url
 
-        assert base_url is not None
-        assert isinstance(base_url, str)
-        assert base_url.startswith("http")
+        assert resources_module.base_url is not None
+        assert isinstance(resources_module.base_url, str)
+        assert resources_module.base_url.startswith("http")
 
     def test_logger_configuration(self):
         """Test logger configuration."""
-        from app.api.v1.endpoint_modules.resources import logger
 
-        assert logger is not None
-        assert hasattr(logger, "name")
+        assert resources_module.logger is not None
+        assert hasattr(resources_module.logger, "name")
 
     def test_engine_configuration(self):
         """Test database engine configuration."""
-        from app.api.v1.endpoint_modules.resources import engine
 
-        assert engine is not None
-        assert hasattr(engine, "url")
+        assert resources_module.engine is not None
+        assert hasattr(resources_module.engine, "url")
 
     def test_session_configuration(self):
         """Test async session configuration."""
-        from app.api.v1.endpoint_modules.resources import async_session
 
-        assert async_session is not None
-        assert callable(async_session)
+        assert resources_module.async_session is not None
+        assert callable(resources_module.async_session)
 
 
 class TestResourcesEndpoints:
@@ -221,36 +199,23 @@ class TestResourcesEndpoints:
         # Test that functions are async
         import inspect
 
-        from app.api.v1.endpoint_modules.resources import (
-            get_resource,
-            get_resource_links,
-            get_resource_ogm,
-            get_resource_relationships,
-            get_resource_spatial_facets,
-            # get_resource_summaries,  # Temporarily disabled - not imported
-            get_resource_viewer,
-            list_resources,
-        )
-
-        assert inspect.iscoroutinefunction(list_resources)
-        assert inspect.iscoroutinefunction(get_resource)
-        assert inspect.iscoroutinefunction(get_resource_ogm)
-        assert inspect.iscoroutinefunction(get_resource_links)
-        assert inspect.iscoroutinefunction(get_resource_relationships)
+        assert inspect.iscoroutinefunction(resources_module.list_resources)
+        assert inspect.iscoroutinefunction(resources_module.get_resource)
+        assert inspect.iscoroutinefunction(resources_module.get_resource_ogm)
+        assert inspect.iscoroutinefunction(resources_module.get_resource_links)
+        assert inspect.iscoroutinefunction(resources_module.get_resource_relationships)
         # assert inspect.iscoroutinefunction(get_resource_summaries)  # Temporarily disabled
-        assert inspect.iscoroutinefunction(get_resource_viewer)
-        assert inspect.iscoroutinefunction(get_resource_spatial_facets)
+        assert inspect.iscoroutinefunction(resources_module.get_resource_viewer)
+        assert inspect.iscoroutinefunction(resources_module.get_resource_spatial_facets)
 
     def test_module_docstrings(self):
         """Test that module has proper docstrings."""
-        import app.api.v1.endpoint_modules.resources as resources_module
 
         # Check that the module exists and can be imported
         assert resources_module is not None
 
     def test_import_structure(self):
         """Test that all required imports are available."""
-        import app.api.v1.endpoint_modules.resources as resources_module
 
         # Check key imports
         assert hasattr(resources_module, "logging")
@@ -264,36 +229,23 @@ class TestResourcesEndpoints:
 
     def test_service_dependencies(self):
         """Test that service dependencies are properly imported."""
-        from app.api.v1.endpoint_modules.resources import (
-            LinkService,
-            OGMFieldMapper,
-            RelationshipService,
-            SpatialFacetService,
-        )
 
-        assert LinkService is not None
-        assert OGMFieldMapper is not None
-        assert RelationshipService is not None
-        assert SpatialFacetService is not None
+        assert resources_module.LinkService is not None
+        assert resources_module.OGMFieldMapper is not None
+        assert resources_module.RelationshipService is not None
+        assert resources_module.SpatialFacetService is not None
 
     def test_database_dependencies(self):
         """Test that database dependencies are properly configured."""
-        from app.api.v1.endpoint_modules.resources import async_session, engine, resources
 
-        assert engine is not None
-        assert async_session is not None
-        assert resources is not None
+        assert resources_module.engine is not None
+        assert resources_module.async_session is not None
+        assert resources_module.resources is not None
 
     def test_utility_dependencies(self):
         """Test that utility functions are properly imported."""
-        from app.api.v1.endpoint_modules.resources import (
-            create_jsonapi_response,
-            create_response,
-            process_resource,
-            sanitize_for_json,
-        )
 
-        assert callable(create_jsonapi_response)
-        assert callable(create_response)
-        assert callable(process_resource)
-        assert callable(sanitize_for_json)
+        assert callable(resources_module.create_jsonapi_response)
+        assert callable(resources_module.create_response)
+        assert callable(resources_module.process_resource)
+        assert callable(resources_module.sanitize_for_json)

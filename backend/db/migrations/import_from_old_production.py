@@ -3,7 +3,7 @@ import sys
 import os
 from pathlib import Path
 import ast
-from typing import Dict, List, Optional, Any, Set
+from typing import Dict, List, Any, Set
 from datetime import datetime
 
 import json
@@ -293,7 +293,7 @@ def import_data(dry_run: bool = False, batch_size: int = 1000, conflict_action: 
 
         # Print summary
         logger.info(f"\n{'=' * 80}")
-        logger.info(f"Import Summary")
+        logger.info("Import Summary")
         logger.info(f"{'=' * 80}")
         logger.info(f"Total records: {total_count:,}")
         if not dry_run:
@@ -306,7 +306,7 @@ def import_data(dry_run: bool = False, batch_size: int = 1000, conflict_action: 
 
         # Print errors if any
         if errors:
-            logger.warning(f"\nFirst 10 errors:")
+            logger.warning("\nFirst 10 errors:")
             for i, error in enumerate(errors[:10]):
                 logger.warning(f"  {i + 1}. {error}")
             if len(errors) > 10:
@@ -599,6 +599,7 @@ def _normalize_column_value(
                     if isinstance(parsed, (list, tuple)):
                         return list(parsed)
                 except (ValueError, SyntaxError):
+                    # Treat unparseable array text as a single literal value below.
                     pass
             return [stripped]
         return [value]
@@ -638,6 +639,7 @@ def _normalize_column_value(
                         return parsed[0]
                     return "; ".join(str(v) for v in parsed)
             except (ValueError, SyntaxError):
+                # Preserve malformed list text rather than discarding the source value.
                 pass
         if stripped.startswith("(") and stripped.endswith(")"):
             if "{" in stripped or "}" in stripped:
@@ -651,6 +653,7 @@ def _normalize_column_value(
                         return parsed[0]
                     return "; ".join(str(v) for v in parsed)
             except (ValueError, SyntaxError):
+                # Preserve malformed tuple text rather than discarding the source value.
                 pass
         return value
 
@@ -686,7 +689,7 @@ def verify_import():
             published_count = result.scalar()
 
         logger.info(f"\n{'=' * 80}")
-        logger.info(f"Import Verification")
+        logger.info("Import Verification")
         logger.info(f"{'=' * 80}")
         logger.info(f"Old database records: {old_count:,}")
         logger.info(f"New database records (all): {new_count:,}")

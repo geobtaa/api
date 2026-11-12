@@ -40,9 +40,6 @@ async def test_search_error(monkeypatch):
     monkeypatch.setattr(se, "SearchService", lambda: FakeSearchService())
     from starlette.datastructures import URL
 
-    class DummyScope(dict):
-        pass
-
     # Minimal Request-like object
     class DummyRequest:
         def __init__(self):
@@ -94,7 +91,7 @@ async def test_search_success(monkeypatch):
     class DummySession:
         async def execute(self, *args, **kwargs):
             class R:
-                def fetchall(self_inner):
+                def fetchall(self):
                     return []
 
             return R()

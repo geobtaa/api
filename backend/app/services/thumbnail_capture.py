@@ -243,7 +243,9 @@ def capture_thumbnail(
         try:
             service.cache.delete(f"manifest:{source_url}")
         except Exception:
-            pass
+            logger.warning(
+                "Could not evict cached manifest before thumbnail refresh", exc_info=True
+            )
     if provider_origin_cooldown_remaining(source_url) > 0:
         return CaptureResult("deferred", detail="Provider cooldown; retry required")
     if service._is_manifest_url(source_url):

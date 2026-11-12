@@ -9,7 +9,7 @@ The project uses **Vitest** as the testing framework, which provides fast unit t
 
 ## Test Framework
 
-- **Testing Framework**: Vitest v3.2.4
+- **Testing Framework**: Vitest v4.1.12
 - **Test Environment**: happy-dom (lightweight DOM implementation)
 - **Assertion Library**: @testing-library/jest-dom
 - **User Interaction**: @testing-library/user-event
@@ -20,6 +20,34 @@ The Summary and September analytics page suites opt into `jsdom` with a
 queries and full-page axe scans substantially slower under happy-dom. Keep
 their existing assertions and accessibility rules intact; use the per-file
 environment override instead of increasing timeouts or disabling checks.
+
+Gallery and thumbnail tests explicitly mock pending image completion because
+Happy DOM 21 does not load their fixture URLs. Cached-image tests override that
+state, and error-path tests dispatch image errors explicitly.
+
+## Local runtime
+
+Use Node.js 22.13 or newer within the Node 22 release line, or Node.js 24 or
+newer. The Docker images and CI use Node 22. Install the locked dependencies
+with `npm ci` from `frontend/`. Pa11y CI 5 uses Pa11y 10 and Puppeteer 25;
+its browser tooling requires this Node version.
+
+After changing frontend dependencies, run `make frontend-reset` from the
+repository root for a running local Compose frontend, then hard-refresh the
+browser.
+
+## Dependency security
+
+Run `npm audit` after dependency changes. Security overrides in `package.json`
+keep transitive dependencies on patched releases; the glob and minimatch
+overrides apply only to their newer API families so legacy callback consumers
+keep their compatible versions. Keep Vitest, its UI, and its coverage provider
+on matching versions.
+
+The remaining `deepmerge` advisory (GHSA-gcqx-w48m-w2h4) affects the version
+used by Mirador and Rollup. Upstream has no patched release. Do not downgrade
+Mirador or disable auditing to hide it; reassess when a compatible upstream
+fix becomes available.
 
 ## Available Test Commands
 

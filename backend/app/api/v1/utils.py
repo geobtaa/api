@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
 from app.api.v1.jsonp import JSONPResponse
+from app.services import distribution_repository
 from app.services.data_dictionary_repository import (
     fetch_resource_data_dictionaries,
     serialize_resource_data_dictionaries,
@@ -16,7 +17,6 @@ from app.services.data_dictionary_repository import (
 from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,
-    fetch_distribution_context,  # noqa: F401 - used by ResourcePresenter via utils shim
 )
 from app.services.licensed_access_repository import (
     fetch_resource_licensed_accesses,
@@ -27,6 +27,9 @@ from db.models import resource_assets
 
 logger = logging.getLogger(__name__)
 _UNSET = object()
+
+# Compatibility export used by ResourcePresenter and callers patching the utils shim.
+fetch_distribution_context = distribution_repository.fetch_distribution_context
 
 
 def sanitize_for_json(obj: Any) -> Any:

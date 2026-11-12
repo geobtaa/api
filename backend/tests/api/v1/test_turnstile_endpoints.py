@@ -80,3 +80,31 @@ def test_turnstile_verify_rejects_failed_validation(monkeypatch):
     attributes = response.json()["data"]["attributes"]
     assert attributes["verified"] is False
     assert attributes["error_codes"] == ["invalid-input-response"]
+
+
+def test_turnstile_verify_rejects_oversized_token(monkeypatch):
+    async def unexpected(*args, **kwargs):
+        raise AssertionError("Oversized tokens must not reach Siteverify")
+
+    monkeypatch.setattr("app.services.turnstile_service.TurnstileService.verify_token", unexpected)
+    response = TestClient(_make_app()).post("/api/v1/turnstile/verify", json={"token": "x" * 2049})
+    assert response.status_code == 422
+
+
+def test_turnstile_verify_does_not_issue_session_when_storage_fails(monkeypatch):
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+
+    async def verified(*args, **kwargs):
+        return TurnstileValidationResult(success=True)
+
+    async def unavailable(*args, **kwargs):
+        raise ConnectionError("simulated storage failure")
+
+    monkeypatch.setattr("app.services.turnstile_service.TurnstileService.verify_token", verified)
+    monkeypatch.setattr(
+        "app.services.turnstile_service.TurnstileService.create_session", unavailable
+    )
+    response = TestClient(_make_app()).post("/api/v1/turnstile/verify", json={"token": "cf-token"})
+    assert response.status_code == 503
+    assert response.json()["data"]["attributes"]["error_codes"] == ["session-store-unavailable"]
+    assert "set-cookie" not in response.headers

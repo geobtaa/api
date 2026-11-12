@@ -37,7 +37,7 @@ The frontend stack currently uses:
 - React 19 and React DOM 19.
 - React Router 7 for routing, loaders, SSR, build, and production serving.
 - TypeScript, Vite 7, and React Router dev tooling.
-- Vitest 3, Testing Library, `happy-dom`, axe, and pa11y for tests and
+- Vitest 4, Testing Library, `happy-dom`, axe, and pa11y for tests and
   accessibility checks.
 - Material UI 7, Tailwind, Leaflet, GeoBlacklight frontend components, Allmaps,
   H3, Recharts, and Lucide icons.

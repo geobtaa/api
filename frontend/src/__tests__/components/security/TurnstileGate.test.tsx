@@ -4,13 +4,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TurnstileGate } from '../../../components/security/TurnstileGate';
 import * as turnstileService from '../../../services/turnstile';
 
+const widgetCallbacks = vi.hoisted(() => ({
+  onSuccess: undefined as undefined | ((token: string) => Promise<void>),
+  onError: undefined as undefined | (() => void),
+}));
+
 vi.mock('@marsidev/react-turnstile', async () => {
   const { forwardRef } = await import('react');
   return {
     Turnstile: forwardRef<
       HTMLDivElement,
-      { options?: { appearance?: string } }
-    >(function MockTurnstile({ options }, ref) {
+      {
+        options?: { appearance?: string };
+        onSuccess: (token: string) => Promise<void>;
+        onError: () => void;
+      }
+    >(function MockTurnstile({ options, onSuccess, onError }, ref) {
+      widgetCallbacks.onSuccess = onSuccess;
+      widgetCallbacks.onError = onError;
       return (
         <div
           ref={ref}
@@ -22,7 +33,8 @@ vi.mock('@marsidev/react-turnstile', async () => {
   };
 });
 
-vi.mock('../../../services/turnstile', () => ({
+vi.mock('../../../services/turnstile', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../services/turnstile')>()),
   TURNSTILE_REQUIRED_EVENT: 'btaa:turnstile-required',
   clearTurnstileSessionToken: vi.fn(),
   fetchTurnstileStatus: vi.fn(),
@@ -148,5 +160,77 @@ describe('TurnstileGate', () => {
     );
 
     expect(assign).toHaveBeenCalledWith('/');
+  });
+});
+
+describe('Turnstile verification recovery', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(turnstileService.isTurnstileConfigured).mockReturnValue(true);
+    vi.mocked(turnstileService.fetchTurnstileStatus).mockResolvedValue(false);
+    vi.mocked(turnstileService.verifyTurnstileToken).mockResolvedValue(
+      undefined
+    );
+  });
+
+  it('stops after a failed verification and obtains a fresh challenge only on retry', async () => {
+    vi.mocked(turnstileService.verifyTurnstileToken).mockRejectedValue(
+      new Error('Verification unavailable')
+    );
+    render(<TurnstileGate>Protected app</TurnstileGate>);
+    await screen.findByTestId('turnstile-widget');
+    await act(() => widgetCallbacks.onSuccess!('single-use-token'));
+    expect(screen.getByText('Verification unavailable')).toBeInTheDocument();
+    expect(screen.queryByTestId('turnstile-widget')).not.toBeInTheDocument();
+    expect(turnstileService.verifyTurnstileToken).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByTestId('turnstile-widget')).toBeInTheDocument();
+    expect(turnstileService.fetchTurnstileStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it('recovers an already-established session without redeeming another token', async () => {
+    vi.mocked(turnstileService.verifyTurnstileToken).mockRejectedValue(
+      new Error('Connection lost')
+    );
+    render(<TurnstileGate>Protected app</TurnstileGate>);
+    await screen.findByTestId('turnstile-widget');
+    await act(() => widgetCallbacks.onSuccess!('single-use-token'));
+    vi.mocked(turnstileService.fetchTurnstileStatus).mockResolvedValue(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Protected app')).toBeInTheDocument();
+    expect(turnstileService.verifyTurnstileToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not submit overlapping success callbacks', async () => {
+    let resolve!: () => void;
+    vi.mocked(turnstileService.verifyTurnstileToken).mockReturnValue(
+      new Promise<void>((done) => {
+        resolve = done;
+      })
+    );
+    render(<TurnstileGate>Protected app</TurnstileGate>);
+    await screen.findByTestId('turnstile-widget');
+    let first!: Promise<void>;
+    act(() => {
+      first = widgetCallbacks.onSuccess!('same-token');
+    });
+    await act(() => widgetCallbacks.onSuccess!('same-token'));
+    expect(turnstileService.verifyTurnstileToken).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolve();
+      await first;
+    });
+    expect(screen.getByText('Protected app')).toBeInTheDocument();
+  });
+
+  it('shows a cooldown instead of a challenge when status is rate limited', async () => {
+    vi.mocked(turnstileService.fetchTurnstileStatus).mockRejectedValue(
+      new turnstileService.TurnstileVerificationError('Please wait', [], 30)
+    );
+    render(<TurnstileGate>Protected app</TurnstileGate>);
+    expect(
+      await screen.findByRole('button', { name: 'Try again in 30 seconds' })
+    ).toBeDisabled();
+    expect(screen.queryByTestId('turnstile-widget')).not.toBeInTheDocument();
   });
 });

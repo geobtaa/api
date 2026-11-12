@@ -26,26 +26,7 @@ from app.gazetteer.importers.fast_importer import FastImporter
 from app.gazetteer.importers.geonames_importer import GeonamesImporter
 from app.gazetteer.importers.wof_importer import WofImporter
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler("gazetteer_import.log")],
-)
-
 logger = logging.getLogger(__name__)
-
-# Log the database URL (without password)
-db_url = os.getenv("DATABASE_URL", "")
-if db_url:
-    # Mask password if present
-    masked_url = db_url
-    if "@" in db_url and ":" in db_url:
-        parts = db_url.split("@")
-        auth = parts[0].split(":")
-        if len(auth) > 2:  # postgresql://user:pass@host
-            masked_url = f"{auth[0]}:{auth[1]}:****@{parts[1]}"
-    print(f"Using database URL: {masked_url}")
 
 
 async def import_all(
@@ -163,6 +144,11 @@ def parse_args():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler("gazetteer_import.log")],
+    )
     args = parse_args()
 
     # Convert 'all' to all gazetteer types

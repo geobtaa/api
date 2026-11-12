@@ -20,21 +20,24 @@ logger = logging.getLogger(__name__)
 class DuckDBConnection(Protocol):
     """Protocol for DuckDB connection interface."""
 
+    @abstractmethod
     def execute(self, query: str, parameters: Optional[list[Any]] = None) -> Any:
         """Execute a SQL query."""
-        ...
+        raise NotImplementedError
 
+    @abstractmethod
     def close(self) -> None:
         """Close the connection."""
-        ...
+        raise NotImplementedError
 
 
 class DuckDBModule(Protocol):
     """Protocol for DuckDB module interface."""
 
+    @abstractmethod
     def connect(self, database_path: str) -> DuckDBConnection:
         """Connect to a DuckDB database."""
-        ...
+        raise NotImplementedError
 
 
 def get_duckdb_module() -> Optional[DuckDBModule]:

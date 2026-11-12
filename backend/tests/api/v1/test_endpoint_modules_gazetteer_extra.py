@@ -113,8 +113,6 @@ async def test_search_geonames_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_geonames_pagination(monkeypatch):
-    import json
-
     from app.api.v1.endpoint_modules import gazetteer as gaz
 
     async def fake_fetch_all(query):

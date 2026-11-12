@@ -81,13 +81,6 @@ class TestMetadataDisplayEndpoint:
         mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
         mock_resp.__aexit__ = AsyncMock(return_value=None)
 
-        async def mock_session_context():
-            mock_conn = MagicMock()
-            mock_result = MagicMock()
-            mock_result.fetchone.return_value = mock_row
-            mock_conn.execute = AsyncMock(return_value=mock_result)
-            yield mock_conn
-
         with (
             patch(
                 "app.api.v1.endpoint_modules.resources.metadata.get_async_session"

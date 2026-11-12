@@ -3,12 +3,6 @@ import sys
 from pathlib import Path
 
 from sqlalchemy import (
-    Column,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    TIMESTAMP,
     create_engine,
     inspect,
     text,

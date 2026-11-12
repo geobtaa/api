@@ -274,6 +274,7 @@ class SearchService:
                 try:
                     source_data["dct_references_s"] = json.loads(references)
                 except json.JSONDecodeError:
+                    # Keep legacy reference text when it cannot be decoded as JSON.
                     pass
 
             # Create services

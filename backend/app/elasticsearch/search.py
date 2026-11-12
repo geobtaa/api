@@ -2407,11 +2407,13 @@ async def map_h3_aggregation(
                     try:
                         yr["range"]["gbl_indexYear_im"]["gte"] = int(values["start"])
                     except (ValueError, TypeError):
+                        # Ignore an invalid lower bound while retaining a valid upper bound.
                         pass
                 if "end" in values:
                     try:
                         yr["range"]["gbl_indexYear_im"]["lte"] = int(values["end"])
                     except (ValueError, TypeError):
+                        # Ignore an invalid upper bound while retaining a valid lower bound.
                         pass
                 if yr["range"]["gbl_indexYear_im"]:
                     filter_clauses.append(yr)
@@ -2866,11 +2868,13 @@ async def get_facet_values(
                     try:
                         year_range_filter["range"]["gbl_indexYear_im"]["gte"] = int(values["start"])
                     except (ValueError, TypeError):
+                        # Ignore an invalid lower bound while retaining a valid upper bound.
                         pass
                 if "end" in values:
                     try:
                         year_range_filter["range"]["gbl_indexYear_im"]["lte"] = int(values["end"])
                     except (ValueError, TypeError):
+                        # Ignore an invalid upper bound while retaining a valid lower bound.
                         pass
                 if year_range_filter["range"]["gbl_indexYear_im"]:
                     filter_clauses.append(year_range_filter)
@@ -2900,10 +2904,7 @@ async def get_facet_values(
     # Build query from q parameter if provided
     if query:
         query_text = query or ""
-        # Note: is_phrase and phrase are calculated for consistency with search_resources,
-        # but query_string handles quotes natively, so we use query_text directly
-        is_phrase = len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
-        _phrase = query_text[1:-1] if is_phrase else query_text  # Unused but kept for consistency
+        # query_string handles quotes natively; keep the original query text.
 
         must_clauses.append(_build_all_fields_query(query_text))
 

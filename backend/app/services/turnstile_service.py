@@ -1,9 +1,11 @@
+import asyncio
 import hashlib
 import json
 import logging
 import os
 import secrets
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -154,17 +156,17 @@ class TurnstileService:
                 status_code=503,
             )
 
-        if not token:
+        if not token or len(token) > 2048:
             return TurnstileValidationResult(
                 success=False,
-                error_codes=["missing-input-response"],
+                error_codes=["missing-input-response" if not token else "invalid-input-response"],
                 status_code=400,
             )
 
         form_data = {
             "secret": secret,
             "response": token,
-            "idempotency_key": secrets.token_urlsafe(16),
+            "idempotency_key": str(uuid.uuid4()),
         }
         remote_ip = _extract_ip_address(request)
         if remote_ip:
@@ -173,9 +175,7 @@ class TurnstileService:
         try:
             timeout = float(os.getenv("TURNSTILE_VERIFY_TIMEOUT_SECONDS", "3"))
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(self.siteverify_url, data=form_data)
-            response.raise_for_status()
-            payload = response.json()
+                payload = await self._siteverify(client, form_data)
         except Exception as exc:
             logger.warning("Turnstile Siteverify request failed: %s", exc)
             return TurnstileValidationResult(
@@ -184,13 +184,13 @@ class TurnstileService:
                 status_code=503,
             )
 
-        error_codes = list(payload.get("error-codes") or [])
-        if not payload.get("success"):
+        error_codes = payload.get("error-codes") or []
+        if not payload["success"]:
             return TurnstileValidationResult(
                 success=False,
                 payload=payload,
                 error_codes=error_codes,
-                status_code=400,
+                status_code=503 if "internal-error" in error_codes else 400,
             )
 
         expected_action = self.expected_action
@@ -223,6 +223,30 @@ class TurnstileService:
             )
 
         return TurnstileValidationResult(success=True, payload=payload)
+
+    async def _siteverify(self, client: httpx.AsyncClient, form_data: dict[str, str]) -> dict:
+        # A timeout may happen after Cloudflare consumes the single-use token.
+        # Reuse the UUID and token for every retry of this validation attempt.
+        for attempt in range(3):
+            try:
+                response = await client.post(self.siteverify_url, data=form_data)
+                response.raise_for_status()
+                payload = response.json()
+                if not isinstance(payload, dict) or not isinstance(payload.get("success"), bool):
+                    raise ValueError("Invalid Siteverify response shape")
+                errors = payload.get("error-codes") or []
+                if not isinstance(errors, list) or any(
+                    not isinstance(code, str) for code in errors
+                ):
+                    raise ValueError("Invalid Siteverify error codes")
+                if payload["success"] or "internal-error" not in errors or attempt == 2:
+                    return payload
+            except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+                retryable = isinstance(exc, httpx.TransportError) or exc.response.status_code >= 500
+                if not retryable or attempt == 2:
+                    raise
+            await asyncio.sleep(0.25 * (2**attempt))
+        raise RuntimeError("Siteverify attempts exhausted")
 
 
 def _extract_ip_address(request: Request) -> str | None:

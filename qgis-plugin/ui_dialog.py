@@ -481,7 +481,7 @@ class GeodataSearchDialog(QDialog):
                 pixmap.loadFromData(content)
                 scaled_pixmap = pixmap.scaled(250, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 self.preview_image.setPixmap(scaled_pixmap)
-            except:
+            except Exception:
                 self.preview_image.clear()
         else:
             self.preview_image.clear()
@@ -508,7 +508,7 @@ class GeodataSearchDialog(QDialog):
 
         try:
             references = json.loads(attributes.get("dct_references_s", "{}"))
-        except:
+        except (json.JSONDecodeError, TypeError):
             references = {}
 
         def get_reference_url(key):
@@ -678,7 +678,8 @@ class GeodataSearchDialog(QDialog):
                 import shutil
 
                 shutil.rmtree(temp_dir)
-            except:
+            except OSError:
+                # Cleanup must not hide the shapefile error if the temporary directory is unavailable.
                 pass
 
     def prev_page(self):

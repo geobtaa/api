@@ -31,7 +31,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import app.elasticsearch.index as index_module  # noqa: E402
 from app.elasticsearch.client import es  # noqa: E402
-from app.elasticsearch.index import process_resource  # noqa: E402
 from app.elasticsearch.mappings import INDEX_MAPPING  # noqa: E402
 from db.database import database  # noqa: E402
 
@@ -295,7 +294,7 @@ async def _prepare_documents_for_chunk(ids: list[str]) -> list[tuple[str, dict[s
             row = rows_by_id.get(resource_id)
             if not row:
                 continue
-            processed = await process_resource(row)
+            processed = await index_module.process_resource(row)
             if processed:
                 documents.append((resource_id, processed))
     finally:
@@ -691,11 +690,11 @@ async def main() -> None:
         try:
             await database.disconnect()
         except Exception:
-            pass
+            logger.debug("Database disconnect failed during atomic reindex cleanup", exc_info=True)
         try:
             await es.close()
         except Exception:
-            pass
+            logger.debug("Search client close failed during atomic reindex cleanup", exc_info=True)
 
 
 if __name__ == "__main__":

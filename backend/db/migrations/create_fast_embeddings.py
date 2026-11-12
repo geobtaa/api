@@ -1,15 +1,8 @@
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import (
-    TIMESTAMP,
-    Column,
-    Integer,
-    MetaData,
-    String,
-    Table,
     create_engine,
     inspect,
 )

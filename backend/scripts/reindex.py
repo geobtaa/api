@@ -136,7 +136,9 @@ async def _index_one(
                         )
                     )
                 except Exception:
-                    pass
+                    logger.warning(
+                        "Could not write unexpected indexing result to failure log", exc_info=True
+                    )
             return ok
         except Exception as e:
             attempt += 1
@@ -147,7 +149,7 @@ async def _index_one(
                     )
                 )
             except Exception:
-                pass
+                logger.warning("Could not write indexing exception to failure log", exc_info=True)
             if attempt > retries:
                 return False
             await asyncio.sleep(min(2.0 * attempt, 8.0))
@@ -199,7 +201,7 @@ async def _verify_missing(
         if scroll_id:
             await es.clear_scroll(scroll_id=scroll_id)
     except Exception:
-        pass
+        logger.debug("Could not clear verification search scroll; it will expire", exc_info=True)
     return set(db_ids) - es_ids
 
 
@@ -268,7 +270,10 @@ async def main():
                             )
                         )
                     except Exception:
-                        pass
+                        logger.warning(
+                            "Could not write document processing failure to failure log",
+                            exc_info=True,
+                        )
                     continue
                 ok = await _index_one(index_name, rid, doc, max_retries, flog)
                 if ok:
@@ -288,7 +293,7 @@ async def main():
         try:
             await es.indices.refresh(index=index_name)
         except Exception:
-            pass
+            logger.warning("Index refresh failed before verification", exc_info=True)
 
         logger.info(
             f"Initial pass complete: attempted={total_attempted:,}, "
@@ -324,7 +329,10 @@ async def main():
                             )
                         )
                     except Exception:
-                        pass
+                        logger.warning(
+                            "Could not write repair processing failure to failure log",
+                            exc_info=True,
+                        )
                     continue
                 ok = await _index_one(index_name, rid, doc, max_retries, flog)
                 if ok:
@@ -332,7 +340,7 @@ async def main():
             try:
                 await es.indices.refresh(index=index_name)
             except Exception:
-                pass
+                logger.warning("Index refresh failed after verification repair", exc_info=True)
             logger.info(f"[verify round {round_i}] Repair indexed {fixed:,} documents")
         else:
             logger.warning("Verification rounds exhausted; some resources may still be missing.")
@@ -377,11 +385,11 @@ async def main():
         try:
             await database.disconnect()
         except Exception:
-            pass
+            logger.debug("Database disconnect failed during reindex cleanup", exc_info=True)
         try:
             await es.close()
         except Exception:
-            pass
+            logger.debug("Search client close failed during reindex cleanup", exc_info=True)
 
 
 if __name__ == "__main__":

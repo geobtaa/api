@@ -517,7 +517,7 @@ export function ResourceView({
           <div className="w-full px-4 sm:px-6 lg:px-8">
             <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
               <strong>Debug:</strong> No data loaded yet. Loading:{' '}
-              {isLoading.toString()}, Error: {error || 'none'}
+              {isLoading.toString()}, Error: none
             </div>
           </div>
         </main>
@@ -844,21 +844,19 @@ export function ResourceView({
                       )}
 
                     {/* Citation & Export */}
-                    {data && (
-                      <div className="mt-6">
-                        <CitationTable
-                          citation={data.meta?.ui?.citation ?? ''}
-                          citations={data.meta?.ui?.citations}
-                          permalink={
-                            currentUrl ||
-                            (isMounted ? window.location.href : '')
-                          }
-                          resourceId={data.id}
-                          resourceTitle={data.attributes.ogm.dct_title_s}
-                          searchId={searchState?.searchId}
-                        />
-                      </div>
-                    )}
+                    <div className="mt-6">
+                      <CitationTable
+                        citation={data.meta?.ui?.citation ?? ''}
+                        citations={data.meta?.ui?.citations}
+                        permalink={
+                          currentUrl ||
+                          (isMounted ? window.location.href : '')
+                        }
+                        resourceId={data.id}
+                        resourceTitle={data.attributes.ogm.dct_title_s}
+                        searchId={searchState?.searchId}
+                      />
+                    </div>
 
                     <AllmapsLinksCard
                       allmaps={allmapsAttributes}
