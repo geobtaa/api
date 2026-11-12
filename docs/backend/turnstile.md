@@ -111,3 +111,36 @@ http://localhost:5173/turnstile-preview
 This route only works in Vite dev mode. It renders the same BTAA Geoportal gate
 layout with a mock local verification control, then sends the browser back to
 the homepage.
+
+
+## Verification failures and recovery
+
+Siteverify requests send a UUID `idempotency_key`. A validation attempt retries
+transport errors, HTTP 5xx responses, and Cloudflare `internal-error` responses
+at most twice, reusing the same UUID and token. Definitive rejections (including
+expired or duplicate tokens), action mismatches, and hostname mismatches do not
+retry. Tokens longer than Cloudflare's 2048-character maximum are rejected
+locally, and malformed upstream responses fail closed.
+
+The browser bounds its status/verification requests to 15 seconds. A failed
+request stops the challenge and displays an explicit retry button, rather than
+resetting the widget indefinitely. Rate-limited requests respect the supplied
+retry delay; service outages have a short cooldown. Retrying checks for an
+existing session first, because a response may have been lost after the session
+cookie was established. Server error codes remain available on the client error
+object without exposing raw provider responses in the page. Failure to load the
+Cloudflare script itself still requires a page reload.
+
+Focused local regression checks:
+
+```bash
+cd backend
+BTAA_SKIP_TEST_DB=1 REDIS_HOST=127.0.0.1 REDIS_PORT=1 python -m pytest --noconftest tests/services/test_turnstile_service.py tests/api/v1/test_turnstile_endpoints.py tests/middleware/test_turnstile_middleware.py -q
+cd ../frontend
+npm test -- --run src/__tests__/services/turnstile.test.ts src/__tests__/components/security/TurnstileGate.test.tsx
+```
+
+These focused tests use fake upstream responses and do not require Cloudflare
+credentials or live databases. Session-store outages, shared anonymous rate
+limits, and stale requests remain separate from Cloudflare token validation;
+a successful widget challenge alone does not guarantee session establishment.
