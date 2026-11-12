@@ -21,6 +21,7 @@ type TurnstileVerifyResponse = {
     attributes?: {
       verified?: boolean;
       session_token?: string;
+      error_codes?: string[];
     };
   };
 };
@@ -80,9 +81,7 @@ export function isTurnstileRequiredResponse(
 ): boolean {
   if (response.status !== 403) return false;
 
-  if (
-    response.headers.get('x-turnstile-required')?.toLowerCase() === 'true'
-  ) {
+  if (response.headers.get('x-turnstile-required')?.toLowerCase() === 'true') {
     return true;
   }
 
@@ -105,43 +104,111 @@ export function signalTurnstileRequired(
   );
 }
 
+export class TurnstileVerificationError extends Error {
+  constructor(
+    message: string,
+    public readonly errorCodes: string[] = [],
+    public readonly retryAfterSeconds = 0
+  ) {
+    super(message);
+    this.name = 'TurnstileVerificationError';
+  }
+}
+
+function verificationError(
+  response: Response,
+  payload: TurnstileVerifyResponse
+) {
+  const codes = payload.data?.attributes?.error_codes;
+  const errorCodes = Array.isArray(codes)
+    ? codes.filter((code): code is string => typeof code === 'string')
+    : [];
+  if (response.status === 429) {
+    const retryHeader = response.headers.get('Retry-After');
+    const numeric = Number(retryHeader);
+    // The existing API limiter returns an epoch reset time; also accept the
+    // standard delay-seconds and HTTP-date representations.
+    const seconds =
+      retryHeader && Number.isFinite(numeric)
+        ? numeric > 1_000_000_000
+          ? numeric - Date.now() / 1000
+          : numeric
+        : retryHeader
+          ? (Date.parse(retryHeader) - Date.now()) / 1000
+          : 60;
+    return new TurnstileVerificationError(
+      'Too many verification requests. Please wait before trying again.',
+      errorCodes,
+      Math.max(1, Math.ceil(Number.isFinite(seconds) ? seconds : 60))
+    );
+  }
+  if (response.status >= 500) {
+    return new TurnstileVerificationError(
+      'Browser verification is temporarily unavailable. Please try again shortly.',
+      errorCodes,
+      5
+    );
+  }
+  return new TurnstileVerificationError(
+    'Verification did not complete. Please try again.',
+    errorCodes
+  );
+}
+
+async function requestTurnstile(
+  endpoint: 'status' | 'verify',
+  token?: string
+): Promise<TurnstileStatusResponse & TurnstileVerifyResponse> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(getTurnstileEndpointUrl(endpoint), {
+      method: endpoint === 'verify' ? 'POST' : 'GET',
+      headers: {
+        ...buildTurnstileHeaders(),
+        ...(endpoint === 'verify'
+          ? { 'Content-Type': 'application/json' }
+          : {}),
+      },
+      ...(endpoint === 'verify' ? { body: JSON.stringify({ token }) } : {}),
+      credentials: getTurnstileCredentialsMode(),
+      mode: 'cors',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw verificationError(response, payload || {});
+    if (typeof payload?.data?.attributes?.verified !== 'boolean') {
+      throw new TurnstileVerificationError(
+        'Verification returned an unexpected response. Please try again.'
+      );
+    }
+    return payload;
+  } catch (error) {
+    if (error instanceof TurnstileVerificationError) throw error;
+    throw new TurnstileVerificationError(
+      controller.signal.aborted
+        ? 'Verification timed out. Please try again.'
+        : 'Unable to reach browser verification. Check your connection and try again.'
+    );
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 export async function fetchTurnstileStatus(): Promise<boolean> {
-  const response = await fetch(getTurnstileEndpointUrl('status'), {
-    headers: buildTurnstileHeaders(),
-    credentials: getTurnstileCredentialsMode(),
-    mode: 'cors',
-  });
-
-  if (!response.ok) return false;
-
-  const payload = (await response.json()) as TurnstileStatusResponse;
-  return Boolean(payload.data?.attributes?.verified);
+  const payload = await requestTurnstile('status');
+  return payload.data?.attributes?.verified === true;
 }
 
 export async function verifyTurnstileToken(token: string): Promise<void> {
-  const response = await fetch(getTurnstileEndpointUrl('verify'), {
-    method: 'POST',
-    headers: {
-      ...buildTurnstileHeaders(),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ token }),
-    credentials: getTurnstileCredentialsMode(),
-    mode: 'cors',
-  });
-
-  if (!response.ok) {
-    clearTurnstileSessionToken();
-    throw new Error(`Turnstile verification failed with ${response.status}`);
-  }
-
-  const payload = (await response.json()) as TurnstileVerifyResponse;
+  const payload = await requestTurnstile('verify', token);
   const attributes = payload.data?.attributes;
   if (!attributes?.verified) {
-    clearTurnstileSessionToken();
-    throw new Error('Turnstile verification was not accepted');
+    throw new TurnstileVerificationError(
+      'Verification was not accepted. Please try again.'
+    );
   }
-
   storeTurnstileSessionToken(attributes.session_token);
 }
 
@@ -229,7 +296,6 @@ function responseBodyRequiresTurnstile(bodyText: string): boolean {
 function shouldBypassTurnstileInLocalDev(): boolean {
   const isDevOrTest = import.meta.env.DEV || import.meta.env.MODE === 'test';
   return (
-    isDevOrTest &&
-    !isEnabledFlag(import.meta.env.VITE_TURNSTILE_ENABLE_LOCAL)
+    isDevOrTest && !isEnabledFlag(import.meta.env.VITE_TURNSTILE_ENABLE_LOCAL)
   );
 }

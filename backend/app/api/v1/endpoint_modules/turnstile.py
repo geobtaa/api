@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 class TurnstileVerifyRequest(BaseModel):
-    token: str = Field(..., min_length=1)
+    token: str = Field(..., min_length=1, max_length=2048)
 
 
 @router.get("/turnstile/status", include_in_schema=False)

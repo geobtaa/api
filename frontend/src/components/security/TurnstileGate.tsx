@@ -1,4 +1,4 @@
-import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
+import { Turnstile } from '@marsidev/react-turnstile';
 import {
   type ReactNode,
   useCallback,
@@ -15,6 +15,7 @@ import {
   isTurnstileConfigured,
   TURNSTILE_REQUIRED_EVENT,
   verifyTurnstileToken,
+  TurnstileVerificationError,
 } from '../../services/turnstile';
 
 type GateState = 'checking' | 'challenge' | 'verifying' | 'verified' | 'error';
@@ -35,7 +36,23 @@ export function TurnstileGate({
   const institutionName = theme.institution.name || 'BTAA Geoportal';
   const logoUrl = theme.institution.logo_url || '/btaa-logo.png';
   const lockupText = theme.institution.logo_lockup?.right_text || 'Geoportal';
-  const widgetRef = useRef<TurnstileInstance>();
+  const verificationPending = useRef(false);
+  const scriptFailed = useRef(false);
+  const [errorMessage, setErrorMessage] = useState(
+    'Verification did not complete. Please try again.'
+  );
+  const [retryAfter, setRetryAfter] = useState(0);
+  const showError = useCallback((error: unknown) => {
+    setErrorMessage(
+      error instanceof Error
+        ? error.message
+        : 'Verification did not complete. Please try again.'
+    );
+    setRetryAfter(
+      error instanceof TurnstileVerificationError ? error.retryAfterSeconds : 0
+    );
+    setGateState('error');
+  }, []);
   const [gateState, setGateState] = useState<GateState>(
     gateEnabled ? (previewMode ? 'challenge' : 'checking') : 'verified'
   );
@@ -54,16 +71,24 @@ export function TurnstileGate({
         if (cancelled) return;
         setGateState(verified ? 'verified' : 'challenge');
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return;
-        clearTurnstileSessionToken();
-        setGateState('challenge');
+        showError(error);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [configured, previewMode]);
+  }, [configured, previewMode, showError]);
+
+  useEffect(() => {
+    if (retryAfter <= 0) return;
+    const timer = window.setTimeout(
+      () => setRetryAfter((seconds) => Math.max(0, seconds - 1)),
+      1000
+    );
+    return () => window.clearTimeout(timer);
+  }, [retryAfter]);
 
   useEffect(() => {
     if (!gateEnabled || typeof window === 'undefined') return;
@@ -82,20 +107,61 @@ export function TurnstileGate({
     };
   }, [gateEnabled]);
 
-  const handleSuccess = useCallback(async (token: string) => {
-    setGateState('verifying');
+  const handleSuccess = useCallback(
+    async (token: string) => {
+      if (verificationPending.current) return;
+      verificationPending.current = true;
+      setGateState('verifying');
+      try {
+        await verifyTurnstileToken(token);
+        setGateState('verified');
+      } catch (error) {
+        showError(error);
+      } finally {
+        verificationPending.current = false;
+      }
+    },
+    [showError]
+  );
+
+  const handleRetry = useCallback(async () => {
+    if (verificationPending.current || retryAfter > 0) return;
+    if (scriptFailed.current) {
+      window.location.reload();
+      return;
+    }
+    verificationPending.current = true;
+    setGateState('checking');
     try {
-      await verifyTurnstileToken(token);
-      setGateState('verified');
-    } catch {
-      setGateState('error');
-      widgetRef.current?.reset?.();
+      // A lost verify response may already have established the cookie session.
+      setGateState((await fetchTurnstileStatus()) ? 'verified' : 'challenge');
+    } catch (error) {
+      showError(error);
+    } finally {
+      verificationPending.current = false;
+    }
+  }, [retryAfter, showError]);
+
+  const handleRecoverableWidgetIssue = useCallback(() => {
+    if (!verificationPending.current) {
+      setGateState((state) => (state === 'verified' ? state : 'challenge'));
     }
   }, []);
 
-  const handleRecoverableWidgetIssue = useCallback(() => {
-    setGateState('challenge');
-  }, []);
+  const handleWidgetError = useCallback(() => {
+    if (!verificationPending.current) {
+      showError(
+        new Error(
+          'The browser check could not load or complete. Check your connection and try again.'
+        )
+      );
+    }
+  }, [showError]);
+
+  const handleScriptError = useCallback(() => {
+    scriptFailed.current = true;
+    handleWidgetError();
+  }, [handleWidgetError]);
 
   const handlePreviewContinue = useCallback(() => {
     window.location.assign('/');
@@ -162,6 +228,17 @@ export function TurnstileGate({
                     />
                     <span>Checking your session...</span>
                   </div>
+                ) : gateState === 'error' ? (
+                  <button
+                    type="button"
+                    disabled={retryAfter > 0}
+                    onClick={handleRetry}
+                    className="rounded-full bg-brand px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {retryAfter > 0
+                      ? `Try again in ${retryAfter} seconds`
+                      : 'Try again'}
+                  </button>
                 ) : previewMode ? (
                   <div className="w-full max-w-sm text-center">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -177,14 +254,15 @@ export function TurnstileGate({
                   </div>
                 ) : (
                   <Turnstile
-                    ref={widgetRef}
                     siteKey={siteKey}
                     onSuccess={handleSuccess}
                     onExpire={handleRecoverableWidgetIssue}
-                    onError={handleRecoverableWidgetIssue}
+                    onError={handleWidgetError}
+                    scriptOptions={{ onError: handleScriptError }}
                     onTimeout={handleRecoverableWidgetIssue}
                     options={{
                       action,
+                      retry: 'never',
                       appearance: 'always',
                       refreshExpired: 'auto',
                       refreshTimeout: 'auto',
@@ -204,7 +282,7 @@ export function TurnstileGate({
               )}
               {gateState === 'error' && (
                 <p className="border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  Verification did not complete. Please try again.
+                  {errorMessage}
                 </p>
               )}
             </div>
