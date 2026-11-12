@@ -67,7 +67,7 @@ async def main():
             if scroll_id:
                 await es.clear_scroll(scroll_id=scroll_id)
         except Exception:
-            pass
+            logger.debug("Could not clear diagnostic search scroll; it will expire", exc_info=True)
 
         logger.info(f"Elasticsearch: {len(es_ids):,} documents")
 
@@ -158,11 +158,11 @@ async def main():
         try:
             await database.disconnect()
         except Exception:
-            pass
+            logger.debug("Database disconnect failed during diagnostic cleanup", exc_info=True)
         try:
             await es.close()
         except Exception:
-            pass
+            logger.debug("Search client close failed during diagnostic cleanup", exc_info=True)
 
 
 if __name__ == "__main__":

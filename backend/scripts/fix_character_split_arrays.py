@@ -70,7 +70,7 @@ async def main():
         try:
             await database.disconnect()
         except Exception:
-            pass
+            logger.debug("Database disconnect failed during array repair cleanup", exc_info=True)
 
 
 if __name__ == "__main__":

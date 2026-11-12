@@ -181,7 +181,8 @@ class OGMResourceImporter:
         if "b1g_access_s" in out and isinstance(out["b1g_access_s"], str):
             try:
                 out["b1g_access_s"] = json.loads(out["b1g_access_s"])
-            except Exception:
+            except json.JSONDecodeError:
+                # Keep non-JSON access text unchanged for legacy metadata compatibility.
                 pass
 
         # Some OGM feeds provide scalar string fields as single-item lists.

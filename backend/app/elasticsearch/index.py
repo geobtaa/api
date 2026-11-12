@@ -91,7 +91,8 @@ def _coerce_date(value):
         if len(text) == 7 and text[4] == "-":
             dt = datetime.strptime(text, "%Y-%m")
             return dt.strftime("%Y-%m-01")
-    except Exception:
+    except ValueError:
+        # An invalid year-month may still match one of the full-date formats below.
         pass
     # YYYY-MM-DD (or full ISO)
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
@@ -676,6 +677,9 @@ def process_geometry(geometry):
         logger.warning(f"Error processing geometry {geometry}: {e} - skipping")
         return None
 
+    # Unsupported input types have no geometry representation.
+    return None
+
 
 def _normalize_envelope(minx, maxx, maxy, miny):
     """
@@ -892,7 +896,10 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
                     )
                 )
             except Exception:
-                pass
+                logger.warning(
+                    "Could not write indexing failure details; continuing with the next document",
+                    exc_info=True,
+                )
             # Continue with next document instead of failing completely
 
     # Final refresh to make all indexed documents searchable

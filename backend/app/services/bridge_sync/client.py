@@ -96,6 +96,8 @@ class KitheBridgeClient:
                 )
                 time.sleep(delay)
 
+        raise ValueError("KITHE_BRIDGE_FETCH_MAX_RETRIES must be greater than zero")
+
     def fetch_page(
         self,
         *,

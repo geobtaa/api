@@ -389,7 +389,11 @@ export function getCentroidFromGeometry(
 
   let geom: GeoJsonGeometry | null = null;
 
-  if (typeof geometry === 'object' && geometry !== null && 'type' in geometry && 'coordinates' in geometry) {
+  if (
+    typeof geometry === 'object' &&
+    'type' in geometry &&
+    'coordinates' in geometry
+  ) {
     geom = geometry as GeoJsonGeometry;
   } else if (typeof geometry === 'string') {
     const s = geometry.trim();
@@ -462,7 +466,11 @@ export function getBboxFromGeometry(
 
   let geom: GeoJsonGeometry | null = null;
 
-  if (typeof geometry === 'object' && geometry !== null && 'type' in geometry && 'coordinates' in geometry) {
+  if (
+    typeof geometry === 'object' &&
+    'type' in geometry &&
+    'coordinates' in geometry
+  ) {
     geom = geometry as GeoJsonGeometry;
   } else if (typeof geometry === 'string') {
     const s = geometry.trim();
@@ -637,7 +645,7 @@ export function geometryToGeoJSONForDisplay(
   if (geometry == null) return null;
 
   // Already a GeoJSON object
-  if (typeof geometry === 'object' && geometry !== null) {
+  if (typeof geometry === 'object') {
     const g = geometry as { type?: string; coordinates?: unknown; geometry?: unknown };
     if (g.type === 'Feature' && g.geometry && typeof g.geometry === 'object') {
       return geometryToGeoJSONForDisplay(g.geometry);

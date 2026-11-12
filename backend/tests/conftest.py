@@ -26,7 +26,8 @@ def _load_dotenv_if_available(path: str) -> None:
     if os.path.exists(path):
         try:
             load_dotenv(path, override=False)
-        except Exception:
+        except (OSError, UnicodeError):
+            # Optional local settings may be unreadable; tests can use environment/default values.
             pass
 
 
@@ -66,11 +67,13 @@ def flush_redis_between_sessions() -> None:
         try:
             client.flushdb()
         except Exception:
+            # Redis may be unavailable for tests that use mocked caches.
             pass
         yield
         try:
             client.flushdb()
         except Exception:
+            # An unavailable Redis must not replace the test outcome during session teardown.
             pass
     except Exception:
         yield

@@ -271,6 +271,7 @@ class StaticMapService:
                     if isinstance(geometry_dict, dict):
                         return self._extract_bbox_from_geojson(geometry_dict)
                 except (json.JSONDecodeError, ValueError):
+                    # A non-JSON geometry may be WKT; try that parser next.
                     pass
 
                 # Try parsing as WKT using Shapely
@@ -1065,6 +1066,7 @@ class StaticMapService:
                 ):
                     return parsed
             except (json.JSONDecodeError, ValueError):
+                # A non-JSON geometry may be WKT; try that parser next.
                 pass
             # Try WKT (e.g. POLYGON, MULTIPOLYGON, LINESTRING) for locn_geometry
             try:
@@ -1077,7 +1079,9 @@ class StaticMapService:
                 ):
                     return geojson
             except Exception:
-                pass
+                logger.debug(
+                    "Geometry could not be parsed as WKT; using map bounds instead", exc_info=True
+                )
         return None
 
     def _render_and_cache(

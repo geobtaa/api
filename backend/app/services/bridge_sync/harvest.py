@@ -377,7 +377,9 @@ async def sync_bridge(
                 bridge_error=str(exc) or exc.__class__.__name__,
             )
         except Exception:
-            pass
+            logger.warning(
+                "Could not update bridge failure progress; attempting finalization", exc_info=True
+            )
         await repo.finalize_sync_run(
             bridge_id=run_id,
             bridge_status="failed",
@@ -388,5 +390,6 @@ async def sync_bridge(
         try:
             exc.bridge_sync_run_id = run_id
         except Exception:
+            # Some exception types reject extra attributes; preserve the original exception.
             pass
         raise

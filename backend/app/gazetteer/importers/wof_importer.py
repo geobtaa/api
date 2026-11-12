@@ -113,7 +113,7 @@ class WofImporter(BaseImporter):
             },
         }
 
-    def clean_record(self, record: Dict[str, Any], table_type: str) -> Dict[str, Any]:
+    def clean_wof_record(self, record: Dict[str, Any], table_type: str) -> Dict[str, Any] | None:
         """
         Clean and transform a WOF record before insertion.
 
@@ -414,7 +414,7 @@ class WofImporter(BaseImporter):
         self.logger.info(f"Cleaning {table_type} records...")
         cleaned_records = []
         for record in records:
-            cleaned_record = self.clean_record(record, table_type)
+            cleaned_record = self.clean_wof_record(record, table_type)
             if cleaned_record is not None:
                 cleaned_records.append(cleaned_record)
 
