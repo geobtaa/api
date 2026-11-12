@@ -127,9 +127,9 @@ request stops the challenge and displays an explicit retry button, rather than
 resetting the widget indefinitely. Rate-limited requests respect the supplied
 retry delay; service outages have a short cooldown. Retrying checks for an
 existing session first, because a response may have been lost after the session
-cookie was established. If Cloudflare's script failed to load, retry reloads the
-page to allow a fresh script request. Server error codes remain available on the
-client error object without exposing raw provider responses in the page.
+cookie was established. Server error codes remain available on the client error
+object without exposing raw provider responses in the page. Failure to load the
+Cloudflare script itself still requires a page reload.
 
 Focused local regression checks:
 

@@ -37,7 +37,6 @@ export function TurnstileGate({
   const logoUrl = theme.institution.logo_url || '/btaa-logo.png';
   const lockupText = theme.institution.logo_lockup?.right_text || 'Geoportal';
   const verificationPending = useRef(false);
-  const scriptFailed = useRef(false);
   const [errorMessage, setErrorMessage] = useState(
     'Verification did not complete. Please try again.'
   );
@@ -126,10 +125,6 @@ export function TurnstileGate({
 
   const handleRetry = useCallback(async () => {
     if (verificationPending.current || retryAfter > 0) return;
-    if (scriptFailed.current) {
-      window.location.reload();
-      return;
-    }
     verificationPending.current = true;
     setGateState('checking');
     try {
@@ -157,11 +152,6 @@ export function TurnstileGate({
       );
     }
   }, [showError]);
-
-  const handleScriptError = useCallback(() => {
-    scriptFailed.current = true;
-    handleWidgetError();
-  }, [handleWidgetError]);
 
   const handlePreviewContinue = useCallback(() => {
     window.location.assign('/');
@@ -258,7 +248,6 @@ export function TurnstileGate({
                     onSuccess={handleSuccess}
                     onExpire={handleRecoverableWidgetIssue}
                     onError={handleWidgetError}
-                    scriptOptions={{ onError: handleScriptError }}
                     onTimeout={handleRecoverableWidgetIssue}
                     options={{
                       action,
