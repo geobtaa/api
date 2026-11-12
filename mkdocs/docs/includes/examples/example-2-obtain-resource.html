@@ -4,7 +4,7 @@
                         <span class="badge">Resource</span>
                     </div>
                     <p><strong>Goal:</strong> Fetch metadata for a specific resource ID.</p>
-                    <p><strong>Request:</strong> <code>GET /api/v1/resources/ark28722-s7vs38</code></p>
+                    <p><strong>Request:</strong> <code>GET /api/v1/resources/b1g_2Lx2SCAOw85E</code></p>
 
                     <div class="tabs">
                         <button id="btn-tab-python-2" class="tab-btn active"
@@ -23,7 +23,7 @@ import json
 BASE_URL = "https://geo.btaa.org/api/v1"
 
 # Step 2: Fetch a specific resource
-resource_id = "ark28722-s7vs38"
+resource_id = "b1g_2Lx2SCAOw85E"
 response = requests.get(f"{BASE_URL}/resources/{resource_id}")
 data = response.json()
 
@@ -134,7 +134,7 @@ async def example_2(event):
         
         clear_output(output_id)
         show_output(output_id)
-        resource_id = "ark28722-s7vs38"
+        resource_id = "b1g_2Lx2SCAOw85E"
         print_to_output(output_id, f"🔄 Running Example: Fetching resource {resource_id}...")
         
         response = requests.get(f"{BASE_URL}/resources/{resource_id}")

@@ -328,20 +328,6 @@ def _url_against_base(url: str, base_url: str) -> str:
     )
 
 
-def _render_path(path: str) -> str:
-    resource_id = os.getenv("MKDOCS_EXAMPLES_RESOURCE_ID", "ark28722-s7vs38")
-    record_id = os.getenv("MKDOCS_EXAMPLES_RECORD_ID", "stanford-yc270hg1347")
-    facet_name = os.getenv("MKDOCS_EXAMPLES_FACET_NAME", "gbl_resourceClass_sm")
-
-    return (
-        path.replace("{resource_id}", resource_id)
-        .replace("{id}", resource_id)
-        .replace("{recordId}", record_id)
-        .replace("{record_id}", record_id)
-        .replace("{facet_name}", facet_name)
-    )
-
-
 EXAMPLE_FILES = _included_example_files()
 
 
@@ -373,6 +359,61 @@ def _assert_not_rate_limited(response: requests.Response, context: str) -> None:
     )
 
 
+def _example_record_url(url: str, base_url: str) -> str | None:
+    normalized = _url_against_base(url, base_url)
+    parsed = urlsplit(normalized)
+    match = re.match(r"^(/api/v1/resources/[^/]+)(?:/|$)", parsed.path)
+    if match:
+        return urlunsplit((parsed.scheme, parsed.netloc, match.group(1), "", ""))
+    return None
+
+
+def _check_example_records(base_url: str) -> dict[str, str]:
+    """Check each example record once; keep failures out of shared fixture setup."""
+    record_urls = {
+        record_url
+        for example_name in EXAMPLE_FILES
+        for captured in _capture_example_requests(example_name)
+        if (record_url := _example_record_url(captured.url, base_url))
+    }
+    unavailable = {}
+    for url in sorted(record_urls):
+        try:
+            response = _live_get(
+                url,
+                timeout=float(os.getenv("MKDOCS_EXAMPLES_TIMEOUT_SECONDS", "30")),
+                allow_redirects=False,
+            )
+            _assert_not_turnstile_blocked(response, url)
+            _assert_not_rate_limited(response, url)
+            if response.status_code == 404:
+                unavailable[url] = (
+                    f"Example record '{url.rsplit('/', 1)[-1]}' is missing (404) at {url}. "
+                    "Update both the visible Python snippets and PyScript examples to a valid "
+                    "record with the required capabilities, or restore the expected record. "
+                    "Dependent example requests are skipped; this is a missing-data prerequisite."
+                )
+            elif response.status_code != 200:
+                unavailable[url] = (
+                    f"Example record prerequisite {url} returned {response.status_code}. "
+                    f"Body: {response.text[:300]}"
+                )
+        except (requests.RequestException, AssertionError) as exc:
+            unavailable[url] = f"Example record prerequisite {url} failed: {exc}"
+    return unavailable
+
+
+@pytest.fixture(scope="module")
+def unavailable_example_records() -> dict[str, str]:
+    if not _production_smoke_enabled() and not os.getenv("MKDOCS_EXAMPLES_BASE_URL"):
+        pytest.skip("Set MKDOCS_EXAMPLES_BASE_URL to enable live docs-example tests")
+    return _check_example_records(os.getenv("MKDOCS_EXAMPLES_BASE_URL", PRODUCTION_API_BASE_URL))
+
+
+def test_mkdocs_example_records_exist(unavailable_example_records):
+    assert not unavailable_example_records, "\n".join(unavailable_example_records.values())
+
+
 @pytest.mark.parametrize("example_name", EXAMPLE_FILES)
 def test_mkdocs_examples_have_required_structure(example_name: str):
     """Validate all interactive examples referenced by endpoints.md are runnable."""
@@ -392,7 +433,7 @@ def test_mkdocs_examples_have_required_structure(example_name: str):
 
 
 @pytest.mark.parametrize("example_name", EXAMPLE_FILES)
-def test_mkdocs_examples_live_requests(example_name: str):
+def test_mkdocs_examples_live_requests(example_name: str, unavailable_example_records):
     """
     Optional live integration test for interactive examples.
 
@@ -406,6 +447,14 @@ def test_mkdocs_examples_live_requests(example_name: str):
     base_url = os.getenv("MKDOCS_EXAMPLES_BASE_URL", PRODUCTION_API_BASE_URL)
     captured_requests = _capture_example_requests(example_name)
     assert captured_requests, f"Unable to capture requests.get calls in {example_name}"
+
+    for captured in captured_requests:
+        record_url = _example_record_url(captured.url, base_url)
+        if record_url in unavailable_example_records:
+            pytest.skip(
+                f"Example record prerequisite unavailable: {record_url}; "
+                "see test_mkdocs_example_records_exist for the cause"
+            )
 
     for index, captured in enumerate(captured_requests, start=1):
         url = _url_against_base(captured.url, base_url)
