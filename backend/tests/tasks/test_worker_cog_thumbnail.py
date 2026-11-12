@@ -3,6 +3,7 @@ Tests for COG thumbnail generation in the worker module.
 """
 
 import io
+from importlib import import_module
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -69,7 +70,7 @@ class TestCogThumbnailHelpers:
 
 
 try:
-    import rio_tiler  # noqa: F401
+    import_module("rio_tiler")
 
     RIO_TILER_AVAILABLE = True
 except ImportError:

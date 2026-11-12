@@ -30,7 +30,6 @@ HOW TO RUN LOCALLY:
 """
 
 import requests
-import json
 
 # Try to import IPython display for Jupyter notebooks, fallback for regular Python
 try:
@@ -97,7 +96,7 @@ if response_step1.status_code == 200:
     current_page_step1 = meta_step1.get('currentPage', 'N/A')
     sort_step1 = meta_step1.get('sort', 'N/A')
     
-    print(f"\nFacet: schema_provider_s")
+    print("\nFacet: schema_provider_s")
     print(f"Sort: {sort_step1} (default)")
     print(f"Page: {current_page_step1} of {total_pages_step1}")
     print(f"\nTotal number of facet values: {total_count_step1}")
@@ -139,7 +138,7 @@ if response_step2.status_code == 200:
     meta_step2 = data_step2.get('meta', {})
     sort_step2 = meta_step2.get('sort', 'N/A')
     
-    print(f"\nFacet: schema_provider_s")
+    print("\nFacet: schema_provider_s")
     print(f"Sort: {sort_step2}")
     
     facet_values_step2 = []
@@ -180,9 +179,9 @@ if response_step3.status_code == 200:
     meta_step3 = data_step3.get('meta', {})
     total_count_step3 = meta_step3.get('totalCount', 'N/A')
     
-    print(f"\nFacet: schema_provider_s")
-    print(f"Filter: q_facet='University'")
-    print(f"Sort: count_desc")
+    print("\nFacet: schema_provider_s")
+    print("Filter: q_facet='University'")
+    print("Sort: count_desc")
     print(f"\nTotal matching facet values: {total_count_step3}")
     
     facet_values_step3 = []
@@ -224,10 +223,10 @@ if response_step4.status_code == 200:
     total_pages_step4 = meta_step4.get('totalPages', 'N/A')
     links_step4 = data_step4.get('links', {})
     
-    print(f"\nFacet: schema_provider_s")
+    print("\nFacet: schema_provider_s")
     print(f"Page: {current_page_step4} of {total_pages_step4}")
-    print(f"Per page: 10")
-    print(f"\nPagination links:")
+    print("Per page: 10")
+    print("\nPagination links:")
     print(f"  Self: {links_step4.get('self', 'N/A')}")
     print(f"  First: {links_step4.get('first', 'N/A')}")
     print(f"  Last: {links_step4.get('last', 'N/A')}")
@@ -272,15 +271,15 @@ if response_step5.status_code == 200:
     meta_step5 = data_step5.get('meta', {})
     total_count_step5 = meta_step5.get('totalCount', 'N/A')
     
-    print(f"\nFacet: schema_provider_s")
-    print(f"Search context: q='water'")
-    print(f"Sort: count_desc")
+    print("\nFacet: schema_provider_s")
+    print("Search context: q='water'")
+    print("Sort: count_desc")
     print(f"\nTotal providers in 'water' search resultset: {total_count_step5}")
     
     # Compare with step 1 (no search context)
     if isinstance(total_count_step1, int) and isinstance(total_count_step5, int):
         difference = total_count_step1 - total_count_step5
-        print(f"\nComparison:")
+        print("\nComparison:")
         print(f"  Without search filter: {total_count_step1} providers")
         print(f"  With 'water' filter:   {total_count_step5} providers")
         print(f"  Difference: {difference} providers")
@@ -323,15 +322,15 @@ if response_step6.status_code == 200:
     meta_step6 = data_step6.get('meta', {})
     total_count_step6 = meta_step6.get('totalCount', 'N/A')
     
-    print(f"\nFacet: schema_provider_s")
-    print(f"Filter: include_filters[dct_spatial_sm][]='Minnesota'")
-    print(f"Sort: count_desc")
+    print("\nFacet: schema_provider_s")
+    print("Filter: include_filters[dct_spatial_sm][]='Minnesota'")
+    print("Sort: count_desc")
     print(f"\nTotal providers for Minnesota resources: {total_count_step6}")
     
     # Compare with step 1 (no filters)
     if isinstance(total_count_step1, int) and isinstance(total_count_step6, int):
         difference = total_count_step1 - total_count_step6
-        print(f"\nComparison:")
+        print("\nComparison:")
         print(f"  Without filters:        {total_count_step1} providers")
         print(f"  With Minnesota filter:   {total_count_step6} providers")
         print(f"  Difference: {difference} providers")
@@ -377,8 +376,8 @@ if response_step7.status_code == 200:
     facet_name_step7 = meta_step7.get('facetName', 'N/A')
     
     print(f"\nFacet: {facet_name_step7}")
-    print(f"Sort: count_desc")
-    print(f"Per page: 15")
+    print("Sort: count_desc")
+    print("Per page: 15")
     print(f"\nTotal spatial coverage values: {total_count_step7}")
     
     facet_values_step7 = []

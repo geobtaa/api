@@ -359,13 +359,6 @@ async def process_resource(resource_dict):
 
     _compute_h3_cells(processed_dict)
 
-    # Get resource classes, ensuring it's a list and has at least one value
-    resource_classes = processed_dict.get("gbl_resourceClass_sm", [])
-    if isinstance(resource_classes, str):
-        resource_classes = [resource_classes]
-    if not resource_classes:
-        resource_classes = ["none"]
-
     # Add suggestion field with cleaned data - removed contexts
     processed_dict["suggest"] = {"input": build_suggest_inputs(processed_dict)}
 

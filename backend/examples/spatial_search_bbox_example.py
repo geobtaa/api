@@ -1,5 +1,4 @@
 import requests
-import json
 from IPython.display import HTML, display
 
 url = 'https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/search'
@@ -24,7 +23,7 @@ if response_step1.status_code == 200:
     data_step1 = response_step1.json()
     total_count_step1 = data_step1.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='maps'")
+    print("\nQuery: q='maps'")
     print(f"\nTotal number of resources found: {total_count_step1}")
     
     titles_step1 = [item['attributes'].get('dct_title_s', 'N/A') for item in data_step1.get('data', [])]
@@ -69,12 +68,12 @@ if response_step2.status_code == 200:
     data_step2 = response_step2.json()
     total_count_step2 = data_step2.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='maps'")
-    print(f"Geo filter: Bounding box covering Minnesota state")
-    print(f"  - Type: bbox")
-    print(f"  - Field: dcat_bbox")
-    print(f"  - Top-left (NW): 49.0°N, -97.2°W")
-    print(f"  - Bottom-right (SE): 43.5°N, -89.5°W")
+    print("\nQuery: q='maps'")
+    print("Geo filter: Bounding box covering Minnesota state")
+    print("  - Type: bbox")
+    print("  - Field: dcat_bbox")
+    print("  - Top-left (NW): 49.0°N, -97.2°W")
+    print("  - Bottom-right (SE): 43.5°N, -89.5°W")
     print(f"\nTotal number of resources found: {total_count_step2}")
     
     # Show comparison with previous step

@@ -4,6 +4,7 @@ Tests for PMTiles thumbnail generation in the worker module.
 
 import gzip
 import io
+from importlib import import_module
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,14 +21,14 @@ from app.tasks.worker import (
 )
 
 try:
-    import mapbox_vector_tile  # noqa: F401
+    import_module("mapbox_vector_tile")
 
     MVT_AVAILABLE = True
 except ImportError:
     MVT_AVAILABLE = False
 
 try:
-    import pmtiles  # noqa: F401
+    import_module("pmtiles")
 
     PMTILES_AVAILABLE = True
 except ImportError:

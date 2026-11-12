@@ -2900,10 +2900,7 @@ async def get_facet_values(
     # Build query from q parameter if provided
     if query:
         query_text = query or ""
-        # Note: is_phrase and phrase are calculated for consistency with search_resources,
-        # but query_string handles quotes natively, so we use query_text directly
-        is_phrase = len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
-        _phrase = query_text[1:-1] if is_phrase else query_text  # Unused but kept for consistency
+        # query_string handles quotes natively; keep the original query text.
 
         must_clauses.append(_build_all_fields_query(query_text))
 

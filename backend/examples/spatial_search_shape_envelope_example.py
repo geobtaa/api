@@ -1,5 +1,4 @@
 import requests
-import json
 from IPython.display import HTML, display
 
 url = 'https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/search'
@@ -24,7 +23,7 @@ if response_step1.status_code == 200:
     data_step1 = response_step1.json()
     total_count_step1 = data_step1.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='census'")
+    print("\nQuery: q='census'")
     print(f"\nTotal number of resources found: {total_count_step1}")
     
     titles_step1 = [item['attributes'].get('dct_title_s', 'N/A') for item in data_step1.get('data', [])]
@@ -75,17 +74,17 @@ if response_step2.status_code == 200:
     data_step2 = response_step2.json()
     total_count_step2 = data_step2.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='census'")
-    print(f"Geo filter: Shape envelope covering Illinois state")
-    print(f"  - Type: shape")
-    print(f"  - Shape type: envelope")
-    print(f"  - Field: locn_geometry")
-    print(f"  - Relation: intersects")
-    print(f"  - Envelope coordinates:")
-    print(f"    - Top-left: [-91.5°W, 42.5°N]")
-    print(f"    - Bottom-right: [-87.5°W, 37.0°N]")
-    print(f"\nNote: Shape envelope is similar to bbox but uses [lon, lat] coordinate")
-    print(f"format and is processed as a geo_shape query rather than geo_bounding_box.")
+    print("\nQuery: q='census'")
+    print("Geo filter: Shape envelope covering Illinois state")
+    print("  - Type: shape")
+    print("  - Shape type: envelope")
+    print("  - Field: locn_geometry")
+    print("  - Relation: intersects")
+    print("  - Envelope coordinates:")
+    print("    - Top-left: [-91.5°W, 42.5°N]")
+    print("    - Bottom-right: [-87.5°W, 37.0°N]")
+    print("\nNote: Shape envelope is similar to bbox but uses [lon, lat] coordinate")
+    print("format and is processed as a geo_shape query rather than geo_bounding_box.")
     print(f"\nTotal number of resources found: {total_count_step2}")
     
     # Show comparison with previous step

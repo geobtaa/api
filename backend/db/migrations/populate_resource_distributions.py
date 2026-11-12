@@ -4,7 +4,7 @@ import sys
 import os
 from pathlib import Path
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, text
 
 # Add the project root directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -28,7 +28,6 @@ def populate_resource_distributions():
         
         # Create engine
         engine = create_engine(sync_database_url)
-        inspector = inspect(engine)
 
         logger.info("Populating resource_distributions from dct_references_s...")
 
@@ -155,7 +154,7 @@ def populate_resource_distributions():
             # Final commit
             conn.commit()
             
-            logger.info(f"✓ Population complete!")
+            logger.info("✓ Population complete!")
             logger.info(f"  - Processed: {processed_count} resources")
             logger.info(f"  - Errors: {error_count} resources")
 

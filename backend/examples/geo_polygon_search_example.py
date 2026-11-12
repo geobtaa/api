@@ -1,5 +1,4 @@
 import requests
-import json
 from IPython.display import HTML, display
 
 url = 'https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/search'
@@ -24,7 +23,7 @@ if response_step1.status_code == 200:
     data_step1 = response_step1.json()
     total_count_step1 = data_step1.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='water'")
+    print("\nQuery: q='water'")
     print(f"\nTotal number of resources found: {total_count_step1}")
     
     titles_step1 = [item['attributes'].get('dct_title_s', 'N/A') for item in data_step1.get('data', [])]
@@ -77,12 +76,12 @@ if response_step2.status_code == 200:
     data_step2 = response_step2.json()
     total_count_step2 = data_step2.get('meta', {}).get('totalCount', 'N/A')
     
-    print(f"\nQuery: q='water'")
-    print(f"Geo filter: Polygon covering Colorado state boundaries")
-    print(f"  - Type: polygon")
-    print(f"  - Field: locn_geometry")
-    print(f"  - Relation: intersects")
-    print(f"  - Bounding box: 37°N to 41°N, -109°W to -102°W")
+    print("\nQuery: q='water'")
+    print("Geo filter: Polygon covering Colorado state boundaries")
+    print("  - Type: polygon")
+    print("  - Field: locn_geometry")
+    print("  - Relation: intersects")
+    print("  - Bounding box: 37°N to 41°N, -109°W to -102°W")
     print(f"\nTotal number of resources found: {total_count_step2}")
     
     # Show comparison with previous step

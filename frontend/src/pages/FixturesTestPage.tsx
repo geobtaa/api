@@ -386,20 +386,6 @@ const geoblacklightFixtures: Fixture[] = [
 ];
 
 // BTAA GIN fixtures - All fixtures from btaa_fixtures_list.csv
-// Helper function to extract ID from URL
-const extractIdFromUrl = (url: string): string => {
-  if (!url || !url.trim()) return '';
-  const match = url.match(/\/catalog\/([^\/]+)/);
-  if (match) return match[1];
-  // Handle non-standard URLs like geodata.wisc.edu
-  const match2 = url.match(/\/catalog\/([^\/\?]+)/);
-  if (match2) return match2[1];
-  // Handle resources URLs
-  const match3 = url.match(/\/resources\/([^\/\?]+)/);
-  if (match3) return match3[1];
-  return url;
-};
-
 const btaaGinFixtures: Fixture[] = [
   {
     id: '219ffed3-3e58-4fb7-ad82-4c264aae1b17',
