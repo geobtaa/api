@@ -328,7 +328,8 @@ def example_10(event):
                     print_to_output(output_id, f"  {count + 1}. {title}...")
                     print_to_output(output_id, f"     URL: {download_url[:70]}...")
                     count += 1
-            except:
+            except (KeyError, TypeError, ValueError, AttributeError):
+                # Skip malformed metadata without swallowing cancellation or shutdown.
                 continue
                 
         if count == 0:

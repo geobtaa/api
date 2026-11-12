@@ -85,7 +85,7 @@ function slugify(provider: string): string {
   return provider
     .toLowerCase()
     .trim()
-    .replace(/[\u2013\u2014–—-]/g, ' ') // en/em/hyphen to space (so "Urbana-Champaign" -> "urbana_champaign")
+    .replace(/[\u2013\u2014-]/g, ' ') // en/em/hyphen to space (so "Urbana-Champaign" -> "urbana_champaign")
     .replace(/[^a-z0-9\s]/g, '') // remove other non-alphanumeric
     .replace(/\s+/g, '_') // spaces to underscore
     .replace(/_+/g, '_') // collapse multiple underscores

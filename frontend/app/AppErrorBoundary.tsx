@@ -7,14 +7,13 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error?: Error;
 }
 
 export class AppErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false };
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+  static getDerivedStateFromError(): State {
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -26,7 +25,7 @@ export class AppErrorBoundary extends Component<Props, State> {
       return (
         <GeoportalErrorPage
           status={500}
-          onRetry={() => this.setState({ hasError: false, error: undefined })}
+          onRetry={() => this.setState({ hasError: false })}
         />
       );
     }

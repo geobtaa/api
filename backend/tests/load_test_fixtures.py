@@ -64,6 +64,7 @@ def load_fixtures():
                 try:
                     row["dct_references_s"] = json.loads(row["dct_references_s"])
                 except json.JSONDecodeError:
+                    # Keep legacy fixture references as text when they are not valid JSON.
                     pass
 
             # Prepare document for bulk indexing

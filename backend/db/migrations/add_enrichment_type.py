@@ -5,16 +5,9 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
 
-# Add debug information
-print("Python path:", sys.path)
-print("Current working directory:", os.getcwd())
-print("Virtual environment:", os.environ.get("VIRTUAL_ENV"))
-
 # Add the project root directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -52,4 +45,5 @@ def add_enrichment_type_column():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     add_enrichment_type_column()

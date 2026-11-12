@@ -34,7 +34,8 @@ for env_path in env_paths:
         match = re.search(r'POSTGRES_PASSWORD=["\']?([^"\'\n]+)["\']?', content)
         if match:
             postgres_password = match.group(1)
-    except Exception:
+    except OSError:
+        # An unreadable optional file must not override credentials already in the environment.
         pass
     if postgres_password:
         break
@@ -56,6 +57,7 @@ try:
     load_dotenv(_REPO_ROOT / ".env.test", override=True)
     load_dotenv(".env.test", override=True)
 except (OSError, PermissionError):
+    # Optional test overrides may be unreadable; keep environment/default settings.
     pass
 # Restore POSTGRES_PASSWORD if it was set in .env but not in .env.test
 if postgres_password and not os.getenv("POSTGRES_PASSWORD"):
@@ -200,6 +202,7 @@ def pytest_configure(config):
         _HB_THREAD.start()
         atexit.register(lambda: _HB_STOP.set())
     except Exception:
+        # Heartbeat diagnostics are optional and must not prevent tests from running.
         pass
 
     # Ensure application and migrations run in test mode
@@ -437,6 +440,7 @@ async def db_transaction(db_connection):
             try:
                 await database.disconnect()
             except Exception:
+                # A pool bound to a closed loop may not disconnect; reconnect on this loop below.
                 pass
             await database.connect()
             _database_loop_state.loop_id = current_loop_id
@@ -473,5 +477,6 @@ async def db_transaction(db_connection):
             try:
                 await database.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
             except Exception:
+                # Preserve the original test error if savepoint cleanup also fails.
                 pass
         raise

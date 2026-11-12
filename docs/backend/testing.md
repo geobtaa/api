@@ -93,6 +93,24 @@ database URLs without creating an engine or loading its selected driver during
 collection. Tests that import application database modules may still require
 their usual database dependencies.
 
+## Reliability Regression Checks
+
+Reliability fixes should preserve intentional fallbacks while making unexpected
+failures diagnosable. Catch the expected parsing or I/O exceptions, explain why
+an ignored error is safe, and keep cancellation and shutdown exceptions visible.
+Cleanup failures should not replace the original error.
+
+Library imports should not print CLI diagnostics or configure file logging.
+The import-isolation tests run modules in fresh processes to verify this.
+From `backend/`, run the focused import and importer checks without a database:
+
+```bash
+BTAA_SKIP_TEST_DB=true python -m pytest --no-cov tests/test_import_silence.py tests/gazetteer/test_wof_importer.py tests/services/test_bridge_sync_client.py
+```
+
+Skipping database preparation does not mock database or Redis calls inside a
+test. Tests that directly use those services still require them to be running.
+
 ## Test Coverage
 
 `make test` runs pytest with coverage and enforces `COVERAGE_THRESHOLD`

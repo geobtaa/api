@@ -190,7 +190,7 @@ def provider_origin_cooldown_remaining(url: str | None) -> float:
             if remaining > 0:
                 return remaining
     except Exception:
-        pass
+        logger.debug("Provider cooldown lookup failed; using local cooldown state", exc_info=True)
 
     with _LOCAL_STATE_LOCK:
         remaining = _LOCAL_COOLDOWN_UNTIL.get(origin, 0.0) - time.time()
@@ -206,7 +206,7 @@ def record_provider_success(url: str | None) -> None:
         _redis_client.delete(_failure_count_key(origin))
         _redis_client.delete(_cooldown_until_key(origin))
     except Exception:
-        pass
+        logger.debug("Provider cooldown reset failed; clearing local cooldown state", exc_info=True)
 
     with _LOCAL_STATE_LOCK:
         _LOCAL_FAILURE_COUNTS.pop(origin, None)
@@ -251,7 +251,7 @@ def record_provider_failure(
             )
             return cooldown_seconds
     except Exception:
-        pass
+        logger.debug("Provider failure tracking failed; using local cooldown state", exc_info=True)
 
     with _LOCAL_STATE_LOCK:
         count = _LOCAL_FAILURE_COUNTS.get(origin, 0) + 1
@@ -272,7 +272,7 @@ def _release_redis_key(key: str, owner: str) -> None:
     try:
         _redis_client.eval(_RELEASE_IF_OWNER, 1, key, owner)
     except Exception:
-        pass
+        logger.debug("Provider slot release failed; the Redis lease will expire", exc_info=True)
 
 
 def _redis_acquire_slot(

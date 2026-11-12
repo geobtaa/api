@@ -599,6 +599,7 @@ def _normalize_column_value(
                     if isinstance(parsed, (list, tuple)):
                         return list(parsed)
                 except (ValueError, SyntaxError):
+                    # Treat unparseable array text as a single literal value below.
                     pass
             return [stripped]
         return [value]
@@ -638,6 +639,7 @@ def _normalize_column_value(
                         return parsed[0]
                     return "; ".join(str(v) for v in parsed)
             except (ValueError, SyntaxError):
+                # Preserve malformed list text rather than discarding the source value.
                 pass
         if stripped.startswith("(") and stripped.endswith(")"):
             if "{" in stripped or "}" in stripped:
@@ -651,6 +653,7 @@ def _normalize_column_value(
                         return parsed[0]
                     return "; ".join(str(v) for v in parsed)
             except (ValueError, SyntaxError):
+                # Preserve malformed tuple text rather than discarding the source value.
                 pass
         return value
 

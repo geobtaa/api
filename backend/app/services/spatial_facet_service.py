@@ -133,7 +133,9 @@ class SpatialFacetService:
                     try:
                         await session.rollback()
                     except Exception:
-                        pass
+                        logger.warning(
+                            "Spatial facet rollback failed after country lookup", exc_info=True
+                        )
 
             try:
                 regions = await self._get_regions_from_bbox(bbox_geom, session, debug=debug)
@@ -148,7 +150,9 @@ class SpatialFacetService:
                     try:
                         await session.rollback()
                     except Exception:
-                        pass
+                        logger.warning(
+                            "Spatial facet rollback failed after region lookup", exc_info=True
+                        )
 
             try:
                 counties = await self._get_counties_from_bbox(
@@ -165,7 +169,9 @@ class SpatialFacetService:
                     try:
                         await session.rollback()
                     except Exception:
-                        pass
+                        logger.warning(
+                            "Spatial facet rollback failed after county lookup", exc_info=True
+                        )
 
         except Exception as e:
             logger.error(
@@ -178,7 +184,9 @@ class SpatialFacetService:
                 try:
                     await session.rollback()
                 except Exception:
-                    pass
+                    logger.warning(
+                        "Spatial facet rollback failed after facet lookup", exc_info=True
+                    )
 
         return facets
 

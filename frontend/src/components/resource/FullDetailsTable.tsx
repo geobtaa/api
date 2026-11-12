@@ -340,11 +340,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     }
 
     // Format boolean fields
-    if (
-      (key === 'suppressed_b' || key === 'b1g_child_record_b') &&
-      value !== null &&
-      value !== undefined
-    ) {
+    if (key === 'suppressed_b' || key === 'b1g_child_record_b') {
       return value.toString() === 'true' ? 'Yes' : 'No';
     }
 

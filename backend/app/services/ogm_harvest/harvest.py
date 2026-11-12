@@ -133,7 +133,9 @@ async def harvest_repo(
                 ogm_error=str(e),
             )
         except Exception:
-            pass
+            logger.warning(
+                "Could not update harvest failure progress; attempting finalization", exc_info=True
+            )
         await repo.finalize_harvest_run(
             ogm_id=run_id,
             ogm_status="failed",

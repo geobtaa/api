@@ -11,6 +11,7 @@ def _plugin_version() -> str:
             if line.startswith("version="):
                 return line.split("=", 1)[1].strip()
     except OSError:
+        # Unpackaged/test installations may lack metadata.txt; use the unknown version below.
         pass
     return "unknown"
 

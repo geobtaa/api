@@ -2407,11 +2407,13 @@ async def map_h3_aggregation(
                     try:
                         yr["range"]["gbl_indexYear_im"]["gte"] = int(values["start"])
                     except (ValueError, TypeError):
+                        # Ignore an invalid lower bound while retaining a valid upper bound.
                         pass
                 if "end" in values:
                     try:
                         yr["range"]["gbl_indexYear_im"]["lte"] = int(values["end"])
                     except (ValueError, TypeError):
+                        # Ignore an invalid upper bound while retaining a valid lower bound.
                         pass
                 if yr["range"]["gbl_indexYear_im"]:
                     filter_clauses.append(yr)
@@ -2866,11 +2868,13 @@ async def get_facet_values(
                     try:
                         year_range_filter["range"]["gbl_indexYear_im"]["gte"] = int(values["start"])
                     except (ValueError, TypeError):
+                        # Ignore an invalid lower bound while retaining a valid upper bound.
                         pass
                 if "end" in values:
                     try:
                         year_range_filter["range"]["gbl_indexYear_im"]["lte"] = int(values["end"])
                     except (ValueError, TypeError):
+                        # Ignore an invalid upper bound while retaining a valid lower bound.
                         pass
                 if year_range_filter["range"]["gbl_indexYear_im"]:
                     filter_clauses.append(year_range_filter)

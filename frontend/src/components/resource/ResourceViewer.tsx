@@ -8,7 +8,6 @@ import {
 import { FullScreen, defaults as defaultControls } from 'ol/control';
 import VectorTileLayer from 'ol/layer/VectorTile.js';
 import { leafletViewerOptions } from '../../config/leafletConfig';
-import { MetadataTable } from './MetadataTable';
 import { getWgs84ExtentFromViewerGeometry } from '../../utils/geometryUtils';
 import { fromExtent as polygonFromExtent } from 'ol/geom/Polygon';
 import { transformExtent, useGeographic } from 'ol/proj';
@@ -564,7 +563,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
             geomObj = geometry;
           }
 
-          if (geomObj && typeof geomObj === 'object' && geomObj !== null) {
+          if (geomObj && typeof geomObj === 'object') {
             // Check if geometry is already a Feature or FeatureCollection
             if (
               geomObj.type === 'Feature' ||
@@ -688,12 +687,4 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
         </div>
       );
   }
-
-  return (
-    <div className="bg-white shadow-sm rounded-lg">
-      <div className="p-6">
-        <MetadataTable data={{ data: { attributes: data.attributes } }} />
-      </div>
-    </div>
-  );
 }

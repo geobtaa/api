@@ -199,6 +199,7 @@ def build_cache_key(
             if hv:
                 vary[h.lower()] = hv
     except Exception:
+        # Request adapters may lack headers; retain the vary values available so far.
         pass
 
     key_material = {
@@ -793,7 +794,9 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                                 write_durable=False,
                             )
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Could not extend stale cache expiry after refresh failure", exc_info=True
+                    )
                 logger.warning(f"Cache refresh failed for {key_namespace}: {e}")
                 _log_cache_event("refresh_fail", namespace=key_namespace, error=str(e))
 

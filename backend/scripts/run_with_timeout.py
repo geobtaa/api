@@ -133,7 +133,8 @@ def main() -> int:
                                     "[run_with_timeout] sent SIGUSR1 for traceback dump",
                                     file=sys.stderr,
                                 )
-                            except Exception:
+                            except OSError:
+                                # The child may have exited; continue timeout shutdown.
                                 pass
                         time.sleep(2.0)
 
@@ -152,7 +153,8 @@ def main() -> int:
                                 f"[run_with_timeout] sent SIGINT (grace={grace:.1f}s)",
                                 file=sys.stderr,
                             )
-                        except Exception:
+                        except OSError:
+                            # The child may have exited; wait before escalating.
                             pass
                     try:
                         proc.wait(timeout=grace)
@@ -168,7 +170,8 @@ def main() -> int:
                             try:
                                 proc.terminate()
                                 print("[run_with_timeout] sent SIGTERM", file=sys.stderr)
-                            except Exception:
+                            except OSError:
+                                # The child may have exited; wait before a forced kill.
                                 pass
                         try:
                             proc.wait(timeout=10.0)
@@ -183,7 +186,8 @@ def main() -> int:
                                 try:
                                     proc.kill()
                                     print("[run_with_timeout] sent SIGKILL", file=sys.stderr)
-                                except Exception:
+                                except OSError:
+                                    # The child may have exited; retain timeout status.
                                     pass
                     return 124
     finally:
