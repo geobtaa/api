@@ -636,4 +636,6 @@ URLs, bidirectional paging, download clearing during loading/failure, initial
 fallback, record replacement, map selection, feature inspection, publisher
 download preservation, and location-only records. Unexpected API or external
 requests fail the suite. Failed CI runs retain Playwright traces and screenshots.
+The browser CI job pins Ubuntu 24.04 to match Playwright 1.60 browser support;
+update the runner and Playwright together when upgrading this suite.
 See [the viewer integration](ogm-viewer.md) for dependency and upgrade policy.

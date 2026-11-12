@@ -209,7 +209,8 @@ jobs:
 
   viewer-browser:
     name: Viewer browser contracts
-    runs-on: ubuntu-latest
+    # Keep the runner compatible with the pinned Playwright browser binaries.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
