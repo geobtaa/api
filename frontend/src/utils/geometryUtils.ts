@@ -3,9 +3,7 @@
  */
 
 export type DisplayGeometry =
-  | GeoJSON.Point
-  | GeoJSON.Polygon
-  | GeoJSON.MultiPolygon;
+  GeoJSON.Point | GeoJSON.Polygon | GeoJSON.MultiPolygon;
 
 /**
  * Converts WKT (Well-Known Text) to GeoJSON format

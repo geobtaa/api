@@ -134,10 +134,7 @@ export interface GeoDocument {
         protocol?: string;
         endpoint?: string;
         geometry?:
-          | string
-          | GeoJSON.Point
-          | GeoJSON.Polygon
-          | GeoJSON.MultiPolygon;
+          string | GeoJSON.Point | GeoJSON.Polygon | GeoJSON.MultiPolygon;
       };
       allmaps?: {
         allmaps_id?: string | null;
@@ -188,10 +185,7 @@ interface Facet {
 }
 
 export type FacetValuesSort =
-  | 'count_desc'
-  | 'count_asc'
-  | 'alpha_asc'
-  | 'alpha_desc';
+  'count_desc' | 'count_asc' | 'alpha_asc' | 'alpha_desc';
 
 export interface FacetValue {
   type: 'facet_value' | 'facet-item';

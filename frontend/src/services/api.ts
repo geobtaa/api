@@ -437,8 +437,7 @@ async function unifiedFetch<T>(
               // Check if thumbnail_url exists but might be non-enumerable
               const hasThumbnail = 'thumbnail_url' in item.meta.ui;
               const thumbnailValue = item.meta.ui.thumbnail_url as
-                | string
-                | undefined;
+                string | undefined;
 
               // If thumbnail_url exists (even if undefined), ensure it's enumerable
               if (hasThumbnail || thumbnailValue) {

@@ -11,10 +11,7 @@ ml.setWorkerUrl(`${workerUrl}?module=1`);
 import 'maplibre-gl/dist/maplibre-gl.css';
 export type LatLng = { lat: number; lng: number };
 export type ControlPosition =
-  | 'topleft'
-  | 'topright'
-  | 'bottomleft'
-  | 'bottomright';
+  'topleft' | 'topright' | 'bottomleft' | 'bottomright';
 export type PathOptions = {
   color?: string;
   weight?: number;

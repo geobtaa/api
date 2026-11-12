@@ -106,9 +106,7 @@ const HighlightOverlayController: React.FC<{
 
     try {
       const parsed = JSON.parse(highlightedGeometry) as
-        | GeoJSON.Point
-        | GeoJSON.Polygon
-        | GeoJSON.MultiPolygon;
+        GeoJSON.Point | GeoJSON.Polygon | GeoJSON.MultiPolygon;
       const features = geometryToLeafletFeatures(parsed);
       if (features.length === 0) return;
 
