@@ -67,6 +67,15 @@ viewer tabs for both IIIF Item Viewer and Map Overlay modes. Fullscreen uses the
 when available, with a browser-pane expansion fallback. **Exit fullscreen**
 remains available above the viewer; expanding preserves the embedded viewer state.
 
+The IIIF manifest viewer uses Mirador 4.3.0 with `mirador-dl-plugin` 1.1.2
+and Material UI 9. Upgrade these together: Mirador 4.3 requires MUI 9, and
+older download-plugin releases may depend on MUI 7. The custom rotation
+controls share the application's MUI installation. After updating frontend
+dependencies in a local Docker checkout, run `make frontend-reset` and
+hard-refresh the browser. See [Mirador's release notes](https://github.com/ProjectMirador/mirador/releases/tag/v4.3.0)
+and the [MUI 9 migration guide](https://mui.com/material-ui/migration/upgrade-to-v9/)
+for compatibility details, including the updated browser requirements.
+
 Mirador and Allmaps use the same 600px frame. Mirador uses a light geoportal
 theme with system fonts, blue accents, and flat toolbars. Its embedded mode
 (`embedded=1` on the local Mirador route) hides its internal fullscreen control
