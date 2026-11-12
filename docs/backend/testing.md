@@ -2,6 +2,33 @@
 
 This document describes how to run the test suite for the application.
 
+## Interactive Documentation Examples
+
+The example tests execute the visible Python snippets with mock responses
+during ordinary CI. To check them against a running local API with catalog data,
+run from the repository root:
+
+```bash
+BTAA_SKIP_TEST_DB=true MKDOCS_EXAMPLES_BASE_URL=http://localhost:8000 \
+  python -m pytest backend/tests/integration/test_mkdocs_interactive_examples.py -q -ra
+```
+
+The live suite checks each referenced example record once before making dependent
+requests. `test_mkdocs_example_records_exist` reports missing records by ID and
+URL; dependent examples are skipped while unrelated endpoint checks continue.
+Connection, access, and server failures remain failures of the prerequisite
+check. A missing subendpoint on an existing record still fails its example test.
+
+When replacing an example record, update both the visible Python snippet and
+the executable PyScript block in `mkdocs/docs/includes/examples/`. Choose a
+record supporting the illustrated capabilities, including viewer data and
+downloads, and validate the examples against the intended catalog. The record
+ID comes directly from the snippets; no environment-variable override is applied.
+
+The same suite includes gallery thumbnail and resource-page checks that need
+their own catalog data. Live verification scheduling and access setup are covered
+by the restricted operations documentation; see [Deployment](deployment.md).
+
 ## Prerequisites
 
 Ensure you have the development dependencies installed. You can install them along with the package in editable mode using `uv`:
