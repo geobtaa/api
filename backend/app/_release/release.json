@@ -1,5 +1,5 @@
 {
-  "version": "0.13.1",
-  "release_date": "2026-11-03",
-  "summary": "Retain October 2026 analytics and OGC API contract improvements, and pin compatible worker dependencies with an image-build compatibility check."
+  "version": "0.14.0",
+  "release_date": "2026-11-12",
+  "summary": "Improve Turnstile verification and recovery, resolve API and client reliability issues, and update dependencies and code quality checks."
 }
