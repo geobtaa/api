@@ -85,6 +85,13 @@ image in 90-degree increments without resetting pan or zoom. Both embedded and
 standalone Mirador use OpenSeadragon’s canvas drawer to avoid device-specific
 WebGL failures (#424; workaround reported by MSU contributor @natecollins).
 The standalone Mirador route retains its fullscreen control.
+The horizontal thumbnail strip gives each image an 80px minimum click target,
+with the original image proportions centered inside it and the page label
+visible. `MiradorThumbnailNavigation` wraps Mirador's horizontal navigation
+and uses the same minimum when sizing virtual columns, so narrow scans do not
+overlap their neighbors. Mirador still supplies the connected thumbnail cells,
+image loading, and selection; vertical and hidden navigation use its original
+layout.
 Switching tabs hides rather than unmounts these viewers; the Allmaps iframe is
 created on its first selection. Page, region, and zoom states remain independent
 and reset on resource navigation.

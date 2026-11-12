@@ -590,6 +590,13 @@ Run these with `npm test -- --run src/__tests__/pages/MiradorViewerPage.test.tsx
 Manually check rotation and zoom on a local IIIF item; physical Pixel device
 validation remains separate from the automated configuration checks.
 
+The Mirador thumbnail regression tests cover narrow ribbon scans, normal-width
+images, facing-page spacing, missing dimensions, and arrow-key navigation. Run
+`npm test -- --run src/__tests__/components/resource/MiradorThumbnailNavigation.test.tsx src/__tests__/pages/MiradorViewerPage.test.tsx`
+from `frontend/`. Browser checks should also click the padding beside a narrow
+thumbnail, verify neighboring tiles do not overlap, and navigate to an offscreen
+page in a small viewport to check automatic scrolling.
+
 The suite runs offline with iframe navigation disabled. It verifies the embedding
 contract, not Allmaps' internal controls, rendered pixels, or remote availability.
 Use the local resource pages above to manually verify the embedded viewer and
