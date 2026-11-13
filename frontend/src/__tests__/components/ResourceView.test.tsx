@@ -22,8 +22,45 @@ vi.mock('../../components/resource/AllmapsOverlayViewer', () => ({
   ),
 }));
 
+vi.mock('../../components/resource/ResourceViewer', () => ({
+  ResourceViewer: ({
+    data,
+    onImageSelectionChange,
+  }: {
+    data: GeoDocument;
+    onImageSelectionChange?: (selection: unknown) => void;
+  }) => (
+    <div data-testid="resource-viewer">
+      <button
+        onClick={() =>
+          onImageSelectionChange?.({
+            resourceId: data.id,
+            previewId: 'test',
+            resourceUrl: 'https://example.org/manifest',
+            renderer: 'image',
+            image: {
+              url: 'https://example.org/image/info.json',
+              index: 0,
+              count: 1,
+              service: {
+                id: 'https://example.org/image',
+                version: 2,
+                width: 3000,
+                height: 2000,
+              },
+            },
+          })
+        }
+      >
+        View test image
+      </button>
+    </div>
+  ),
+}));
+
 // Mock the API functions to return real fixture data
 vi.mock('../../services/api', () => ({
+  getApiBasePath: vi.fn(() => '/api/v1'),
   fetchResourceDetails: vi.fn(),
   fetchSearchResults: vi.fn(),
   ApiError: class ApiError extends Error {
@@ -68,6 +105,10 @@ const realFixtureData: GeoDocument[] = [
         dct_accessrights_s: 'Public',
         gbl_wxsidentifier_s: 'mit-001145244',
         gbl_wxsIdentifier_s: 'mit-001145244',
+        dct_references_s: JSON.stringify({
+          'http://www.opengis.net/def/serviceType/ogc/wms':
+            'https://example.com/wms',
+        }),
         locn_geometry_original: 'POINT(-71.0935 42.3601)',
       },
     },
@@ -391,7 +432,13 @@ describe('ResourceView Component', () => {
   let fetchResourceDetails: Mock;
   let fetchSearchResults: Mock;
 
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ downloads: [], items: [] }),
+    } as Response);
     vi.clearAllMocks();
     const apiModule = await import('../../services/api');
     fetchResourceDetails = vi.mocked(apiModule.fetchResourceDetails);
@@ -894,6 +941,47 @@ describe('ResourceView Component', () => {
   });
 
   describe('Conditional Rendering', () => {
+    it('keeps the sidebar Location map without rendering a viewer or its controls for location-only records', async () => {
+      fetchResourceDetails.mockResolvedValue({
+        ...mockResourceData,
+        attributes: {
+          ...mockResourceData.attributes,
+          ogm: {
+            ...mockResourceData.attributes.ogm,
+            dct_references_s: JSON.stringify({
+              'http://schema.org/url': 'https://example.org/catalog',
+            }),
+          },
+        },
+        meta: {
+          ...mockResourceData.meta,
+          ui: {
+            ...mockResourceData.meta?.ui,
+            viewer: {
+              protocol: 'geo_json',
+              endpoint: '',
+              geometry: 'POINT(-71.0935 42.3601)',
+            },
+          },
+        },
+      });
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+      expect(
+        await screen.findByRole('heading', { name: 'Location', exact: true })
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('resource-viewer')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Fullscreen', exact: true })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: 'Open in new tab' })
+      ).not.toBeInTheDocument();
+    });
+
     it('renders ResourceViewer when viewer protocol is available', async () => {
       render(
         <TestWrapper>
@@ -909,33 +997,22 @@ describe('ResourceView Component', () => {
         ).toBeInTheDocument();
       });
 
-      // ResourceViewer should be rendered (it's a complex component, so we check for its container)
-      const viewerContainer = document.querySelector(
-        '.bg-white.rounded-lg.shadow-md'
-      );
-      expect(viewerContainer).toBeInTheDocument();
+      expect(screen.getByTestId('resource-viewer')).toBeInTheDocument();
     });
 
-    it('renders AttributeTable when protocol is wms', async () => {
+    it('uses OGM Viewer without the legacy attribute inspection table', async () => {
       render(
         <TestWrapper>
           <ResourceView />
         </TestWrapper>
       );
-
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', {
-            name: 'Nondigitized paper map with library catalog link',
-          })
-        ).toBeInTheDocument();
-      });
-
-      expect(screen.getByText('Attribute')).toBeInTheDocument();
-      expect(screen.getByText('Value')).toBeInTheDocument();
+      expect(await screen.findByTestId('resource-viewer')).toBeInTheDocument();
       expect(
-        screen.getByText('Click on map to inspect values')
-      ).toBeInTheDocument();
+        document.getElementById('attribute-table')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Click on map to inspect values')
+      ).not.toBeInTheDocument();
     });
 
     it('renders IndexMap when protocol is open_index_map', async () => {
@@ -1174,6 +1251,75 @@ describe('ResourceView Component', () => {
       // The component should be in the sidebar
       const sidebar = document.querySelector('.lg\\:col-span-4');
       expect(sidebar).toBeInTheDocument();
+    });
+
+    it('loads DownloadsTable for manifest-only items with no initial downloads', async () => {
+      fetchResourceDetails.mockResolvedValue({
+        ...realFixtureData[0],
+        attributes: {
+          ...realFixtureData[0].attributes,
+          ogm: {
+            ...realFixtureData[0].attributes.ogm,
+            dct_references_s: JSON.stringify({
+              'http://iiif.io/api/presentation#manifest':
+                'https://example.org/manifest',
+            }),
+          },
+        },
+        meta: {
+          ui: {
+            downloads: [],
+            viewer: {
+              protocol: 'iiif_manifest',
+              endpoint: 'https://example.org/manifest',
+            },
+          },
+        },
+      });
+      vi.mocked(globalThis.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          downloads: [
+            {
+              label: 'Small Image',
+              url: 'https://example.org/map.jpg',
+              type: 'image/jpeg',
+              source: 'iiif',
+              canvas_id: 'page-1',
+              canvas_label: 'Map',
+              image_source: 'https://example.org/image',
+              iiif_resource_url: 'https://example.org/manifest',
+            },
+          ],
+        }),
+      } as Response);
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+      await screen.findByRole('button', { name: 'View test image' });
+      expect(
+        screen.queryByRole('link', { name: 'Small' })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Open in new tab' })
+      ).toHaveAttribute(
+        'href',
+        `/ogm-viewer?resource=${encodeURIComponent(realFixtureData[0].id)}`
+      );
+      expect(
+        screen.getByRole('link', { name: 'Open in new tab' })
+      ).toHaveAttribute('target', '_blank');
+      await userEvent.click(
+        screen.getByRole('button', { name: 'View test image' })
+      );
+      expect(
+        await screen.findByRole('link', { name: 'Small' })
+      ).toHaveAttribute(
+        'href',
+        'https://example.org/image/full/800,/0/default.jpg'
+      );
     });
 
     it('renders DownloadsTable when downloads are available', async () => {
@@ -1566,3 +1712,16 @@ describe('ResourceView Component', () => {
     });
   });
 });
+
+vi.mock('../../components/resource/LocationMap.client', () => ({
+  LocationMap: () => (
+    <div>
+      <h2>Location</h2>
+    </div>
+  ),
+  default: () => (
+    <div>
+      <h2>Location</h2>
+    </div>
+  ),
+}));

@@ -1,4 +1,23 @@
 services:
+  map_renderer:
+    build:
+      context: .
+      dockerfile: backend/tools/maplibre-static-prototype/Dockerfile.worker
+    command:
+      [
+        "sh",
+        "-c",
+        "rm -f /tmp/.X99-lock /tmp/.X11-unix/X99; Xvfb :99 -screen 0 1280x1024x24 -ac -nolisten tcp & sleep 2; exec node server.mjs",
+      ]
+    environment:
+      STATIC_MAP_STYLE_URL: ${STATIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
+    init: true
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 2
+    networks:
+      - elastic
+
   api:
     build:
       context: .
@@ -13,6 +32,7 @@ services:
       - ELASTICSEARCH_INDEX=btaa_geospatial_api
       - LOG_PATH=/app/logs
       - APPLICATION_URL=http://localhost:8000
+      - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
       - ANALYTICS_PASSWORD=${ANALYTICS_PASSWORD:-}
       - ANALYTICS_BASE_URL=${ANALYTICS_BASE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       - APP_ENV=development
@@ -48,6 +68,9 @@ services:
       - GAZETTEER_CACHE_TTL=3600
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=changeme
+      - STATIC_MAP_RENDERER_URL=${STATIC_MAP_RENDERER_URL:-http://map_renderer:8080}
+      - STATIC_MAP_RENDER_REVISION=${STATIC_MAP_RENDER_REVISION:-openfreemap-liberty-native-v1}
+      - STATIC_MAP_STYLE_URL=${STATIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
       - IS_DOCKER=true
       - PYTHONPATH=/app/backend
     ports:
@@ -102,6 +125,7 @@ services:
       - ./frontend/private-analytics-reports:/app/private-analytics-reports:ro
       - ./frontend/public:/app/public
       - ./frontend/scripts:/app/scripts
+      - ./frontend/vendor:/app/vendor
       - ./frontend/server:/app/server
       - ./frontend/index.html:/app/index.html
       - ./frontend/package.json:/app/package.json
@@ -226,6 +250,9 @@ services:
       - PYTHONPATH=/app/backend
       - LOG_PATH=/app/logs
       - LOG_LEVEL=DEBUG
+      - STATIC_MAP_RENDERER_URL=${STATIC_MAP_RENDERER_URL:-http://map_renderer:8080}
+      - STATIC_MAP_RENDER_REVISION=${STATIC_MAP_RENDER_REVISION:-openfreemap-liberty-native-v1}
+      - STATIC_MAP_STYLE_URL=${STATIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
       - IS_DOCKER=true
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
@@ -262,6 +289,9 @@ services:
       - PYTHONPATH=/app/backend
       - LOG_PATH=/app/logs
       - LOG_LEVEL=DEBUG
+      - STATIC_MAP_RENDERER_URL=${STATIC_MAP_RENDERER_URL:-http://map_renderer:8080}
+      - STATIC_MAP_RENDER_REVISION=${STATIC_MAP_RENDER_REVISION:-openfreemap-liberty-native-v1}
+      - STATIC_MAP_STYLE_URL=${STATIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
       - IS_DOCKER=true
     volumes:
       - ./logs:/app/logs

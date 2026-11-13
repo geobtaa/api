@@ -248,8 +248,6 @@ are retried within the same bound. The frontend proxy preserves these response h
 
 - **Priming for hot paths**:
   - `make prime-thumbnail-cache`, `make prime-static-map-cache`, and `make prime-visual-caches` generate assets ahead of user traffic.
-  - Static-map tile-provider or style changes must bump the generated-map variants so old durable assets are not reused. The OpenStreetMap transition uses `static_map_v10` and `static_basemap_v8`; rerun the static-map primer after upgrading an environment.
-  - The public `tile.openstreetmap.org` service permits normal interactive viewing but [prohibits bulk prefetching](https://operations.osmfoundation.org/policies/tiles/). Do not run a full-corpus static-map primer against that public endpoint; release-wide warming requires an OSM-derived or self-hosted tile source whose terms permit automated static generation. Keep deployed provider and priming details in the restricted operations docs.
   - Run `make resource-aux-init` before first local priming so `generated_visual_assets` and `generated_visual_asset_links` exist.
   - After a Redis reset, priming first tries to rehydrate from durable visual storage before regenerating remote thumbnails or static maps.
   - Full static-map priming defaults to durable assets/links plus small Redis aliases only. Use `PRIME_STATIC_MAP_HYDRATE_ASSETS=1` only for small hotsets when Redis DB 1 should hold the PNG bodies. Full-corpus static-map body hydration is refused unless `PRIME_ALLOW_FULL_HYDRATION=1` is also set.
@@ -426,3 +424,24 @@ the `map` cache tag if any older responses have already been cached.
 - **Redis latency**:
   - tune `REDIS_TIMEOUT_SECONDS`
   - keep Redis close to the API network-wise
+
+### MapLibre Native static maps
+
+Generated geometry and basemap variants are `native_geometry_v1` and
+`native_basemap_v1`. Their signatures include geometry/camera, dimensions, style
+URL, Native version, and `STATIC_MAP_RENDER_REVISION`. Bump the revision when
+style content, source datasets, glyphs, or rendering settings change. Existing
+immutable PNGs remain available; current aliases resolve only the new variants.
+Database storage and public asset routes retain their existing contracts.
+
+Local Compose includes a private Ubuntu software renderer. Run
+`make native-map-start` to build/start it and `make native-map-test` for its camera
+tests. Python requests the private `/render` endpoint; clients cannot supply
+style or remote-source URLs. Requests have dimension, byte, download, concurrency,
+and time limits. Busy responses receive bounded retries. PNG signature,
+dimensions, and integrity are validated before durable publication.
+
+No raster-provider fallback is used. Renderer failures leave successful assets
+intact. Campus maps retain content hashes and use cache aliases without creating
+fake resource rows. Local regeneration uses the existing primer workflows.
+Deployment configuration belongs in restricted operations documentation.

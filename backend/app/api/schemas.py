@@ -187,11 +187,15 @@ class DownloadOption(PublicAPIModel):
     generated: bool | None = None
     download_type: str | None = None
     generation_path: str | None = None
+    source: str | None = None
+    canvas_id: str | None = None
+    canvas_label: str | None = None
 
 
 class ResourceDownloadsResponse(PublicAPIModel):
     id: str
     downloads: list[DownloadOption] = Field(default_factory=list)
+    iiif_error: bool = False
 
 
 class GeneratedDownloadResponse(PublicAPIModel):

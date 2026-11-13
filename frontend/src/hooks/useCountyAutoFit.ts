@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type * as Leaflet from 'leaflet';
+import type * as Leaflet from '../mapping/maplibre';
 import {
   stateAbbrToFips,
   parseCountyFacetValue,
@@ -52,7 +52,7 @@ export function useCountyAutoFit({
     try {
       // Filter GeoJSON to the specific county feature
       void (async () => {
-        const mod = await import('leaflet');
+        const mod = await import('../mapping/maplibre');
         const L = mod.default;
 
         const layer = L.geoJSON(geoJson as GeoJsonData, {

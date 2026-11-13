@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
+
 import { useSearchParams } from 'react-router';
 import { cellToBoundary } from 'h3-js';
 import { h3CellGeometry } from '../../utils/h3Geometry';
@@ -8,8 +9,7 @@ import { fetchMapH3 } from '../../services/api';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { MapGeosearchControl } from '../map/MapGeosearchControl';
 import { attachBasemapSwitcher } from '../../config/basemaps';
-import { leafletGestureMapOptions } from '../../config/leafletConfig';
-import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+import { mapInteractionOptions } from '../../config/mapConfig';
 import { normalizeBboxSearchEnvelope } from '../../utils/bbox';
 import {
   getSavedHexLayerEnabled,
@@ -60,7 +60,7 @@ function getHexColor(intensity: number): string {
 }
 
 /** Return Leaflet LatLngBounds that encompass all given H3 cells, or null if empty. */
-function boundsOfHexes(hexIndexes: string[]): L.LatLngBounds | null {
+function boundsOfHexes(hexIndexes: string[]): MapTypes.LatLngBounds | null {
   if (hexIndexes.length === 0) return null;
   let minLat = 90;
   let maxLat = -90;
@@ -86,7 +86,7 @@ interface BBox {
 
 type BBoxRelationMode = 'intersects' | 'within';
 
-const BBOX_RECTANGLE_STYLE: L.PathOptions = {
+const BBOX_RECTANGLE_STYLE: MapTypes.PathOptions = {
   color: '#2563eb',
   weight: 2,
   opacity: 0.8,
@@ -102,16 +102,16 @@ interface GeospatialFilterMapProps {
 export function GeospatialFilterMap({
   hideHeading = false,
 }: GeospatialFilterMapProps) {
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<MapTypes.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [mapInstance, setMapInstance] = useState<MapTypes.Map | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const isUpdatingFromParamsRef = useRef(false);
-  const selectedPlaceGeoJsonRef = useRef<L.GeoJSON | null>(null);
-  const bboxRectangleRef = useRef<L.Rectangle | null>(null);
+  const selectedPlaceGeoJsonRef = useRef<MapTypes.GeoJSON | null>(null);
+  const bboxRectangleRef = useRef<MapTypes.Rectangle | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
-  const previewRectangleRef = useRef<L.Rectangle | null>(null);
-  const hexLayerRef = useRef<L.GeoJSON | null>(null);
+  const previewRectangleRef = useRef<MapTypes.Rectangle | null>(null);
+  const hexLayerRef = useRef<MapTypes.GeoJSON | null>(null);
   const basemapCleanupRef = useRef<(() => void) | null>(null);
   const lastAutoFitSearchKeyRef = useRef<string | null>(null);
   const [hexesInView, setHexesInView] = useState<
@@ -171,15 +171,20 @@ export function GeospatialFilterMap({
 
     const initializeMap = () => {
       if (!mapContainerRef.current || mapRef.current) return;
-      registerLeafletGestureHandling(L);
       if (cancelled || !mapContainerRef.current || mapRef.current) return;
 
-      mapRef.current = L.map(mapContainerRef.current, {
-        zoomControl: true,
-        attributionControl: false,
-        minZoom: 1,
-        ...leafletGestureMapOptions,
-      });
+      try {
+        mapRef.current = L.map(mapContainerRef.current, {
+          zoomControl: true,
+          attributionControl: true,
+          collapsedAttribution: true,
+          minZoom: 1,
+          ...mapInteractionOptions,
+        });
+      } catch {
+        L.showMapError(mapContainerRef.current);
+        return;
+      }
       setMapInstance(mapRef.current);
       basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
 
@@ -800,7 +805,7 @@ export function GeospatialFilterMap({
               <button
                 type="button"
                 onClick={handleSearchHere}
-                className="absolute top-2 right-2 z-[1000] flex items-center rounded-lg bg-[#ff7a00] px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_8px_1px_rgba(0,166,255,0.22),0_3px_8px_rgba(0,80,150,0.1)] transition-colors hover:bg-[#ff8f1f] focus:outline-none focus:ring-2 focus:ring-[#003c5b] focus:ring-offset-2"
+                className="absolute top-2 right-16 z-[1000] flex items-center rounded-lg bg-[#ff7a00] px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_8px_1px_rgba(0,166,255,0.22),0_3px_8px_rgba(0,80,150,0.1)] transition-colors hover:bg-[#ff8f1f] focus:outline-none focus:ring-2 focus:ring-[#003c5b] focus:ring-offset-2"
                 aria-label="Search in this area"
               >
                 <span>Search here</span>

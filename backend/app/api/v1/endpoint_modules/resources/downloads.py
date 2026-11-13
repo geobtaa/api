@@ -38,9 +38,23 @@ async def get_resource_downloads(
         download_service = DownloadService(resource_dict, distribution_context=distribution_context)
         downloads = await download_service.get_download_options_with_bridge_asset_downloads()
 
+        iiif_error = False
+        try:
+            iiif_downloads = await download_service.resolve_iiif_downloads()
+            if iiif_downloads:
+                # Replace provisional image links, retaining all non-IIIF downloads.
+                downloads = [d for d in downloads if d.get("source") != "iiif"]
+                existing_urls = {d["url"] for d in downloads}
+                downloads.extend(
+                    d for d in iiif_downloads if d.get("canvas_id") or d["url"] not in existing_urls
+                )
+        except ValueError:
+            iiif_error = True
+
         response_payload = {
             "id": id,
             "downloads": downloads,
+            "iiif_error": iiif_error,
         }
 
         return create_response(response_payload, callback)
