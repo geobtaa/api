@@ -154,6 +154,34 @@ async def test_zero_probe_and_cache_hit(stage_cache):
 
 
 @pytest.mark.asyncio
+async def test_group_count_cache_preserves_disjoint_counts_and_logical_queries(stage_cache):
+    es = AsyncMock()
+    es.search.return_value = {
+        "hits": {"total": {"value": 15}},
+        "aggregations": {"all_terms": {"doc_count": 1}},
+    }
+    strict = {"term": {"strict": True}}
+    partial = {"term": {"eligible": True}}
+    matching = await relevance.resolve_groups(es, "index", strict, partial, generation="index:one")
+    assert matching.metadata() == {
+        "mode": "all_terms_then_partial",
+        "broadened": True,
+        "version": "v2",
+        "all_terms_count": 1,
+        "partial_terms_count": 14,
+    }
+    assert es.search.call_args.kwargs["query"] == partial
+    assert es.search.call_args.kwargs["aggs"] == {"all_terms": {"filter": strict}}
+    stage_cache.get.return_value = stage_cache.set.call_args.args[1]
+    relevance.clear_matching_cache()
+    assert (
+        await relevance.resolve_groups(es, "index", strict, partial, generation="index:one")
+        == matching
+    )
+    es.search.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_unbuilt_index_rejected():
     es = AsyncMock()
     mapping = copy.deepcopy(INDEX_MAPPING["mappings"])
@@ -161,7 +189,7 @@ async def test_unbuilt_index_rejected():
     with pytest.raises(HTTPException, match="completed catalog reindex"):
         await relevance.index_generation(es, "alias")
     mapping["_meta"]["search_relevance_ready"] = True
-    assert await relevance.index_generation(es, "alias") == "index:initial"
+    assert await relevance.index_generation(es, "alias") == "index:grouped1-initial"
     del mapping["properties"]["collection_titles"]["fields"]["search_en"]
     with pytest.raises(HTTPException):
         await relevance.index_generation(es, "alias")
@@ -181,10 +209,10 @@ async def test_generation_is_reused_only_within_request():
         assert await relevance.index_generation(es, "alias") == first
         return first
 
-    assert await request() == "index:one"
+    assert await request() == "index:grouped1-one"
     es.indices.get_mapping.assert_awaited_once()
     mapping["_meta"]["search_revision"] = "two"
-    assert await request() == "index:two"
+    assert await request() == "index:grouped1-two"
     assert es.indices.get_mapping.await_count == 2
 
 

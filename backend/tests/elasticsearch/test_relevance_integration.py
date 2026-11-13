@@ -44,7 +44,12 @@ async def catalog(monkeypatch):
     mapping = copy.deepcopy(INDEX_MAPPING)
     await client.indices.create(index=index, **mapping)
     try:
-        docs = copy.deepcopy(STREETCARS["documents"] + COAL["documents"])
+        docs = copy.deepcopy(
+            STREETCARS["documents"]
+            + COAL["documents"]
+            + STREETCARS["partial_ranking_distractors"]
+            + STREETCARS["route_background_documents"]
+        )
         # All synthetic examples below are distractors or explicitly labeled boundary cases.
         docs += [
             {"id": "synthetic-unrelated", "dct_title_s": "Minneapolis park maps"},
@@ -100,18 +105,16 @@ async def run_query(query, *, skip=0, include_filters=None, **kwargs):
     plan = search.SearchQueryBuilder(
         params, params.criteria(), search.SearchFacetSelection({}, ())
     ).build()
-    response = await search.es.search(
-        index=params.index_name,
-        query=plan.search_query["query"],
-        size=params.limit,
-        from_=skip,
-        track_total_hits=True,
-    )
-    return params, response
+    execution = await search.SearchExecutor(
+        params, plan, search.SearchFacetSelection({}, ())
+    ).execute()
+    return params, execution.response_dict
 
 
 @pytest.mark.asyncio(loop_scope="function")
-@pytest.mark.parametrize("query,mode", [(A, "partial_terms"), (B, "all_terms"), (C, "all_terms")])
+@pytest.mark.parametrize(
+    "query,mode", [(A, "partial_terms"), (B, "all_terms_then_partial"), (C, "all_terms")]
+)
 async def test_streetcar_recall_and_ranking(catalog, query, mode):
     params, response = await run_query(query)
     ids = [hit["_id"] for hit in response["hits"]["hits"]]
@@ -125,19 +128,70 @@ async def test_streetcar_recall_and_ranking(catalog, query, mode):
 
 
 @pytest.mark.asyncio(loop_scope="function")
-async def test_real_strict_natural_language_hit_prevents_fallback(catalog):
+async def test_real_strict_natural_language_hit_precedes_partial_matches(catalog):
     client, index = catalog
     document = STREETCARS["full_catalog_strict_match"]
     await client.index(index=index, id=document["id"], document=document, refresh=True)
     await advance_search_revision(client, index, ready=True)
     params, response = await run_query(A)
-    assert params.matching.mode == "all_terms"
-    assert [hit["_id"] for hit in response["hits"]["hits"]] == [document["id"]]
+    assert params.matching.mode == "all_terms_then_partial"
+    ids = [hit["_id"] for hit in response["hits"]["hits"]]
+    assert ids[0] == document["id"]
+    assert set(STREETCARS["relevant_ids"]) <= set(ids[1:])
+    assert params.matching.all_terms_count == 1
+    assert params.matching.partial_terms_count == len(ids) - 1
 
     # A logical exclusion restores a genuine zero, enabling the partial stage.
     params, response = await run_query(A, exclude_filters={"id": [document["id"]]})
     assert params.matching.mode == "partial_terms"
     assert set(STREETCARS["relevant_ids"]) <= {hit["_id"] for hit in response["hits"]["hits"]}
+
+
+@pytest.mark.asyncio(loop_scope="function")
+@pytest.mark.parametrize("sort", [None, [{"dct_title_s.keyword": "asc"}]])
+async def test_grouped_pagination_is_complete_unique_and_sorted_within_groups(catalog, sort):
+    client, index = catalog
+    strict_ids = {"strict-a", "strict-b", "strict-c"}
+    for identifier in strict_ids:
+        await client.index(
+            index=index,
+            id=identifier,
+            document={**STREETCARS["full_catalog_strict_match"], "id": identifier},
+        )
+    await client.indices.refresh(index=index)
+    await advance_search_revision(client, index, ready=True)
+
+    async def page(skip=0, limit=100):
+        return await search.search_resources(
+            query=A,
+            skip=skip,
+            limit=limit,
+            sort=sort,
+            hydrate_hits=False,
+            facets="gbl_resourceClass_sm",
+        )
+
+    whole = await page()
+    expected = [row["id"] for row in whole["data"]]
+    assert set(expected[:3]) == strict_ids
+    assert not strict_ids & set(expected[3:])
+    matching = whole["meta"]["matching"]
+    assert matching["all_terms_count"] == 3
+    assert matching["partial_terms_count"] == len(expected) - 3
+    for size in [1, 2, 3, 5]:
+        actual = []
+        for offset in range(0, len(expected), size):
+            result = await page(offset, size)
+            actual.extend(row["id"] for row in result["data"])
+            assert result["meta"]["matching"] == matching
+            assert result["meta"]["pages"]["total_count"] == len(expected)
+            assert result["included"] == whole["included"]
+        assert actual == expected
+    assert (await page(len(expected) + 5))["data"] == []
+    facets = await search.get_facet_values("gbl_resourceClass_sm", query=A)
+    assert facets.matching.metadata() == matching
+    assert sum(bucket["doc_count"] for bucket in facets) == len(expected)
+    assert (await search.map_h3_aggregation(q=A))["matching"] == matching
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -482,13 +536,13 @@ async def test_full_search_response_matching_and_filters(catalog):
 @pytest.mark.parametrize(
     "query,skip,searches,mode",
     [
-        (C, 0, 1, "all_terms"),
-        (C, 1000, 1, "all_terms"),
+        (C, 0, 2, "all_terms"),
+        (C, 1000, 2, "all_terms"),
         (A, 0, 2, "partial_terms"),
         ("Minneapolis streetcar zzz", 0, 2, "partial_terms"),
     ],
 )
-async def test_cold_results_reuse_strict_totals(catalog, monkeypatch, query, skip, searches, mode):
+async def test_cold_results_count_groups_once(catalog, monkeypatch, query, skip, searches, mode):
     client, _ = catalog
     relevance.clear_matching_cache()
     original_search = client.search
@@ -503,13 +557,10 @@ async def test_cold_results_reuse_strict_totals(catalog, monkeypatch, query, ski
     )
     assert result["meta"]["matching"]["mode"] == mode
     assert spy.await_count == searches
-    if searches == 2:
-        if query == A:
-            assert spy.call_args_list[0].kwargs["terminate_after"] == 1
-            assert spy.call_args_list[1].kwargs["suggest"]
-        else:
-            assert spy.call_args_list[0].kwargs["suggest"]
-            assert spy.call_args_list[1].kwargs["suggest"] is None
+    assert spy.call_args_list[0].kwargs["size"] == 0
+    assert spy.call_args_list[0].kwargs["track_total_hits"] is True
+    assert "terminate_after" not in spy.call_args_list[0].kwargs
+    assert "suggest" not in spy.call_args_list[0].kwargs
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -547,9 +598,9 @@ async def test_result_stage_is_reused_by_facets_and_maps_and_invalidated(catalog
     result = await search.search_resources(
         query=A, hydrate_hits=False, facets="gbl_resourceClass_sm"
     )
-    assert result["meta"]["matching"]["mode"] == "all_terms"
-    assert [doc["id"] for doc in result["data"]] == ["new-strict"]
-    assert spy.await_count == 6  # a new generation requires another probe for long queries
+    assert result["meta"]["matching"]["mode"] == "all_terms_then_partial"
+    assert result["data"][0]["id"] == "new-strict"
+    assert spy.await_count == 7  # a new generation requires another probe for long queries
 
 
 @pytest.mark.asyncio(loop_scope="function")

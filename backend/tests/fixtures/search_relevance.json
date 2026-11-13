@@ -23,8 +23,14 @@
     "dct_description_sm": [
       "Reprint of a 1940 Aquatennial event map, which also shows all streetcar and bus routes."
     ],
-    "gbl_resourceClass_sm": ["Maps"],
-    "dct_spatial_sm": ["Minnesota--Minneapolis", "Minnesota--Hennepin County", "Minnesota"],
+    "gbl_resourceClass_sm": [
+      "Maps"
+    ],
+    "dct_spatial_sm": [
+      "Minnesota--Minneapolis",
+      "Minnesota--Hennepin County",
+      "Minnesota"
+    ],
     "publication_state": "published",
     "gbl_suppressed_b": false
   },
@@ -506,5 +512,539 @@
         "05d-13"
       ]
     }
-  ]
+  ],
+  "partial_ranking_distractors": [
+    {
+      "id": "p16022coll244:492",
+      "dct_title_s": "University of Minnesota Minneapolis Campus Parking and Bus Routes map, 1955",
+      "dct_description_sm": [],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota"
+      ]
+    },
+    {
+      "id": "p16022coll244:634",
+      "dct_title_s": "University of Minnesota Minneapolis Campus, Proposed Bus Routes and One Way Streets map, 1954",
+      "dct_description_sm": [],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota"
+      ]
+    },
+    {
+      "id": "p16022coll583:2072",
+      "dct_title_s": "Map of Minneapolis, St. Paul & vicinity : showing state trunk highway routing and proposed extensions and alterations in relation to existing street and highway facilities",
+      "dct_description_sm": [
+        "May 1931.",
+        "59 x 73 centimeters, on sheet 78 x 108 centimeters"
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota",
+        "United States"
+      ]
+    }
+  ],
+  "additional_relevant_ids": [
+    "msn-id-2250",
+    "p16022coll245:529",
+    "p16022coll245:532",
+    "p16022coll245:1081",
+    "p16022coll245:876",
+    "p16022coll245:1089",
+    "p16022coll245:909"
+  ],
+  "route_background_documents": [
+    {
+      "id": "7222eb942cfa4df0b764298e2f18598f_0",
+      "dct_title_s": "Routes [Iowa]",
+      "dct_description_sm": [
+        "This REST service shows all bus routes and stops that have been shared on www.iowa-gtfs.com . For GTFS attribute information, view https://developers.google.com/transit/gtfs/reference/"
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Iowa"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "9a46762a-a28e-48c2-a958-9beaa15f8332",
+      "dct_title_s": "Niger : Routes",
+      "dct_description_sm": [
+        "Ce jeu de données donne la liste des routes au Niger."
+      ],
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "dct_spatial_sm": [
+        "Niger"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "pasda-Ferry_Routes",
+      "dct_title_s": "Ferry Routes",
+      "dct_description_sm": [
+        "More Information: https://www.datacommons.psu.edu/metadata/Ferry Routes.html"
+      ],
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "dct_spatial_sm": [],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "VAC3073-M-00788",
+      "dct_title_s": "Interstate routes",
+      "dct_description_sm": [
+        "Shows interstate routes open to traffic, under construction, and in planning. Detached from: An atlas of Indiana / by Robert C. Kingsbury , with contributions from John M. Hollingsworth and others. Bloomington, Indiana : Department of Geography, Indiana University, [1970]. Page 80.",
+        "Imprint: Bloomington, Indiana : Department of Geography, Indiana University, [1970]",
+        "Dimensions: 26 x 18 cm, on sheet 28 x 21 cm"
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "Indiana"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "86d84dd612b043f8a6e8ae4743e80b96_72",
+      "dct_title_s": "Truck Route (sublayer of Designated Truck Route) [Illinois]",
+      "dct_description_sm": [
+        "Designated truck routes in Illinois are specific roads that the state and local governments have approved for commercial truck travel. These routes are part of Illinois' State Truck Route System , designed to help trucks move efficiently while protecting roads, bridges, and communities. OPER 753 defines legal limits and access laws based on Designated Truck Routes at https://idot.illinois.gov/content/dam/soi/en/web/idot/documents/idot-forms/oper/oper-753.pdf Designated truck routes include: Class I truck routes : Interstates and major highways that allow all large trucks, including 53-foot semitrailers. Class II truck routes : State highways where trucks are allowed but may face some restrictions (such as length limits). Non-designated truck routes : State and Local roads where trucks are allowed with tighter restrictions. Data for State and Local Designated Truck Routes can be obtained at this link . Posted Structures . This item identifies a structure on the system of highways not approved for travel of tractor/semitrailer loads of 80,000 pounds and specified wheel bases. The trucking industry uses this information to safely move vehicles with legal-size loads. Legal Load Structures . This item identifies a structure on the system of highways approved for legal travel of tractor/semitrailer loads. The trucking industry uses this information to safely move vehicles with overweight permits that can't legally cross these structures. For details: Structure Information and Procedures (SIP manual) The SIP manual has been developed through a cooperative effort within the Department between the Division of Highways and the Office of Planning and Programming. IDOT and its Divisions and Offices are committed to maintaining the structure information system at a high level. This commitment is not only to satisfy NBIS requirements, but also to provide an excellent tool for managing bridges and other structures as they relate to the overall transportation system in Illinois. For the traveling public's safety and convenience, this commitment remains a high priority for the Department. Contact Meiwu An, P.E., PTOE IDOT Bureau of Operations Meiwu.An@Illinois.gov"
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Illinois"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "86d84dd612b043f8a6e8ae4743e80b96_86",
+      "dct_title_s": "Tollway Route (sublayer of Designated Truck Route) [Illinois]",
+      "dct_description_sm": [
+        "Designated truck routes in Illinois are specific roads that the state and local governments have approved for commercial truck travel. These routes are part of Illinois' State Truck Route System , designed to help trucks move efficiently while protecting roads, bridges, and communities. OPER 753 defines legal limits and access laws based on Designated Truck Routes at https://idot.illinois.gov/content/dam/soi/en/web/idot/documents/idot-forms/oper/oper-753.pdf Designated truck routes include: Class I truck routes : Interstates and major highways that allow all large trucks, including 53-foot semitrailers. Class II truck routes : State highways where trucks are allowed but may face some restrictions (such as length limits). Non-designated truck routes : State and Local roads where trucks are allowed with tighter restrictions. Data for State and Local Designated Truck Routes can be obtained at this link . Posted Structures . This item identifies a structure on the system of highways not approved for travel of tractor/semitrailer loads of 80,000 pounds and specified wheel bases. The trucking industry uses this information to safely move vehicles with legal-size loads. Legal Load Structures . This item identifies a structure on the system of highways approved for legal travel of tractor/semitrailer loads. The trucking industry uses this information to safely move vehicles with overweight permits that can't legally cross these structures. For details: Structure Information and Procedures (SIP manual) The SIP manual has been developed through a cooperative effort within the Department between the Division of Highways and the Office of Planning and Programming. IDOT and its Divisions and Offices are committed to maintaining the structure information system at a high level. This commitment is not only to satisfy NBIS requirements, but also to provide an excellent tool for managing bridges and other structures as they relate to the overall transportation system in Illinois. For the traveling public's safety and convenience, this commitment remains a high priority for the Department. Contact Meiwu An, P.E., PTOE IDOT Bureau of Operations Meiwu.An@Illinois.gov"
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Illinois"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "86d84dd612b043f8a6e8ae4743e80b96_80",
+      "dct_title_s": "Local Truck Route (sublayer of Designated Truck Route) [Illinois]",
+      "dct_description_sm": [
+        "Designated truck routes in Illinois are specific roads that the state and local governments have approved for commercial truck travel. These routes are part of Illinois' State Truck Route System , designed to help trucks move efficiently while protecting roads, bridges, and communities. OPER 753 defines legal limits and access laws based on Designated Truck Routes at https://idot.illinois.gov/content/dam/soi/en/web/idot/documents/idot-forms/oper/oper-753.pdf Designated truck routes include: Class I truck routes : Interstates and major highways that allow all large trucks, including 53-foot semitrailers. Class II truck routes : State highways where trucks are allowed but may face some restrictions (such as length limits). Non-designated truck routes : State and Local roads where trucks are allowed with tighter restrictions. Data for State and Local Designated Truck Routes can be obtained at this link . Posted Structures . This item identifies a structure on the system of highways not approved for travel of tractor/semitrailer loads of 80,000 pounds and specified wheel bases. The trucking industry uses this information to safely move vehicles with legal-size loads. Legal Load Structures . This item identifies a structure on the system of highways approved for legal travel of tractor/semitrailer loads. The trucking industry uses this information to safely move vehicles with overweight permits that can't legally cross these structures. For details: Structure Information and Procedures (SIP manual) The SIP manual has been developed through a cooperative effort within the Department between the Division of Highways and the Office of Planning and Programming. IDOT and its Divisions and Offices are committed to maintaining the structure information system at a high level. This commitment is not only to satisfy NBIS requirements, but also to provide an excellent tool for managing bridges and other structures as they relate to the overall transportation system in Illinois. For the traveling public's safety and convenience, this commitment remains a high priority for the Department. Contact Meiwu An, P.E., PTOE IDOT Bureau of Operations Meiwu.An@Illinois.gov"
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Illinois"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "041b6ae8-b5a0-435b-8123-3c4904c10d29",
+      "dct_title_s": "Route map of Rhodesia.",
+      "dct_description_sm": [
+        "1 map; 57 x 89 cm folded to 17 x 12 cm",
+        "Scale approximately 1:1,267,200 (E 26°--E 35° / S 18°--S 23°). ; Includes: Notes on road from Limpopo to Pietersburg.; Printed on cloth.; Compiled by Wood & Ortlepp from information received from military sources."
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "Zimbabwe",
+        "South Africa"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "3e40c092b12b4d418a8bb1755aef4104_166",
+      "dct_title_s": "Signed Routes [Oregon]",
+      "dct_description_sm": [
+        "This file includes all signed Interstate, US, and State routes for the State of Oregon. Additional metadata resouce: https://geoportalprod-ordot.msappproxy.net/geoportal/catalog/main/home.page"
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Oregon"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "6811bd5464fc46f5a7964ae9866a44ce_0",
+      "dct_title_s": "Closed Routes [Iowa]",
+      "dct_description_sm": [
+        "511 events for counties in Iowa that contribute to the Iowa County Engineers Association Service Bureau Roads Application . Not all counties in Iowa contribute data. Some data may be old or incorrect. Contact the county engineer directly for the most current road status. Data gets updated once an hour."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Iowa"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "ark:-77981-gmgs9p2w551",
+      "dct_title_s": "Routes Colorado 2004",
+      "dct_description_sm": [
+        "This line data layer represents routes for Colorado in 2004. The dataset was originally published by the Colorado Department of Transportation on April 3, 2004.[The route layer is CDOT's centerline representation of state highways. It is later combined with several 'On System' tables using dynamic segmentation]"
+      ],
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "dct_spatial_sm": [
+        "Colorado"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "de971a58-43e3-40f9-b8e0-ee3e77afd711",
+      "dct_title_s": "Non-Motorized Routes",
+      "dct_description_sm": [
+        "Bike Lanes, Shared Use Paths, Suggested Bike Lanes, Buffered Bike Lanes, Designated Bike Routes, Sharrow Segments, Protected Bike Lanes, Trails, and Advisory Bike Lanes"
+      ],
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "dct_spatial_sm": [
+        "Michigan--Ann Arbor",
+        "Michigan"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "p16022coll205:669",
+      "dct_title_s": "Route map of Seattle",
+      "dct_description_sm": [
+        "Text and map of Seattle's business section on verso.; \"6-15-22.\"",
+        "38 x 54 centimeters"
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "Washington--Seattle",
+        "Washington"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "p16022coll246:137",
+      "dct_title_s": "Kashmir route map",
+      "dct_description_sm": [
+        "Cartographic Details: Scale 1:2,027,520. 32 miles = 1 in. ; (E 70°30'00\"--E 80°30'00\"/N 36°59'00\"--N 28°30'00\"). Relief shown by spot heights.\"Lithog'd. and printed by H. M. Smith. Surveyor General's Office, Calcutta, May 1863.\" Includes distance tables.",
+        "49 x 53 centimeters, on sheet 65 x 76 centimeters"
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "India"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "p16022coll246:415",
+      "dct_title_s": "Kashmir route map",
+      "dct_description_sm": [
+        "Cartographic Details: Scale [1:2,027,520]. 32 miles = 1 in. Relief shown by hachures and spot heights. Includes 30 routes, distance tables.\"Published under the direction of Colonel H.L. Thuillier ..., Surveyor General of India.\"\"November 1870.\"",
+        "61 x 71 centimeters"
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "India"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "princeton-9k41zg335",
+      "dct_title_s": "Air routes of the world",
+      "dct_description_sm": [
+        "Reprinted 1943. United States. Navy Hydrographic Office. U.S. Navy Hydrographic Office. North Decimal Degree 78.000000. South Decimal Degree -69.0000. East Decimal Degree 100.0000. West Decimal Degree 60.0000. Shows routes and distances between selected points. \"No.V-1262.\"."
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "stanford-cm030pq1990",
+      "dct_title_s": "La route française",
+      "dct_description_sm": [
+        "Covers most of the Champagne and Lorraine regions of northeastern France."
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "France",
+        "Champagne-Ardenne",
+        "Lorraine",
+        "Champagne-Ardenne (France)",
+        "Lorraine (France)",
+        "France.",
+        "Champagne-Ardenne.",
+        "Lorraine."
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "VAC3073-M-00255",
+      "dct_title_s": "Early routes of transportation",
+      "dct_description_sm": [
+        "Shows rivers, canals, roads, trails, and the first Indiana railroad, important transportation routes during the Pioneer Era.    Detached from: An atlas of Indiana / by Robert C. Kingsbury , with contributions from John M. Hollingsworth and others. Bloomington, Indiana : Department of Geography, Indiana University, [1970]. Page 74.",
+        "Imprint: Bloomington, Indiana : Department of Geography, Indiana University, [1970]",
+        "Dimensions: 23 x 18 cm, on sheet 28 x 21 cm; Scale: Approximately 1:2,000,000",
+        "Coordinates: W0880700 W0844500 N0414500 N0374600"
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "Indiana"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "393fee996b8c44afbe087311bf947617_4",
+      "dct_title_s": "WSDOT - Active Transportation Route Directness Index Routes [Washington (State)]",
+      "dct_description_sm": [
+        "This feature class represents the routes that were used for the Route Directness Index calculation. These routes were generated by submitting the begin and end points of each RDI_Transect to the Esri routing service using the Walking Distance parameter. The service returns a route of the shortest pedestrian path between the two points. The search tolerance for the routing service was set to 400 feet, so that if there was no valid walking destination within 400 feet of the begin or end point, no route was calculated. The routing service is dependent on the Esri network data available when the service was accessed in January 2025. The Route Directness Index (RDI) is a ratio that compares the straight-line (crow-flies) distance from one point to another across a barrier to the actual distance imposed by the network of paths available to a traveler. RDI data is particularly relevant to pedestrian and/or bicyclist trips due to the extra time, physical energy, and exposure to weather that out of direction travel creates. A complete discussion of route directness, including potential applications to decision making, can be found in the Washington State Multimodal Permeability Pilot Report, August 2021 [ https://wsdot.wa.gov/sites/default/files/2021-11/MultimodalPermeabilityPilotReport-Aug2021.pdf ]. RDI can be analyzed at different scales. A high-level analysis of RDI can address questions that compare population centers across the state or consider whether the RDI values are generally similar within a given population center or tend to vary in different portions of a population center. High level data could be combined with other statewide data such as crash data, transit stops, level of traffic stress data, destination data, etc. to analyze potential correlations. High level RDI data is less useful for analyzing a particular crossing location or recommending solutions to address high RDI values. A more detailed analysis is likely required when questions involve corridor studies or project evaluations. Detailed location information can refer to key destinations and crossing locations that are not captured using higher level network maps. The lowest RDI is 1 because a trip between those points can be made directly along an existing roadway. The actual methodology analyzed hypothetical trips where the start and end points were about a quarter mile apart relative to a straight line. In such a situation, an RDI of 2 would mean the trip is twice the distance it might otherwise be, or about one-half mile. Although one-half mile is not particularly far, the RDI is independent of the actual distance. We might start further down the road and if the RDI remained a 2 our trip distance would be twice as long as it could have been. The RDI thus measures the real or perceived burden or travel cost incurred by a person walking or bicycling."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Washington (State)"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "86d84dd612b043f8a6e8ae4743e80b96_85",
+      "dct_title_s": "State Maintained Truck Route (sublayer of Designated Truck Route) [Illinois]",
+      "dct_description_sm": [
+        "Designated truck routes in Illinois are specific roads that the state and local governments have approved for commercial truck travel. These routes are part of Illinois' State Truck Route System , designed to help trucks move efficiently while protecting roads, bridges, and communities. OPER 753 defines legal limits and access laws based on Designated Truck Routes at https://idot.illinois.gov/content/dam/soi/en/web/idot/documents/idot-forms/oper/oper-753.pdf Designated truck routes include: Class I truck routes : Interstates and major highways that allow all large trucks, including 53-foot semitrailers. Class II truck routes : State highways where trucks are allowed but may face some restrictions (such as length limits). Non-designated truck routes : State and Local roads where trucks are allowed with tighter restrictions. Data for State and Local Designated Truck Routes can be obtained at this link . Posted Structures . This item identifies a structure on the system of highways not approved for travel of tractor/semitrailer loads of 80,000 pounds and specified wheel bases. The trucking industry uses this information to safely move vehicles with legal-size loads. Legal Load Structures . This item identifies a structure on the system of highways approved for legal travel of tractor/semitrailer loads. The trucking industry uses this information to safely move vehicles with overweight permits that can't legally cross these structures. For details: Structure Information and Procedures (SIP manual) The SIP manual has been developed through a cooperative effort within the Department between the Division of Highways and the Office of Planning and Programming. IDOT and its Divisions and Offices are committed to maintaining the structure information system at a high level. This commitment is not only to satisfy NBIS requirements, but also to provide an excellent tool for managing bridges and other structures as they relate to the overall transportation system in Illinois. For the traveling public's safety and convenience, this commitment remains a high priority for the Department. Contact Meiwu An, P.E., PTOE IDOT Bureau of Operations Meiwu.An@Illinois.gov"
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Illinois"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "stanford-mm499kq7567",
+      "dct_title_s": "Automobile routes from Los Angeles to Bakersfield via coast route",
+      "dct_description_sm": [
+        "Automobile Club of Southern California ; H.P.H.",
+        "Relief shown by hachures.",
+        "Coordinates approximate and based on Greenwich meridian.",
+        "Compass rose.",
+        "Oriented with north toward upper right.",
+        "Bar scale given in \"Miles.\"",
+        "Includes legend and table of distances.",
+        "Shows city plans, roads, railroads.",
+        "Numbered 64 in lower left corner and 25 in bottom margin.",
+        "\"7/2/12\"",
+        "Belongs to a series of strip maps showing roads in California."
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dct_spatial_sm": [
+        "California",
+        "Los Angeles (Calif.)",
+        "Bakersfield (Calif.)"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "0215f7d634e7406497f300957c14a53e_1",
+      "dct_title_s": "Daily Routes [Nebraska--Lincoln]",
+      "dct_description_sm": [
+        "This layer represents the daily routes for StarTran bus service in the City of Lincoln, NE. This dataset is updated and maintained by the City of Lincoln Public Works and Utilities Department."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Nebraska--Lincoln",
+        "Nebraska"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "0215f7d634e7406497f300957c14a53e_3",
+      "dct_title_s": "Booster Routes [Nebraska--Lincoln]",
+      "dct_description_sm": [
+        "This layer represents the daily routes for StarTran bus service in the City of Lincoln, NE. This dataset is updated and maintained by the City of Lincoln Public Works and Utilities Department."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Nebraska--Lincoln",
+        "Nebraska"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "02bfcf6b70eb44b99c37b406b1cc9d8a_67",
+      "dct_title_s": "Amtrak Routes 2019 [Indiana]",
+      "dct_description_sm": [
+        "The Amtrak Routes dataset is as of June 18, 2019 from the Federal Railroad Administration (FRA) and is part of the U.S. Department of Transportation (USDOT)/Bureau of Transportation Statistics' (BTS') National Transportation Atlas Database (NTAD). This dataset is a single line representation of unique routes that are generated from the North American Railroad Network (Amtrak). It contains information on ownership, trackage rights, type, passenger, STRACNET, and geographic reference of the Amtrak system at 1:24,000 or better and the dataset covers all 50 states and the District of Columbia."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Indiana"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "0c65f66171484583a0fb72a1fac0c726_1",
+      "dct_title_s": "TIM Alt Routes [Iowa]",
+      "dct_description_sm": [
+        "This layer contains Iowa DOT Office of Transportation Operations Transportation Incident Management (TIM) Closures and Alternative Routes."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Iowa"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "113c66da1d374bf489267745e0720221_0",
+      "dct_title_s": "Coincident Routes in Minnesota [Minnesota]",
+      "dct_description_sm": [
+        "This data set shows all locations where trunk highway exists but is not primary. This occurs where multiple routes follow the same road-bed or pavement. When this happens, one route is designated primary and all attributes of the roadway are assigned to it. All other routes are labelled secondary and do not get attributes assigned but exist solely for route continuity."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "124e7800617c42feb30432fb7d60d486_0",
+      "dct_title_s": "Memorial Routes in Minnesota [Minnesota]",
+      "dct_description_sm": [
+        "Memorial Routes represents road centerlines for all public roads within the State of Minnesota which are designated as a Memorial Route in a state statute. The roads are attributed with information based on their designated route."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "13a79b2d47ec494ba72452c000781b98_1",
+      "dct_title_s": "Ice Routes [Oregon--Salem]",
+      "dct_description_sm": [
+        "Feature class representing City of Salem Public Works Snow and Ice Response routes. Primary Snow Routes represent routes on Arterial and Collector streets. Secondary Snow Routes represents routes on Collector streets. Ice Routes represent streets that are pretreated for ice. Bridge Treatments represent bridges that are pretreated for ice."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Oregon--Salem",
+        "Oregon"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "15889991-81D3-4540-9C52-413B4072A1CD",
+      "dct_title_s": "Paddling Routes, Wisconsin 2024",
+      "dct_description_sm": [
+        "This data represents paddling routes for Wisconsin in 2024."
+      ],
+      "gbl_resourceClass_sm": [
+        "Datasets"
+      ],
+      "dct_spatial_sm": [
+        "Wisconsin"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    },
+    {
+      "id": "2338c8bcbcd34f5e8beec4e9448c463d_0",
+      "dct_title_s": "QLine Route [Michigan--Detroit]",
+      "dct_description_sm": [
+        "The route followed by the QLine streetcar in downtown and midtown Detroit."
+      ],
+      "gbl_resourceClass_sm": [
+        "Web services"
+      ],
+      "dct_spatial_sm": [
+        "Michigan--Detroit",
+        "Michigan"
+      ],
+      "gbl_suppressed_b": false,
+      "publication_state": "published"
+    }
+  ],
+  "background_source": "Public catalog title search for route, excluding Minneapolis/streetcar titles; published and unsuppressed records captured 2026-11-13."
 }

@@ -351,16 +351,22 @@ Ordinary unscoped queries first require all analyzed terms across titles,
 descriptions, summaries, subjects, keywords, creators, publishers, providers,
 spatial labels, display notes, themes, resource classes/types, local collection
 labels, and inherited collection titles. Original title/phrase matches receive
-additional ranking weight. A successful strict search is never broadened just
-because a requested page or map viewport contains no hits.
+additional ranking weight. All-term matches are listed first. Additional partial
+matches follow in a separate group, even when strict matches exist. Each record
+appears once. Selected sorts apply within each group, with stable ID tie-breaking.
 
-Only after a successful zero-hit probe under all active logical filters does
-v2 use `minimum_should_match: "2<75%"`. One- and two-term queries still require
+The partial group uses `minimum_should_match: "2<75%"` under the same active
+logical filters, excluding all-term matches. One- and two-term queries still require
 all terms; three terms require two, four require three, and five require three.
 No further relaxation occurs. Partial searches also boost matching title terms
 and spatial labels: real-Elasticsearch regression testing found that the original
 full-phrase boosts alone could rank an unrelated city's streetcar map too highly
 for a conversational query. These are scoring signals, not geographic filters.
+The partial-title bonus is 1 and the spatial-label bonus is 3. The smaller title
+bonus prevents common title words such as map/routes from overwhelming a more
+specific subject mentioned in a description; the spatial bonus keeps records for
+the named place competitive with other-city distractors. These weights are
+covered by both the fixed fixture and full-catalog relevance checks.
 
 Quotes, Boolean syntax, wildcards, explicit search fields, advanced clauses,
 identifiers, and accession dates retain literal search behavior. Empty searches
@@ -386,26 +392,33 @@ sheets that exist only in an external index map.
 V2 search and facet responses include optional `meta.matching`:
 
 ```json
-{"mode":"partial_terms","broadened":true,"version":"v2"}
+{
+  "mode": "all_terms_then_partial",
+  "broadened": true,
+  "version": "v2",
+  "all_terms_count": 1,
+  "partial_terms_count": 1197
+}
 ```
 
-Modes are `literal`, `all_terms`, and `partial_terms`. The H3 endpoint returns the
-same object as top-level `matching`. The web interface shows
-“No results matched all search terms. Showing partial matches.” only when partial
-matches exist; the original query remains in the input and URL.
+Modes are `literal`, `all_terms`, `partial_terms`, and `all_terms_then_partial`.
+Counts are included for ordinary analyzed searches. Partial counts exclude strict
+matches; the response's total count includes both groups. The H3 endpoint returns
+the same matching object at the top level. Results pages explain mixed results
+and label the boundary with “Matches all search terms” and “Partial matches”,
+including continuation pages, list, gallery, and map-result lists. When there are
+only partial results, the existing “No results matched all search terms. Showing
+partial matches.” notice remains. The original query stays in the input and URL.
 
-The matching stage is shared across results, facets, and maps. Rendering viewports
-and facet autocomplete text do not affect its selection. Stage decisions cache for
-60 seconds and include the concrete index generation/revision and logical query.
-On a stage-cache miss, short result searches (up to three whitespace-delimited
-words) use the strict response's total hit count as the existence check. A zero
-total triggers one partial request, reusing the strict response's spelling
-suggestions. Longer queries retain the lightweight probe: computing a complete
-strict response first made cold natural-language misses slower in the synthetic
-benchmark. This scheduling threshold does not change analysis, term requirements,
-ranking, or filters. Empty pagination pages do not broaden the query.
-Aggregation-only requests also use a candidate-only strict probe; ranking boosts
-are omitted from that probe.
+Results, facets, and maps share group counts under the complete logical filters.
+Rendering viewports and facet autocomplete text do not affect those counts.
+A lightweight size-zero request counts strict matches within the combined result
+set. Counts cache for 60 seconds by concrete index generation/revision and logical
+query. A result page retrieves only its strict and/or partial slice (at most two
+retrievals), then combines them in group order. Strict hits are explicitly excluded
+from the partial slice, so pagination across the boundary neither repeats nor
+skips them. Facets use the combined query; hit-only post-filters partition the
+retrieval without narrowing those aggregations. Empty pages do not change modes.
 
 An in-process LRU holds at most 4,096 stage decisions for 60 seconds, ahead of the
 shared cache. It also works when endpoint caching is disabled. Every request
@@ -472,13 +485,13 @@ caches are disabled; each sample records individual Elasticsearch call timings.
 Use `SEARCH_RELEVANCE_BENCHMARK_WORKLOAD=results` for the real result execution
 path, including facets and suggestions but excluding PostgreSQL hydration and
 HTTP/proxy overhead. The default `query` workload retains the original planner
-microbenchmark, including the separate aggregation-style existence probe.
+microbenchmark, including the separate group-count request.
 `SEARCH_RELEVANCE_BENCHMARK_STAGE_CACHE=cold` (default) clears stage decisions
 before every request; `warm` measures reuse of stage decisions without caching
 result responses. Both must be reported separately.
-Both reference and optimized modes use the same stage-cache implementation in
-this benchmark, so warm comparisons isolate request planning and payload changes,
-not Redis/L1 savings or request-scope deduplication across API cache layers.
+The frozen original-v2 reference retains zero-only broadening and can retrieve
+fewer records than the current grouped implementation. Interpret those timings
+as different behaviors, not equivalent-result performance comparisons.
 The iteration count defaults
 to 100 per query/mode and is configurable with
 `SEARCH_RELEVANCE_BENCHMARK_ITERATIONS`. `SEARCH_RELEVANCE_BENCHMARK_COPIES=200`
@@ -487,8 +500,7 @@ retrieval workload. This is not a representative full-catalog benchmark or an
 ingestion benchmark for collection-title resolution.
 
 These diagnostics do not replace full-catalog activation validation. In
-particular, a genuinely cold partial search still requires a second retrieval;
-do not use warm-stage numbers to waive a cold-stage latency regression. Keep v2
-disabled until the remaining performance gate has been assessed on the catalog.
+particular, a cold mixed page needs group counting and up to two retrievals;
+report cold and warm-stage measurements separately and assess them on the catalog.
 The results-page analytics properties include the matching metadata so partial
 match usage can be distinguished from strict searches, including cached responses.

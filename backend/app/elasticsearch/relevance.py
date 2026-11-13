@@ -7,7 +7,7 @@ import re
 import time
 from collections import OrderedDict
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import wraps
 
 from fastapi import HTTPException
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # This memo lives for one request only. Never retain alias/revision state across
 # requests: writes and alias cutovers must invalidate even warm response caches.
 _request_generations: ContextVar[dict | None] = ContextVar("search_generations", default=None)
-_matching_cache: OrderedDict[str, tuple[float, str]] = OrderedDict()
+_matching_cache: OrderedDict[str, tuple[float, str | dict]] = OrderedDict()
 MATCHING_CACHE_TTL = 60
 MATCHING_CACHE_SIZE = 4096
 
@@ -31,7 +31,7 @@ def clear_matching_cache() -> None:
     _matching_cache.clear()
 
 
-def _remember_matching(key: str, mode: str) -> None:
+def _remember_matching(key: str, mode: str | dict) -> None:
     _matching_cache[key] = (time.monotonic() + MATCHING_CACHE_TTL, mode)
     _matching_cache.move_to_end(key)
     while len(_matching_cache) > MATCHING_CACHE_SIZE:
@@ -114,7 +114,7 @@ def text_query(query: str, literal_query: dict, *, partial: bool = False) -> dic
                         "dct_title_s.search_en": {
                             "query": query,
                             "minimum_should_match": "2<75%",
-                            "boost": 6,
+                            "boost": 1,
                         }
                     }
                 },
@@ -150,7 +150,7 @@ async def index_generation(es, index: str) -> str:
     if not valid:
         raise HTTPException(503, detail="Search relevance v2 requires a completed catalog reindex")
     # Index names are versioned; the revision also changes after incremental writes.
-    generation = f"{name}:{meta.get('search_revision', 'initial')}"
+    generation = f"{name}:grouped1-{meta.get('search_revision', 'initial')}"
     if memo is not None:
         memo[key] = generation
         memo[(id(es), name)] = generation
@@ -161,17 +161,28 @@ async def index_generation(es, index: str) -> str:
 class Matching:
     mode: str = "literal"
     generation: str = "legacy"
+    all_terms_count: int | None = None
+    partial_terms_count: int | None = None
 
     def metadata(self) -> dict:
-        return {
+        result = {
             "mode": self.mode,
-            "broadened": self.mode == "partial_terms",
+            "broadened": self.mode in {"partial_terms", "all_terms_then_partial"},
             "version": relevance_version(),
         }
+        if self.all_terms_count is not None:
+            result.update(
+                all_terms_count=self.all_terms_count,
+                partial_terms_count=self.partial_terms_count,
+            )
+        return result
 
     @property
     def cache_token(self) -> str:
-        return f"{relevance_version()}:{self.generation}:{self.mode}"
+        return (
+            f"{relevance_version()}:{self.generation}:{self.mode}:"
+            f"{self.all_terms_count}:{self.partial_terms_count}"
+        )
 
 
 def ensure_complete_response(body: dict) -> None:
@@ -181,7 +192,7 @@ def ensure_complete_response(body: dict) -> None:
 
 def _matching_cache_key(strict_query: dict, generation: str) -> str:
     return CacheService().generate_cache_key(
-        "search.matching", version="v2", generation=generation, query=strict_query
+        "search.matching", version="v2-grouped1", generation=generation, query=strict_query
     )
 
 
@@ -192,9 +203,12 @@ async def cached_matching(strict_query: dict, generation: str) -> Matching | Non
         expires, mode = local
         if expires > time.monotonic():
             _matching_cache.move_to_end(key)
-            return Matching(mode, generation)
+            return Matching(**mode) if isinstance(mode, dict) else Matching(mode, generation)
         del _matching_cache[key]
     cached = await CacheService().get(key)
+    if isinstance(cached, dict) and cached.get("generation") == generation:
+        _remember_matching(key, cached)
+        return Matching(**cached)
     if isinstance(cached, str) and cached in {"all_terms", "partial_terms"}:
         _remember_matching(key, cached)
         return Matching(cached, generation)
@@ -203,8 +217,43 @@ async def cached_matching(strict_query: dict, generation: str) -> Matching | Non
 
 async def store_matching(strict_query: dict, matching: Matching) -> None:
     key = _matching_cache_key(strict_query, matching.generation)
-    _remember_matching(key, matching.mode)
-    await CacheService().set(key, matching.mode, ttl=MATCHING_CACHE_TTL)
+    value = asdict(matching)
+    _remember_matching(key, value)
+    await CacheService().set(key, value, ttl=MATCHING_CACHE_TTL)
+
+
+async def resolve_groups(
+    es, index: str, strict_query: dict, partial_query: dict, *, generation: str
+):
+    """Count disjoint groups under logical filters, independent of output pagination."""
+    cache_query = {"strict": strict_query, "partial": partial_query}
+    cached = await cached_matching(cache_query, generation)
+    if cached is not None:
+        return cached
+    response = await es.search(
+        index=index,
+        query=partial_query,
+        size=0,
+        track_total_hits=True,
+        aggs={"all_terms": {"filter": strict_query}},
+        allow_partial_search_results=False,
+    )
+    body = response.body if hasattr(response, "body") else response
+    ensure_complete_response(body)
+    total = body["hits"]["total"]
+    total = total["value"] if isinstance(total, dict) else total
+    strict_count = body["aggregations"]["all_terms"]["doc_count"]
+    partial_count = total - strict_count
+    mode = (
+        "all_terms_then_partial"
+        if strict_count and partial_count
+        else "all_terms"
+        if strict_count
+        else "partial_terms"
+    )
+    matching = Matching(mode, generation, strict_count, partial_count)
+    await store_matching(cache_query, matching)
+    return matching
 
 
 async def resolve_matching(es, index: str, strict_query: dict, *, generation: str) -> Matching:

@@ -831,6 +831,7 @@ function SearchContent({
                 <>
                   {currentView === 'list' && (
                     <SearchResults
+                      matching={activeSearchResults?.meta?.matching}
                       results={activeSearchResults?.data || []}
                       isLoading={activeIsLoading}
                       totalResults={searchTotalResults}
@@ -843,6 +844,7 @@ function SearchContent({
 
                   {currentView === 'gallery' && (
                     <GalleryView
+                      matching={activeSearchResults?.meta?.matching}
                       results={activeSearchResults?.data || []}
                       isLoading={activeIsLoading}
                       totalResults={searchTotalResults}
@@ -860,6 +862,7 @@ function SearchContent({
                         className="pr-2 md:col-span-4"
                       >
                         <SearchResults
+                          matching={activeSearchResults?.meta?.matching}
                           results={activeSearchResults?.data || []}
                           isLoading={activeIsLoading}
                           totalResults={searchTotalResults}
