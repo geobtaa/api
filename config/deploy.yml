@@ -95,6 +95,7 @@ env:
     REDIS_DB:              "0"
     RATE_LIMIT_REDIS_DB:   "2"
     ELASTICSEARCH_INDEX:   btaa_geospatial_api
+    SEARCH_RELEVANCE_VERSION: "<%= ENV.fetch('SEARCH_RELEVANCE_VERSION', 'legacy') %>"
     REDIS_TTL:             "604800"
     LOG_LEVEL:             DEBUG
     ENDPOINT_CACHE:        "true"

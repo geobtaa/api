@@ -5,10 +5,14 @@ import {
   FacetValuesSort,
   GazetteerResponse,
   HomeBlogPostsResponse,
+  SearchMatching,
 } from '../types/api';
 import { AdvancedClause, FacetFilter } from '../types/search';
 import { getActiveThemeConfig } from '../config/institution';
-import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
+import {
+  SEARCH_RESULTS_PER_PAGE,
+  SEARCH_RESPONSE_VERSION,
+} from '../constants/search';
 import { debugLog, isDebugLoggingEnabled } from '../utils/logger';
 import {
   getTurnstileSessionToken,
@@ -359,6 +363,9 @@ async function unifiedFetch<T>(
 
   // Create URL object - all URLs should be absolute (pointing to BFF proxy)
   const urlObj = new URL(ensureHttps(url));
+  if (/\/search(?:\/|$)/.test(urlObj.pathname)) {
+    urlObj.searchParams.set('_search_v', SEARCH_RESPONSE_VERSION);
+  }
 
   // Ensure format parameter is set
   if (!urlObj.searchParams.has('format')) {
@@ -701,6 +708,7 @@ export async function fetchFacetValues({
       `/search/facets/${facetName}`,
       window.location.origin
     );
+    proxyUrl.searchParams.set('_search_v', SEARCH_RESPONSE_VERSION);
 
     proxyUrl.searchParams.set('page', Math.max(1, page).toString());
     proxyUrl.searchParams.set(
@@ -1109,20 +1117,23 @@ export interface MapH3ResponseRaw {
   resolution: number;
   hexes: Array<[string, number]>;
   globalCount: number;
+  matching?: SearchMatching;
 }
 
 export interface MapH3Response {
   resolution: number;
   hexes: Array<{ h3: string; count: number }>;
   globalCount: number;
+  matching?: SearchMatching;
 }
 
-const MAP_H3_REQUEST_VERSION = '3';
+const MAP_H3_REQUEST_VERSION = '4';
 
 function normalizeMapH3Response(raw: MapH3ResponseRaw): MapH3Response {
   return {
     resolution: raw.resolution,
     globalCount: raw.globalCount,
+    ...(raw.matching ? { matching: raw.matching } : {}),
     hexes: raw.hexes.map(([h3, count]) => ({ h3, count })),
   };
 }
@@ -1130,7 +1141,7 @@ function normalizeMapH3Response(raw: MapH3ResponseRaw): MapH3Response {
 /**
  * Fetch H3 hex aggregation for map visualization.
  * Uses the SSR proxy (/map/h3) so requests go through our server with the API key,
- * avoiding rate limits. The proxy and backend both cache aggressively.
+ * avoiding rate limits. The backend caches by relevance and index generation.
  */
 export async function fetchMapH3(
   query: string,
