@@ -125,6 +125,22 @@ async def test_streetcar_recall_and_ranking(catalog, query, mode):
 
 
 @pytest.mark.asyncio(loop_scope="function")
+async def test_real_strict_natural_language_hit_prevents_fallback(catalog):
+    client, index = catalog
+    document = STREETCARS["full_catalog_strict_match"]
+    await client.index(index=index, id=document["id"], document=document, refresh=True)
+    await advance_search_revision(client, index, ready=True)
+    params, response = await run_query(A)
+    assert params.matching.mode == "all_terms"
+    assert [hit["_id"] for hit in response["hits"]["hits"]] == [document["id"]]
+
+    # A logical exclusion restores a genuine zero, enabling the partial stage.
+    params, response = await run_query(A, exclude_filters={"id": [document["id"]]})
+    assert params.matching.mode == "partial_terms"
+    assert set(STREETCARS["relevant_ids"]) <= {hit["_id"] for hit in response["hits"]["hits"]}
+
+
+@pytest.mark.asyncio(loop_scope="function")
 async def test_analyzer_contract(catalog):
     client, index = catalog
 

@@ -17,6 +17,17 @@
     "mdl-FUjq6u7Kx6VG",
     "mdl-hER52wO8fxUX"
   ],
+  "full_catalog_strict_match": {
+    "id": "msn-id-2250",
+    "dct_title_s": "1940 Aquatennial map, Minneapolis, Minnesota",
+    "dct_description_sm": [
+      "Reprint of a 1940 Aquatennial event map, which also shows all streetcar and bus routes."
+    ],
+    "gbl_resourceClass_sm": ["Maps"],
+    "dct_spatial_sm": ["Minnesota--Minneapolis", "Minnesota--Hennepin County", "Minnesota"],
+    "publication_state": "published",
+    "gbl_suppressed_b": false
+  },
   "documents": [
     {
       "id": "msn-id-1896",

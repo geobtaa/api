@@ -21,6 +21,17 @@ has a broad Pennsylvania extent; a small Within filter can legitimately exclude
 it while admitting individual sheets. Keyword search and external index-map
 browsing are distinct entry points.
 
+Full-catalog validation on 2026-11-13 also found a strict match for
+`Maps of Minneapolis that show streetcar routes`: `msn-id-2250`, the 1940
+Aquatennial map. Its description explicitly mentions streetcar and bus routes.
+The zero-only fallback rule therefore keeps this query in `all_terms` mode;
+it does not broaden a successful strict search just to increase its result count.
+The isolated fixture tests both situations: the original 14 records with no
+strict hit, and this additional real record preventing fallback. Excluding the
+strict hit through a logical filter exercises partial matching on the full
+catalog. Spatial validation must inspect all pages: a sheet beyond the first
+page of Overlap results is still a match.
+
 The popup formatting reported in #483 remains a separate UI issue. This work does
 not assert that every external index-map feature has a corresponding catalog
 record, or that Heather's original viewport and filters have been reproduced.
