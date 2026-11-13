@@ -5,7 +5,7 @@ const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 
 /** Strip trailing punctuation that is usually sentence punctuation, not part of the URL. */
 function trimTrailingPunctuation(url: string): string {
-  return url.replace(/[)\]\}"']+$/, '');
+  return url.replace(/[)\]}"']+$/, '');
 }
 
 /** Convert any URLs in a string into clickable external links (opens in new tab). */
@@ -20,7 +20,7 @@ export function linkifyText(text: string): React.ReactNode {
   URL_REGEX.lastIndex = 0;
 
   // Find URLs and split text around them
-  // eslint-disable-next-line no-cond-assign
+
   while ((match = URL_REGEX.exec(text)) !== null) {
     const rawUrl = match[0];
     const url = trimTrailingPunctuation(rawUrl);

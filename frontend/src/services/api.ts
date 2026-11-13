@@ -20,7 +20,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status?: number,
-    public code?: string
+    public code?: string,
+    public retryAfterMs?: number
   ) {
     super(message);
     this.name = 'ApiError';
@@ -436,8 +437,7 @@ async function unifiedFetch<T>(
               // Check if thumbnail_url exists but might be non-enumerable
               const hasThumbnail = 'thumbnail_url' in item.meta.ui;
               const thumbnailValue = item.meta.ui.thumbnail_url as
-                | string
-                | undefined;
+                string | undefined;
 
               // If thumbnail_url exists (even if undefined), ensure it's enumerable
               if (hasThumbnail || thumbnailValue) {
@@ -1136,7 +1136,8 @@ export async function fetchMapH3(
   query: string,
   bbox: string | undefined,
   resolution: number,
-  queryString?: string
+  queryString?: string,
+  signal?: AbortSignal
 ): Promise<MapH3Response> {
   const base =
     typeof window !== 'undefined'
@@ -1168,13 +1169,32 @@ export async function fetchMapH3(
     DRILL_DOWN_INCLUDE_FILTER_OPERATOR
   );
   const res = await fetch(url.toString(), {
+    signal,
     headers: { Accept: 'application/json' },
     mode: 'cors',
     credentials: 'omit',
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new ApiError(`Map H3 request failed: ${text}`, res.status);
+    const retryAfter = res.headers.get('Retry-After');
+    const numeric = Number(retryAfter);
+    const seconds =
+      retryAfter && Number.isFinite(numeric)
+        ? numeric > 1_000_000_000
+          ? numeric - Date.now() / 1000
+          : numeric
+        : retryAfter
+          ? (Date.parse(retryAfter) - Date.now()) / 1000
+          : NaN;
+    const delay = Number.isFinite(seconds)
+      ? Math.min(60_000, Math.max(1000, seconds * 1000))
+      : undefined;
+    throw new ApiError(
+      `Map H3 request failed: ${text}`,
+      res.status,
+      undefined,
+      delay
+    );
   }
   const raw = (await res.json()) as MapH3ResponseRaw;
   return normalizeMapH3Response(raw);

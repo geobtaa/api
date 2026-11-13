@@ -1,15 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Home, Pause, Play, X } from 'lucide-react';
-import { MapContainer, Rectangle, useMap, ZoomControl } from 'react-leaflet';
+import {
+  MapContainer,
+  Rectangle,
+  useMap,
+  ZoomControl,
+} from '../../mapping/react';
 import Cookies from 'js-cookie';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+import L from '../../mapping/maplibre';
+import { onUserMapMovement } from '../../mapping/userMovement';
+
 import { MapUpdaterHex, type HexBoundingBox } from '../map/MapUpdaterHex';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { BboxRectangleSelector } from '../map/BboxRectangleSelector';
-import { leafletGestureMapOptions } from '../../config/leafletConfig';
+import { mapInteractionOptions } from '../../config/mapConfig';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
 import { FEATURED_ITEMS } from '../../config/featured';
 import { fetchFeaturedResourcePreview } from '../../services/api';
@@ -17,7 +22,10 @@ import { getApiBasePath } from '../../services/api';
 import type { GeoDocumentDetails } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
 import { ResultCardPill } from '../search/ResultCardPill';
-import { parseBboxToLeafletBounds } from '../../utils/bbox';
+import {
+  normalizeBboxSearchEnvelope,
+  parseBboxToLeafletBounds,
+} from '../../utils/bbox';
 import {
   getSavedHexLayerEnabled,
   saveHexLayerEnabled,
@@ -26,8 +34,6 @@ import { FeaturedMapController } from './FeaturedMapController';
 import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
 import { MapGeosearchControl } from '../map/MapGeosearchControl';
-
-registerLeafletGestureHandling(L);
 
 /** Route API thumbnail URLs through app paths for SSR/relative requests. */
 const IMMUTABLE_THUMBNAIL_PATH_RE = /^\/api\/v1\/thumbnails\/[0-9a-f]{64}$/i;
@@ -87,18 +93,14 @@ function MapUserEngagementTracker({
 }) {
   const map = useMap();
   useEffect(() => {
-    const handler = () => {
+    return onUserMapMovement(map, () => {
       if (!programmaticFlyRef.current) onUserEngaged();
-    };
-    map.on('moveend', handler);
-    map.on('zoomend', handler);
-    return () => {
-      map.off('moveend', handler);
-      map.off('zoomend', handler);
-    };
+    });
   }, [map, programmaticFlyRef, onUserEngaged]);
   return null;
 }
+
+const ignoreFeatureClick = () => {};
 
 const FEATURED_BOUNDS_PANE = 'featuredBoundsPane';
 const FEATURED_ITEM_DURATION_MS = 10_000;
@@ -141,7 +143,7 @@ function useFeaturedBoundsPane() {
 }
 
 /** Renders the active featured item's bounding box on the map when featured is initiated and the active item has a bbox. */
-function FeaturedItemBoundsLayer({
+const FeaturedItemBoundsLayer = memo(function FeaturedItemBoundsLayer({
   activeIndex,
   featuredDetails,
   featuredInitiated,
@@ -169,22 +171,41 @@ function FeaturedItemBoundsLayer({
       }}
     />
   );
-}
+});
 
 function buildBboxSearchUrl(bbox: HexBoundingBox, relation = 'intersects') {
+  const envelope = normalizeBboxSearchEnvelope(
+    bbox.west,
+    bbox.south,
+    bbox.east,
+    bbox.north
+  );
+  if (!envelope) return '/search';
   const params = new URLSearchParams();
   params.set('include_filters[geo][type]', 'bbox');
   params.set('include_filters[geo][field]', 'dcat_bbox');
   params.set('include_filters[geo][relation]', relation);
-  params.set('include_filters[geo][top_left][lat]', bbox.north.toString());
-  params.set('include_filters[geo][top_left][lon]', bbox.west.toString());
-  params.set('include_filters[geo][bottom_right][lat]', bbox.south.toString());
-  params.set('include_filters[geo][bottom_right][lon]', bbox.east.toString());
+  params.set(
+    'include_filters[geo][top_left][lat]',
+    envelope.topLeft.lat.toString()
+  );
+  params.set(
+    'include_filters[geo][top_left][lon]',
+    envelope.topLeft.lon.toString()
+  );
+  params.set(
+    'include_filters[geo][bottom_right][lat]',
+    envelope.bottomRight.lat.toString()
+  );
+  params.set(
+    'include_filters[geo][bottom_right][lon]',
+    envelope.bottomRight.lon.toString()
+  );
   return `/search?${params.toString()}`;
 }
 
-/** One-time pan so Chicago (dense hex cluster) appears in the desired position on the homepage. Marks as programmatic so it is not counted as user engagement. */
-function MapPanner({
+/** Capture the declared home camera after load without moving it. */
+function HomeMapInitialView({
   programmaticFlyRef,
   onInitialViewReady,
 }: {
@@ -192,22 +213,20 @@ function MapPanner({
   onInitialViewReady: (center: [number, number], zoom: number) => void;
 }) {
   const map = useMap();
-  const panned = useRef(false);
+  const ready = useRef(onInitialViewReady);
+  ready.current = onInitialViewReady;
   useEffect(() => {
-    if (panned.current) return;
+    let cancelled = false;
     map.whenReady(() => {
-      programmaticFlyRef.current = true;
-      map.panBy([400, 0], { animate: false });
-      panned.current = true;
-      const onMoveEnd = () => {
-        const center = map.getCenter();
-        onInitialViewReady([center.lat, center.lng], map.getZoom());
-        programmaticFlyRef.current = false;
-        map.off('moveend', onMoveEnd);
-      };
-      map.on('moveend', onMoveEnd);
+      if (cancelled) return;
+      const center = map.getCenter();
+      ready.current([center.lat, center.lng], map.getZoom());
+      programmaticFlyRef.current = false;
     });
-  }, [map, onInitialViewReady, programmaticFlyRef]);
+    return () => {
+      cancelled = true;
+    };
+  }, [map, programmaticFlyRef]);
   return null;
 }
 
@@ -216,21 +235,13 @@ function SearchHereControl() {
   const map = useMap();
   const navigate = useNavigate();
   const [showSearchButton, setShowSearchButton] = useState(false);
-  const initialMoveDone = useRef(false);
-
   useEffect(() => {
-    const handleMoveEnd = () => {
-      if (!initialMoveDone.current) {
-        initialMoveDone.current = true;
-        return;
-      }
-      setShowSearchButton(true);
-    };
-    map.on('moveend', handleMoveEnd);
-    map.on('zoomend', handleMoveEnd);
+    const unsubscribe = onUserMapMovement(map, () => setShowSearchButton(true));
+    const reset = () => setShowSearchButton(false);
+    window.addEventListener('btaa-home-map-reset', reset);
     return () => {
-      map.off('moveend', handleMoveEnd);
-      map.off('zoomend', handleMoveEnd);
+      unsubscribe();
+      window.removeEventListener('btaa-home-map-reset', reset);
     };
   }, [map]);
 
@@ -256,7 +267,7 @@ function SearchHereControl() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-[4px] z-[998] border-2 border-[#ff7a00] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7),0_0_10px_rgba(255,122,0,0.32)]"
       />
-      <div className="absolute top-2 right-2 z-[1000]">
+      <div className="absolute top-2 right-16 z-[1000]">
         <button
           type="button"
           onClick={handleSearchHere}
@@ -310,8 +321,7 @@ function HomeMapResetListener({
 }
 
 /**
- * Non-interactive Leaflet hex map used as the background of the homepage.
- * Center is south of the US so North America appears just under the search form.
+ * Interactive MapLibre hex map with the production hero camera offset.
  * Hovering a hex shows a glowing blue border; clicking a hex searches its bbox.
  * Featured resources carousel at bottom; when an item is active, map flies to its bbox and shows a preview card.
  */
@@ -354,7 +364,7 @@ export function HomePageHexMapBackground() {
   const initialHomeViewRef = useRef<{
     center: [number, number];
     zoom: number;
-  } | null>(null);
+  } | null>({ center: HOME_PAGE_MAP_CENTER, zoom: DEFAULT_US_ZOOM });
   const queryString =
     typeof window !== 'undefined' ? window.location.search : undefined;
 
@@ -498,10 +508,10 @@ export function HomePageHexMapBackground() {
   return (
     <div className="absolute inset-0 z-0">
       <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }
-.homepage-map .leaflet-top.leaflet-left { top: 1rem; }`}</style>
+.homepage-map .maplibregl-ctrl-top-right { top: 1rem; }`}</style>
       <p className="sr-only">
-        For a list of hex data, use the hex table button in the bottom-left
-        corner of the map.
+        For a list of hex data, use the hex table button in the top-right corner
+        of the map.
       </p>
       <div
         className="relative h-full w-full"
@@ -518,10 +528,9 @@ export function HomePageHexMapBackground() {
           touchZoom={true}
           keyboard={true}
           attributionControl={true}
-          zoomAnimationThreshold={1}
-          {...leafletGestureMapOptions}
+          {...mapInteractionOptions}
         >
-          <ZoomControl position="topleft" />
+          <ZoomControl position="topright" />
           <MapGeosearchControl />
           <BasemapSwitcherControl />
           <HexLayerToggleControl
@@ -538,7 +547,7 @@ export function HomePageHexMapBackground() {
               setHexLayerEnabled(enabled);
             }}
           />
-          <MapPanner
+          <HomeMapInitialView
             programmaticFlyRef={programmaticFlyRef}
             onInitialViewReady={(center, zoom) => {
               if (!initialHomeViewRef.current) {
@@ -555,7 +564,7 @@ export function HomePageHexMapBackground() {
             <>
               <MapUpdaterHex
                 searchQuery=""
-                onFeatureClick={() => {}}
+                onFeatureClick={ignoreFeatureClick}
                 onHexClick={handleHexClick}
                 onHexHover={handleHexHover}
                 onHexData={handleHexData}

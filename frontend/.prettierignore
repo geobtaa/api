@@ -1,0 +1,3 @@
+# Generated analytics snapshots are intentionally serialized as compact JSON.
+# Their generators and evidence checks own byte-level reproducibility.
+src/data/analytics/*.json

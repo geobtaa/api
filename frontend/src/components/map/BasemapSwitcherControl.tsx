@@ -1,14 +1,15 @@
 import { useEffect } from 'react';
-import L from 'leaflet';
-import { useMap } from 'react-leaflet';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
+import { useMap } from '../../mapping/react';
 import { attachBasemapSwitcher } from '../../config/basemaps';
 
 interface BasemapSwitcherControlProps {
-  position?: L.ControlPosition;
+  position?: MapTypes.ControlPosition;
 }
 
 export function BasemapSwitcherControl({
-  position = 'topleft',
+  position = 'topright',
 }: BasemapSwitcherControlProps) {
   const map = useMap();
 

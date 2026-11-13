@@ -1,11 +1,7 @@
-import type { MetaFunction } from 'react-router';
-import { MiradorViewerPage } from '../../src/pages/MiradorViewerPage';
+import { redirect, type LoaderFunctionArgs } from 'react-router';
 
-export const meta: MetaFunction = () => [
-  { title: 'Mirador Viewer' },
-  { name: 'robots', content: 'noindex,nofollow' },
-];
-
-export default function MiradorRoute() {
-  return <MiradorViewerPage />;
+/** Preserve bookmarked manifest URLs while retiring the Mirador renderer. */
+export function loader({ request }: LoaderFunctionArgs) {
+  const url = new URL(request.url);
+  return redirect(`/ogm-viewer${url.search}`, 301);
 }

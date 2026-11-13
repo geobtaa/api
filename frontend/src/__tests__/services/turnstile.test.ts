@@ -43,18 +43,16 @@ describe('Turnstile service failures', () => {
     vi.stubEnv('VITE_API_BASE_URL', '/api/v1');
     vi.stubGlobal(
       'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              data: {
-                attributes: { error_codes: ['session-store-unavailable'] },
-              },
-            }),
-            { status: 503 }
-          )
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: {
+              attributes: { error_codes: ['session-store-unavailable'] },
+            },
+          }),
+          { status: 503 }
         )
+      )
     );
     const error = await verifyTurnstileToken('token').catch((error) => error);
     expect(error).toBeInstanceOf(TurnstileVerificationError);
