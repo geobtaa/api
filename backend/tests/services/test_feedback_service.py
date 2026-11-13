@@ -95,3 +95,35 @@ def test_send_feedback_email_raises_without_smtp_host(monkeypatch):
 
     with pytest.raises(FeedbackDeliveryUnavailable):
         send_feedback_email(_submission())
+
+
+def test_feedback_uses_shared_smtp_transport(monkeypatch):
+    from email.message import EmailMessage
+
+    from app.services import feedback_service
+
+    message = EmailMessage()
+    result = {
+        "sent": True,
+        "delivery": "smtp",
+        "relay_accepted": True,
+        "recipient_delivery_confirmed": False,
+    }
+    calls = []
+    monkeypatch.setattr(
+        feedback_service, "send_smtp_message", lambda value: calls.append(value) or result
+    )
+    assert feedback_service.deliver_email(message, "smtp") == result
+    assert calls == [message]
+
+
+def test_feedback_rejects_unknown_delivery_instead_of_sending(monkeypatch):
+    from email.message import EmailMessage
+
+    from app.services import feedback_service
+
+    monkeypatch.setattr(
+        feedback_service, "send_smtp_message", lambda value: pytest.fail("must not send")
+    )
+    with pytest.raises(FeedbackDeliveryUnavailable, match="unknown_email_delivery"):
+        feedback_service.deliver_email(EmailMessage(), "typo")

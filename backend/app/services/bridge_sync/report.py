@@ -5,7 +5,6 @@ from __future__ import annotations
 import html
 import logging
 import os
-import smtplib
 import subprocess
 from datetime import datetime, timezone
 from email.message import EmailMessage
@@ -13,6 +12,7 @@ from email.utils import formataddr, make_msgid
 from typing import Any, Iterable, Optional
 
 from app.services.bridge_sync.repository import BridgeSyncRepository
+from app.services.smtp_transport import send_smtp_message
 from db.database import database
 
 logger = logging.getLogger(__name__)
@@ -631,24 +631,9 @@ def send_bridge_sync_report_email(
     if not host:
         return {"enabled": True, "sent": False, "reason": "no_smtp_host"}
 
-    port = _env_int("SMTP_PORT", 587)
-    timeout = _env_int("SMTP_TIMEOUT_SECONDS", 20)
-    username = os.getenv("SMTP_USERNAME")
-    password = os.getenv("SMTP_PASSWORD")
-    use_ssl = _env_bool("SMTP_SSL", False)
-    use_starttls = _env_bool("SMTP_STARTTLS", not use_ssl)
-
     message = _build_message(run, recent_runs=recent_runs, recipients=recipients)
-
-    smtp_cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
-    with smtp_cls(host, port, timeout=timeout) as smtp:
-        if use_starttls and not use_ssl:
-            smtp.starttls()
-        if username:
-            smtp.login(username, password or "")
-        smtp.send_message(message)
-
-    return {"enabled": True, "sent": True, "recipients": len(recipients)}
+    result = send_smtp_message(message)
+    return {"enabled": True, **result, "recipients": len(recipients)}
 
 
 async def send_bridge_sync_report_for_run(run_id: int) -> dict[str, Any]:

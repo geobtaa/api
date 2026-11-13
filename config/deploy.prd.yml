@@ -84,7 +84,7 @@ env:
     APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT: "8100"
     APPSIGNAL_FRONTEND_IGNORE_ERRORS: "<%= ENV.fetch('APPSIGNAL_FRONTEND_IGNORE_ERRORS', 'Writable closed before stream finished') %>"
     BRIDGE_SYNC_REPORT_ENABLED: "true"
-    BRIDGE_SYNC_REPORT_DELIVERY: sendmail
+    BRIDGE_SYNC_REPORT_DELIVERY: "<%= ENV.fetch('BRIDGE_SYNC_REPORT_DELIVERY', 'sendmail') %>"
     FEEDBACK_EMAIL_ENABLED: "true"
     FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', 'sendmail') %>"
     SENDMAIL_PATH: "<%= ENV.fetch('SENDMAIL_PATH', '/usr/sbin/sendmail') %>"

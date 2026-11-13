@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import os
 import re
-import smtplib
-import ssl
 import subprocess
 from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formataddr
 from urllib.parse import urlsplit
+
+from app.services.smtp_transport import SMTPDeliveryUnavailable, send_smtp_message
 
 FEEDBACK_TOPICS = {
     "Correction",
@@ -163,27 +163,9 @@ def deliver_email(message: EmailMessage, delivery: str | None = None) -> dict:
             raise FeedbackDeliveryUnavailable("sendmail_failed") from exc
         return {"sent": True, "delivery": "sendmail"}
 
-    host = os.getenv("SMTP_HOST")
-    if not host:
-        raise FeedbackDeliveryUnavailable("no_smtp_host")
-
-    port = _env_int("SMTP_PORT", 587)
-    timeout = _env_int("SMTP_TIMEOUT_SECONDS", 20)
-    username = os.getenv("SMTP_USERNAME")
-    password = os.getenv("SMTP_PASSWORD")
-    use_ssl = _env_bool("SMTP_SSL", False)
-    use_starttls = _env_bool("SMTP_STARTTLS", not use_ssl)
-
-    smtp_cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
-    tls_options = {"context": ssl.create_default_context()} if use_ssl else {}
+    if delivery != "smtp":
+        raise FeedbackDeliveryUnavailable("unknown_email_delivery")
     try:
-        with smtp_cls(host, port, timeout=timeout, **tls_options) as smtp:
-            if use_starttls and not use_ssl:
-                smtp.starttls(context=ssl.create_default_context())
-            if username and password:
-                smtp.login(username, password)
-            smtp.send_message(message)
-    except OSError as exc:
-        raise FeedbackDeliveryUnavailable("smtp_failed") from exc
-
-    return {"sent": True, "delivery": "smtp"}
+        return send_smtp_message(message)
+    except SMTPDeliveryUnavailable as exc:
+        raise FeedbackDeliveryUnavailable(str(exc)) from None

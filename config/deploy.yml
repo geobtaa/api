@@ -148,6 +148,8 @@ env:
     FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', ENV.fetch('BRIDGE_SYNC_REPORT_DELIVERY', 'smtp')) %>"
     SENDMAIL_PATH:         "<%= ENV.fetch('SENDMAIL_PATH', '/usr/sbin/sendmail') %>"
     SENDMAIL_ARGS:         "<%= ENV.fetch('SENDMAIL_ARGS', '-t -i') %>"
+    SMTP_FROM:             "<%= ENV.fetch('SMTP_FROM', '') %>"
+    SMTP_ENVELOPE_FROM:     "<%= ENV.fetch('SMTP_ENVELOPE_FROM', '') %>"
     SMTP_HOST:             "<%= ENV.fetch('SMTP_HOST', '') %>"
     SMTP_PORT:             "<%= ENV.fetch('SMTP_PORT', '587') %>"
     SMTP_STARTTLS:         "<%= ENV.fetch('SMTP_STARTTLS', 'true') %>"
