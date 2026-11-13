@@ -334,3 +334,173 @@ You can tune how aggressively near-zero bbox overlaps are filtered via:
 
 - `MIN_BBOX_IOU_OVERLAP_RATIO` (default `0.001`; retained name, applied as a
   minimum document-containment ratio)
+
+## Catalog relevance v2
+
+`SEARCH_RELEVANCE_VERSION=legacy|v2` defaults to `legacy`. V2 requires a full
+source reindex; merely updating a mapping or search analyzer does not populate
+new analyzed fields. An index readiness marker prevents using an incomplete
+build. Existing original text and keyword fields are preserved.
+
+The `catalog_english` analyzer tokenizes words, removes English possessives,
+lowercases, removes English stop words, and applies `light_english` stemming.
+For example, `maps` and `map` match each other. This is English lexical matching,
+not semantic search: `routes`, `tracks`, and `lines` are not declared synonyms.
+
+Ordinary unscoped queries first require all analyzed terms across titles,
+descriptions, summaries, subjects, keywords, creators, publishers, providers,
+spatial labels, display notes, themes, resource classes/types, local collection
+labels, and inherited collection titles. Original title/phrase matches receive
+additional ranking weight. All-term matches are listed first. Additional partial
+matches follow in a separate group, even when strict matches exist. Each record
+appears once. Selected sorts apply within each group, with stable ID tie-breaking.
+
+The partial group uses `minimum_should_match: "2<75%"` under the same active
+logical filters, excluding all-term matches. One- and two-term queries still require
+all terms; three terms require two, four require three, and five require three.
+No further relaxation occurs. Partial searches also boost matching title terms
+and spatial labels: real-Elasticsearch regression testing found that the original
+full-phrase boosts alone could rank an unrelated city's streetcar map too highly
+for a conversational query. These are scoring signals, not geographic filters.
+The partial-title bonus is 1 and the spatial-label bonus is 3. The smaller title
+bonus prevents common title words such as map/routes from overwhelming a more
+specific subject mentioned in a description; the spatial bonus keeps records for
+the named place competitive with other-city distractors. These weights are
+covered by both the fixed fixture and full-catalog relevance checks.
+
+Quotes, Boolean syntax, wildcards, explicit search fields, advanced clauses,
+identifiers, and accession dates retain literal search behavior. Empty searches
+still browse; a nonempty search reduced entirely to stop words returns no hits.
+Errors and timeouts do not trigger broader matching. All explicit filters and
+publication/suppression rules remain in effect.
+
+### Collection context
+
+The index-only `collection_titles` field contains deduplicated titles of direct,
+published, unsuppressed parent Collections resolved through `pcdm_memberOf_sm`
+and `dct_isPartOf_sm`. It is not exported as Aardvark metadata. Local collection
+labels are independently searchable. No ancestors or external URLs are followed.
+Batch lookups are shared by full and incremental indexing. Updating or deleting
+a parent refreshes direct members from their stored relationship arrays, so stale
+titles are removed even after the parent disappears.
+
+This helps find already-indexed sheets by collection name; it does not ingest
+sheets that exist only in an external index map.
+
+### Response metadata
+
+V2 search and facet responses include optional `meta.matching`:
+
+```json
+{
+  "mode": "all_terms_then_partial",
+  "broadened": true,
+  "version": "v2",
+  "all_terms_count": 1,
+  "partial_terms_count": 1197
+}
+```
+
+Modes are `literal`, `all_terms`, `partial_terms`, and `all_terms_then_partial`.
+Counts are included for ordinary analyzed searches. Partial counts exclude strict
+matches; the response's total count includes both groups. The H3 endpoint returns
+the same matching object at the top level. Results pages use headings without an
+additional alert to label mixed results with “Matches all search terms” and “Partial matches”,
+including continuation pages, list, gallery, and map-result lists. When there are
+only partial results, the existing “No results matched all search terms. Showing
+partial matches.” notice remains. The original query stays in the input and URL.
+
+Results, facets, and maps share group counts under the complete logical filters.
+Rendering viewports and facet autocomplete text do not affect those counts.
+A lightweight size-zero request counts strict matches within the combined result
+set. Counts cache for 60 seconds by concrete index generation/revision and logical
+query. A result page retrieves only its strict and/or partial slice (at most two
+retrievals), then combines them in group order. Strict hits are explicitly excluded
+from the partial slice, so pagination across the boundary neither repeats nor
+skips them. Facets use the combined query; hit-only post-filters partition the
+retrieval without narrowing those aggregations. Empty pages do not change modes.
+
+An in-process LRU holds at most 4,096 stage decisions for 60 seconds, ahead of the
+shared cache. It also works when endpoint caching is disabled. Every request
+still reads the authoritative index revision from Elasticsearch before consulting
+these decisions. Mapping validation is projected to the required fields and
+reused only within that request; it is never cached across requests. This keeps
+revision changes and alias cutovers visible without repeating the same metadata
+call at each response-cache layer. Result retrieval requests only IDs and numeric
+extents from Elasticsearch; PostgreSQL hydration still supplies public metadata.
+
+Result and aggregation caches also separate generations and matching behavior.
+Browser search, facet, and map request URLs carry a response-version token to
+bypass older responses. Their server proxies preserve matching metadata and use
+`private, no-store`: only the backend knows the current index revision, so it
+owns response caching. This prevents proxy caches from retaining an earlier
+matching stage after indexing or a relevance-version change.
+Incremental indexing advances the search revision after refreshing writes.
+Atomic builds compare source row versions, replay changed records and affected
+members, and remove deleted records before marking the new index ready. A source
+table SHARE lock covers final reconciliation and alias cutover; catalog reads
+continue while resource writes wait. Incremental batches pin their concrete index
+before loading source rows, preventing delayed writes to a newly switched alias.
+The frontend proxies pass the JSON body through without a separate response cache.
+
+### Local relevance validation
+
+Use an isolated Elasticsearch 9 instance and run:
+
+```bash
+make test-search-relevance SEARCH_RELEVANCE_TEST_URL=http://localhost:19283
+```
+
+This target uses unique `test-search-relevance-*` indices and removes only its own
+indices. It does not rebuild the application index or require a database clone.
+The test instance must already be running. The ordinary backend suite skips these
+integration cases unless `SEARCH_RELEVANCE_TEST_URL` is supplied.
+
+Fixtures capture public metadata on 2026-11-13, including the 14 Minneapolis
+streetcar records and the collection in issue #483. Synthetic distractors are
+explicitly named in the tests. A/B/C recall and top-result ranking are checked,
+as are normalization, exact syntax, collection matching, spatial constraints,
+visibility, pagination, and aggregation parity.
+
+For local source rebuilding, use `make reindex`. Detailed activation, concurrent
+import coordination, and rollback procedures belong in restricted operations
+documentation. Before activation, the maintainer must update that runbook and
+validate full-catalog indexing completeness and relevance, cache invalidation,
+and latency; investigate a greater-than-20% p95 regression. Keep legacy behavior
+available until validation succeeds.
+
+Optionally supply `SEARCH_RELEVANCE_TEST_DB_URL` pointing at a separate disposable
+PostgreSQL service to exercise real membership queries, row-version detection,
+and cutover locking. Those tests create and remove a uniquely named schema;
+they never use the application's resource table. Without that variable, only the
+PostgreSQL-specific cases skip.
+
+Set `SEARCH_RELEVANCE_BENCHMARK_REPORT` to an output JSON path to run the optional
+fixture microbenchmark. It compares fresh legacy/v2 indices, uncached response
+p95, index size, and bulk ingestion duration, and flags p95 growth above 20%.
+It interleaves legacy, a frozen original-v2 execution path, and optimized v2 with
+a reproducible shuffle and 40 warmup queries per mode. All response and facet
+caches are disabled; each sample records individual Elasticsearch call timings.
+
+Use `SEARCH_RELEVANCE_BENCHMARK_WORKLOAD=results` for the real result execution
+path, including facets and suggestions but excluding PostgreSQL hydration and
+HTTP/proxy overhead. The default `query` workload retains the original planner
+microbenchmark, including the separate group-count request.
+`SEARCH_RELEVANCE_BENCHMARK_STAGE_CACHE=cold` (default) clears stage decisions
+before every request; `warm` measures reuse of stage decisions without caching
+result responses. Both must be reported separately.
+The frozen original-v2 reference retains zero-only broadening and can retrieve
+fewer records than the current grouped implementation. Interpret those timings
+as different behaviors, not equivalent-result performance comparisons.
+The iteration count defaults
+to 100 per query/mode and is configurable with
+`SEARCH_RELEVANCE_BENCHMARK_ITERATIONS`. `SEARCH_RELEVANCE_BENCHMARK_COPIES=200`
+creates 4,800 explicitly synthetic copies of fixture documents for a larger
+retrieval workload. This is not a representative full-catalog benchmark or an
+ingestion benchmark for collection-title resolution.
+
+These diagnostics do not replace full-catalog activation validation. In
+particular, a cold mixed page needs group counting and up to two retrievals;
+report cold and warm-stage measurements separately and assess them on the catalog.
+The results-page analytics properties include the matching metadata so partial
+match usage can be distinguished from strict searches, including cached responses.

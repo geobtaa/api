@@ -5,6 +5,12 @@ import pytest
 import app.services.bridge_sync.search_index as search_index
 
 
+@pytest.fixture(autouse=True)
+def isolated_collection_dependencies(monkeypatch):
+    monkeypatch.setattr(search_index, "direct_member_ids", AsyncMock(return_value=[]))
+    monkeypatch.setattr(search_index, "advance_search_revision", AsyncMock())
+
+
 class FakeDatabase:
     def __init__(self, rows):
         self.is_connected = True
@@ -22,6 +28,9 @@ class FakeDatabase:
 class FakeIndices:
     def __init__(self):
         self.refreshed = []
+
+    async def get_mapping(self, *, index):
+        return {index: {"mappings": {}}}
 
     async def refresh(self, *, index):
         self.refreshed.append(index)
@@ -53,7 +62,7 @@ async def test_index_changed_resources_indexes_every_changed_id_even_if_legacy_l
     fake_database = FakeDatabase(rows)
     fake_es = FakeElasticsearch()
 
-    async def fake_process_resource(row):
+    async def fake_process_resource(row, *, collection_titles):
         return {"id": row["id"], "title": row["dct_title_s"]}
 
     monkeypatch.setenv("BRIDGE_SEARCH_INDEX_REFRESH_ENABLED", "true")
@@ -128,3 +137,27 @@ async def test_index_changed_resources_can_be_disabled(monkeypatch):
     stats = await search_index.index_changed_resources(["resource-1"])
 
     assert stats == {"enabled": False, "resource_ids": 0, "indexed": 0, "errors": 0}
+
+
+@pytest.mark.asyncio
+async def test_deleted_parent_refreshes_member_and_removes_inherited_title(monkeypatch):
+    import app.elasticsearch.collection_context as context
+
+    child = {"id": "child", "dct_title_s": "Pittsburgh sheet", "dct_isPartOf_sm": ["parent"]}
+    fake_database = FakeDatabase([])
+    fake_database.fetch_all = AsyncMock(side_effect=[[{"id": "child"}], [child], []])
+    fake_es = FakeElasticsearch()
+    processed = AsyncMock(return_value={"id": "child", "collection_titles": []})
+    monkeypatch.setattr(search_index, "database", fake_database)
+    monkeypatch.setattr(context, "database", fake_database)
+    monkeypatch.setattr(search_index, "direct_member_ids", context.direct_member_ids)
+    monkeypatch.setattr(search_index, "es", fake_es)
+    monkeypatch.setattr(search_index, "process_resource", processed)
+    monkeypatch.setenv("BRIDGE_SEARCH_INDEX_REFRESH_ENABLED", "true")
+    monkeypatch.setenv("BRIDGE_SEARCH_INDEX_BATCH_SIZE", "10")
+    result = await search_index.index_changed_resources(["parent"])
+    assert result["indexed"] == 1 and result["missing"] == 1 and not result["errors"]
+    processed.assert_awaited_once_with(child, collection_titles=[])
+    assert fake_es.deleted[0]["id"] == "parent"
+    assert fake_es.indexed[0]["document"]["collection_titles"] == []
+    search_index.advance_search_revision.assert_awaited_once()

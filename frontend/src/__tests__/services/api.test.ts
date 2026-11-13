@@ -470,6 +470,7 @@ describe('fetchMapH3', () => {
         resolution: 2,
         hexes: [['822aa7fffffffff', 99]],
         globalCount: 3,
+        matching: { mode: 'partial_terms', broadened: true, version: 'v2' },
       }),
     });
     global.fetch = mockFetch;
@@ -479,12 +480,18 @@ describe('fetchMapH3', () => {
       { op: 'AND', f: 'dct_spatial_sm', q: 'Pennsylvania' },
     ]);
 
-    await fetchMapH3('', undefined, 2, `adv_q=${encodeURIComponent(advQuery)}`);
+    const result = await fetchMapH3(
+      '',
+      undefined,
+      2,
+      `adv_q=${encodeURIComponent(advQuery)}`
+    );
+    expect(result.matching?.mode).toBe('partial_terms');
 
     const callUrl = mockFetch.mock.calls[0][0];
     const url = new URL(callUrl);
     expect(url.pathname).toBe('/map/h3');
-    expect(url.searchParams.get('_v')).toBe('3');
+    expect(url.searchParams.get('_v')).toBe('4');
     expect(url.searchParams.get('adv_q')).toBe(advQuery);
     expect(url.searchParams.get('include_filter_operator')).toBe('and');
   });

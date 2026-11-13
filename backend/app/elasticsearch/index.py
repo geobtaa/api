@@ -22,6 +22,7 @@ from db.database import database
 from db.models import resources
 
 from .client import es
+from .collection_context import advance_search_revision, collection_titles_for_rows
 from .suggest import build_suggest_inputs
 
 # Load environment variables from .env file
@@ -214,7 +215,10 @@ async def index_resources():
     processed_resources = await prepare_bulk_data(resource_rows, index_name)
 
     if processed_resources:
-        return await perform_individual_indexing(processed_resources, index_name)
+        result = await perform_individual_indexing(processed_resources, index_name)
+        if result.get("errors", 0) == 0 and result.get("indexed") == len(resource_rows):
+            await advance_search_revision(es, index_name, ready=True)
+        return result
 
     return {"message": "No resources to index"}
 
@@ -222,16 +226,23 @@ async def index_resources():
 async def prepare_bulk_data(resources, index_name):
     """Prepare resources for indexing (now using individual operations for reliability)."""
     processed_resources = []
-    for resource in resources:
-        resource_dict = await process_resource(dict(resource))
+    rows = [dict(resource) for resource in resources]
+    context = await collection_titles_for_rows(rows)
+    for resource in rows:
+        resource_dict = await process_resource(
+            resource, collection_titles=context[str(resource["id"])]
+        )
         if resource_dict:  # Only add if processing succeeded
             processed_resources.append(resource_dict)
     return processed_resources
 
 
-async def process_resource(resource_dict):
+async def process_resource(resource_dict, *, collection_titles=None):
     """Process a single resource for indexing."""
     processed_dict = {}
+    if collection_titles is None:
+        context = await collection_titles_for_rows([resource_dict])
+        collection_titles = context[str(resource_dict["id"])]
 
     date_fields = {"gbl_mdmodified_dt", "b1g_dateAccessioned_s", "b1g_dateRetired_s"}
     integer_fields = {"gbl_indexYear_im"}
@@ -295,6 +306,7 @@ async def process_resource(resource_dict):
         else:
             processed_dict[key] = value
 
+    processed_dict["collection_titles"] = collection_titles
     ensure_b1g_language(processed_dict)
     if "gbl_indexYear_im" in processed_dict or "gbl_dateRange_drsim" in processed_dict:
         processed_dict["gbl_indexYear_im"] = normalize_or_derive_index_year(
@@ -907,9 +919,11 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
     if total_indexed > 0:
         try:
             await es.indices.refresh(index=index_name)
+            await advance_search_revision(es, index_name)
             logger.info("Index refresh complete")
         except Exception as e:
-            logger.warning(f"Failed to refresh index: {e}")
+            total_errors += 1
+            logger.error(f"Failed to refresh index or advance search revision: {e}")
 
     logger.info(
         f"Individual indexing complete: {total_indexed} successful, "
@@ -968,11 +982,12 @@ async def reindex_resources():
 
             # Prepare resources for this chunk
             processed_resources = await prepare_bulk_data(chunk, index_name)
+            total_processed += len(chunk)
+            total_errors += len(chunk) - len(processed_resources)
 
             if processed_resources:
                 # Index this chunk
                 result = await perform_individual_indexing(processed_resources, index_name)
-                total_processed += result.get("total", len(processed_resources))
                 total_indexed += result.get("indexed", 0)
                 total_created += result.get("created", 0)
                 total_updated += result.get("updated", 0)
@@ -990,9 +1005,12 @@ async def reindex_resources():
             except Exception:
                 # Fallback: if we can't determine last_id, stop to avoid an infinite loop.
                 logger.error("Failed to advance reindex cursor (last_id). Stopping reindex loop.")
+                total_errors += 1
                 break
 
         if total_processed > 0:
+            if total_errors == 0 and total_indexed == total_processed:
+                await advance_search_revision(es, index_name, ready=True)
             return {
                 "attempted": total_processed,
                 "indexed": total_indexed,

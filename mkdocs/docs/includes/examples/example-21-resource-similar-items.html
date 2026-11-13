@@ -23,7 +23,7 @@ import json
 BASE_URL = "https://geo.btaa.org/api/v1"
 
 # Get similar items for a resource
-resource_id = "ark28722-s7vs38"
+resource_id = "b1g_2Lx2SCAOw85E"
 response = requests.get(f"{BASE_URL}/resources/{resource_id}/similar-items")
 data = response.json()
 
@@ -123,7 +123,7 @@ async def example_21(event):
         
         clear_output(output_id)
         show_output(output_id)
-        resource_id = "ark28722-s7vs38"
+        resource_id = "b1g_2Lx2SCAOw85E"
         print_to_output(output_id, f"🔄 Running Example: Fetching similar items for {resource_id}...")
         
         response = requests.get(f"{BASE_URL}/resources/{resource_id}/similar-items")
