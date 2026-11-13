@@ -404,8 +404,8 @@ V2 search and facet responses include optional `meta.matching`:
 Modes are `literal`, `all_terms`, `partial_terms`, and `all_terms_then_partial`.
 Counts are included for ordinary analyzed searches. Partial counts exclude strict
 matches; the response's total count includes both groups. The H3 endpoint returns
-the same matching object at the top level. Results pages explain mixed results
-and label the boundary with “Matches all search terms” and “Partial matches”,
+the same matching object at the top level. Results pages use headings without an
+additional alert to label mixed results with “Matches all search terms” and “Partial matches”,
 including continuation pages, list, gallery, and map-result lists. When there are
 only partial results, the existing “No results matched all search terms. Showing
 partial matches.” notice remains. The original query stays in the input and URL.
