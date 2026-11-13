@@ -57,9 +57,11 @@ class ResourceCollectionResponse(JSONAPIResponse):
 
 
 class SearchMatching(PublicAPIModel):
-    mode: Literal["literal", "all_terms", "partial_terms"]
+    mode: Literal["literal", "all_terms", "partial_terms", "all_terms_then_partial"]
     broadened: bool
     version: Literal["legacy", "v2"]
+    all_terms_count: int | None = None
+    partial_terms_count: int | None = None
 
 
 class SearchMeta(PublicAPIModel):

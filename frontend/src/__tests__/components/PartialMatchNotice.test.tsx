@@ -3,6 +3,24 @@ import { describe, expect, it } from 'vitest';
 import { PartialMatchNotice } from '../../components/search/PartialMatchNotice';
 
 describe('PartialMatchNotice', () => {
+  it('explains grouped matches without claiming that strict results were empty', () => {
+    render(
+      <PartialMatchNotice
+        matching={{
+          mode: 'all_terms_then_partial',
+          broadened: true,
+          version: 'v2',
+          all_terms_count: 1,
+          partial_terms_count: 14,
+        }}
+        totalCount={15}
+      />
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Results matching all search terms appear first, followed by partial matches.'
+    );
+    expect(screen.queryByText(/No results matched/)).not.toBeInTheDocument();
+  });
   it('explains broader results', () => {
     render(
       <PartialMatchNotice

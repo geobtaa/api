@@ -4,7 +4,7 @@ import math
 import os
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Literal, Optional
 from urllib.parse import urlencode
@@ -23,15 +23,13 @@ from db.models import resources
 from .client import es
 from .relevance import (
     Matching,
-    cached_matching,
     candidate_query,
     ensure_complete_response,
     generation_scope,
     index_generation,
     is_ordinary_query,
     relevance_version,
-    resolve_matching,
-    store_matching,
+    resolve_groups,
     text_query,
 )
 
@@ -1252,7 +1250,6 @@ class SearchParams:
     include_non_public: bool = False
     text_clause: dict | None = None
     matching: Matching | None = None
-    pending_matching_query: dict | None = None
 
     @classmethod
     def from_inputs(
@@ -1292,7 +1289,8 @@ class SearchParams:
 
     @property
     def sort_clause(self) -> list:
-        return self.sort or [{"_score": "desc"}]
+        sort = self.sort or [{"_score": "desc"}]
+        return [*sort, {"id": "asc"}] if self.matching is not None else sort
 
     def criteria(self) -> dict:
         return get_search_criteria(
@@ -1826,8 +1824,53 @@ class SearchExecutor:
         self.params = params
         self.query_plan = query_plan
         self.facet_selection = facet_selection
+        self.post_filter = None
+        self.omit_extras = False
 
     async def execute(self) -> SearchExecutionResult:
+        matching = self.params.matching
+        if matching is None or matching.mode != "all_terms_then_partial":
+            return await self._execute_single()
+
+        strict_count = matching.all_terms_count
+        total = strict_count + matching.partial_terms_count
+        start, end = self.params.skip, self.params.skip + self.params.limit
+        strict_filter = candidate_query(self.params.query.strip())
+        groups = [
+            (0, strict_count, strict_filter),
+            (strict_count, total, {"bool": {"must_not": [strict_filter]}}),
+        ]
+        requests = [
+            (max(start, lower) - lower, min(end, upper) - max(start, lower), group_filter)
+            for lower, upper, group_filter in groups
+            if max(start, lower) < min(end, upper)
+        ]
+        # Still return facets and suggestions for an empty page beyond the end.
+        if not requests:
+            requests = [(0, 0, {"match_none": {}})]
+        combined = None
+        for offset, size, group_filter in requests:
+            executor = SearchExecutor(
+                replace(self.params, skip=offset, limit=size),
+                self.query_plan,
+                self.facet_selection,
+            )
+            # post_filter partitions hits without narrowing union-wide facets.
+            executor.post_filter = group_filter
+            executor.omit_extras = combined is not None
+            result = await executor._execute_single()
+            if combined is None:
+                combined = result
+            else:
+                combined.response_dict["hits"]["hits"].extend(result.response_dict["hits"]["hits"])
+                combined.response_dict["took"] += result.response_dict.get("took", 0)
+                combined.es_roundtrip_ms += result.es_roundtrip_ms
+                if result.overlap_context is None:
+                    combined.overlap_context = None
+        combined.response_dict["hits"]["total"] = {"value": total, "relation": "eq"}
+        return combined
+
+    async def _execute_single(self) -> SearchExecutionResult:
         try:
             response_dict, es_roundtrip_ms = await self._run_search(self._primary_kwargs())
             return SearchExecutionResult(
@@ -1883,7 +1926,7 @@ class SearchExecutor:
                 "bbox_miny",
                 "bbox_maxy",
             ]
-        return search_kwargs
+        return self._group_kwargs(search_kwargs)
 
     def _fallback_kwargs(self) -> dict:
         search_query = self.query_plan.search_query
@@ -1906,7 +1949,15 @@ class SearchExecutor:
                 "bbox_miny",
                 "bbox_maxy",
             ]
-        return fallback_kwargs
+        return self._group_kwargs(fallback_kwargs)
+
+    def _group_kwargs(self, kwargs: dict) -> dict:
+        if self.post_filter is not None:
+            kwargs["post_filter"] = self.post_filter
+        if self.omit_extras:
+            kwargs.pop("aggs", None)
+            kwargs.pop("suggest", None)
+        return kwargs
 
     async def _run_search(self, search_kwargs: dict) -> tuple[dict, float]:
         es_roundtrip_start = time.perf_counter()
@@ -2027,8 +2078,8 @@ class SearchResponseBuilder:
         )
 
 
-async def prepare_matching(params: SearchParams, *, defer_probe: bool = False) -> None:
-    """One stage decision for all search surfaces, using the result builder's filters."""
+async def prepare_matching(params: SearchParams) -> None:
+    """Resolve disjoint groups for all surfaces using the result builder's filters."""
     if relevance_version() != "v2":
         return
     generation = await index_generation(es, params.index_name)
@@ -2038,20 +2089,32 @@ async def prepare_matching(params: SearchParams, *, defer_probe: bool = False) -
         return
     query = params.query.strip()
     literal = _build_all_fields_query(query)
-    # Existence needs eligibility only, not phrase/literal scoring boosts.
     params.text_clause = candidate_query(query)
     strict = SearchQueryBuilder(params, params.criteria(), SearchFacetSelection({}, ())).build()
-    strict_query = {"bool": strict.bool_query}
-    if defer_probe:
-        params.matching = await cached_matching(strict_query, generation)
-        if params.matching is None:
-            params.matching = Matching("all_terms", generation)
-            params.pending_matching_query = strict_query
+    params.text_clause = candidate_query(query, partial=True)
+    partial = SearchQueryBuilder(params, params.criteria(), SearchFacetSelection({}, ())).build()
+    params.matching = await resolve_groups(
+        es,
+        params.index_name,
+        {"bool": strict.bool_query},
+        {"bool": partial.bool_query},
+        generation=generation,
+    )
+    strict_text = text_query(query, literal)
+    partial_text = text_query(query, literal, partial=True)
+    if params.matching.mode == "all_terms_then_partial":
+        # Disjoint branches preserve each group's own relevance scoring.
+        params.text_clause = {
+            "bool": {
+                "should": [
+                    strict_text,
+                    {"bool": {"must": [partial_text], "must_not": [candidate_query(query)]}},
+                ],
+                "minimum_should_match": 1,
+            }
+        }
     else:
-        params.matching = await resolve_matching(
-            es, params.index_name, strict_query, generation=generation
-        )
-    params.text_clause = text_query(query, literal, partial=params.matching.mode == "partial_terms")
+        params.text_clause = strict_text if params.matching.mode == "all_terms" else partial_text
 
 
 async def aggregation_matching_query(
@@ -2124,11 +2187,7 @@ async def search_resources(
         search_criteria = params.criteria()
         logger.debug(f"Search criteria: {search_criteria}")
 
-        # Short keyword searches often succeed strictly: reuse their result totals.
-        # Longer searches retain the cheap probe so a zero does not pay for a full
-        # result/suggestion request before the partial retrieval. This affects work
-        # scheduling only; both paths use identical eligibility and stage cache keys.
-        await prepare_matching(params, defer_probe=len((params.query or "").split()) <= 3)
+        await prepare_matching(params)
         facet_service = FacetService()
         facet_selection = await facet_service.prepare(params, search_criteria)
         query_plan = SearchQueryBuilder(
@@ -2145,31 +2204,6 @@ async def search_resources(
             query_plan,
             facet_selection,
         ).execute()
-        if params.pending_matching_query is not None:
-            total = execution.response_dict["hits"]["total"]
-            count = total["value"] if isinstance(total, dict) else total
-            if count == 0:
-                params.matching = Matching("partial_terms", params.matching.generation)
-                params.text_clause = text_query(
-                    params.query.strip(),
-                    _build_all_fields_query(params.query.strip()),
-                    partial=True,
-                )
-                # Do not reuse strict facets in a partial response.
-                facet_selection = await facet_service.prepare(params, search_criteria)
-                query_plan = SearchQueryBuilder(params, search_criteria, facet_selection).build()
-                # Suggestions depend on the input text, not the matching stage.
-                # Reuse the strict response rather than compute them twice.
-                query_plan.search_query.pop("suggest", None)
-                partial_execution = await SearchExecutor(
-                    params, query_plan, facet_selection
-                ).execute()
-                if "suggest" in execution.response_dict:
-                    partial_execution.response_dict["suggest"] = execution.response_dict["suggest"]
-                partial_execution.response_dict["took"] += execution.response_dict.get("took", 0)
-                partial_execution.es_roundtrip_ms += execution.es_roundtrip_ms
-                execution = partial_execution
-            await store_matching(params.pending_matching_query, params.matching)
         return await SearchResponseBuilder(
             params,
             search_criteria,
