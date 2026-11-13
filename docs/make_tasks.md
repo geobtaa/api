@@ -336,3 +336,18 @@ operations documentation.
 Without `ARCHIVES`, generation is limited to report integrity and arithmetic and
 cannot replace archive-backed evidence. See the
 [report evidence contract](frontend/analytics-runtime-reporting.md#report-evidence-packets).
+
+### Search relevance contracts
+
+`make test-search-relevance SEARCH_RELEVANCE_TEST_URL=http://localhost:19283`
+runs the catalog relevance unit tests and real Elasticsearch 9 contracts against
+an already-running isolated test service. It creates uniquely named test indices,
+cleans them up, and bypasses database preparation. See
+[search behavior and fixtures](backend/search.md#catalog-relevance-v2).
+
+For latency comparisons, set `SEARCH_RELEVANCE_BENCHMARK_REPORT` to a JSON output
+path and `SEARCH_RELEVANCE_BENCHMARK_WORKLOAD=results`. Report separate runs with
+`SEARCH_RELEVANCE_BENCHMARK_STAGE_CACHE=cold` and `warm`; response caching stays
+disabled in both. `SEARCH_RELEVANCE_BENCHMARK_COPIES` optionally scales the corpus
+with synthetic fixture copies. See the search documentation for methodology and
+limitations.

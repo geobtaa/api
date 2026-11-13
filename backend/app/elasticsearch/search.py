@@ -21,6 +21,19 @@ from db.database import database
 from db.models import resources
 
 from .client import es
+from .relevance import (
+    Matching,
+    cached_matching,
+    candidate_query,
+    ensure_complete_response,
+    generation_scope,
+    index_generation,
+    is_ordinary_query,
+    relevance_version,
+    resolve_matching,
+    store_matching,
+    text_query,
+)
 
 # Load environment variables from .env file
 try:
@@ -512,6 +525,7 @@ def _log_aggregation_timing(
     total_hits: int | None = None,
     hit_count: int | None = None,
     source: str = "primary",
+    matching: dict | None = None,
 ) -> None:
     payload = {
         "operation": operation,
@@ -528,6 +542,8 @@ def _log_aggregation_timing(
         payload["totalHits"] = int(total_hits)
     if hit_count is not None:
         payload["hitCount"] = int(hit_count)
+    if matching is not None:
+        payload["matching"] = matching
 
     log_message = "aggregation_timing %s"
     if total_ms >= SEARCH_TIMING_LOG_THRESHOLD_MS or cache_status != "hit":
@@ -1234,6 +1250,9 @@ class SearchParams:
     hydrate_hits: bool = True
     index_name: str = ""
     include_non_public: bool = False
+    text_clause: dict | None = None
+    matching: Matching | None = None
+    pending_matching_query: dict | None = None
 
     @classmethod
     def from_inputs(
@@ -1330,6 +1349,8 @@ class FacetService:
             selected_aggs=selected_agg_names,
             include_non_public=params.include_non_public,
         )
+        if params.matching is not None:
+            selection.cache_key += ":" + params.matching.cache_token
         facet_cache_lookup_start = time.perf_counter()
         selection.cached_aggregations = await _get_cached_search_aggregations(selection.cache_key)
         selection.cache_lookup_ms = (time.perf_counter() - facet_cache_lookup_start) * 1000
@@ -1553,6 +1574,8 @@ class SearchQueryBuilder:
         return must_clauses, should_clauses, combined_must_not
 
     def _build_text_query_clause(self, query_text: str) -> dict:
+        if self.params.text_clause is not None:
+            return self.params.text_clause
         is_phrase = len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
         phrase = query_text[1:-1] if is_phrase else query_text
         scoped = (
@@ -1814,6 +1837,8 @@ class SearchExecutor:
                 es_roundtrip_ms=es_roundtrip_ms,
             )
         except NotFoundError:
+            if self.params.matching is not None:
+                raise HTTPException(503, detail="Search index is unavailable") from None
             logger.warning(
                 "Elasticsearch index '%s' not found; returning empty results",
                 self.params.index_name,
@@ -1848,6 +1873,16 @@ class SearchExecutor:
         }
         if search_query.get("aggs"):
             search_kwargs["aggs"] = search_query["aggs"]
+        if self.params.matching is not None:
+            # Public records are hydrated from PostgreSQL; Elasticsearch only
+            # supplies IDs, scores, and numeric extents for spatial diagnostics.
+            search_kwargs["source_includes"] = [
+                "id",
+                "bbox_minx",
+                "bbox_maxx",
+                "bbox_miny",
+                "bbox_maxy",
+            ]
         return search_kwargs
 
     def _fallback_kwargs(self) -> dict:
@@ -1863,13 +1898,25 @@ class SearchExecutor:
         }
         if self.facet_selection.cached_aggregations is None and self.facet_selection.aggregations:
             fallback_kwargs["aggs"] = self.facet_selection.aggregations
+        if self.params.matching is not None:
+            fallback_kwargs["source_includes"] = [
+                "id",
+                "bbox_minx",
+                "bbox_maxx",
+                "bbox_miny",
+                "bbox_maxy",
+            ]
         return fallback_kwargs
 
     async def _run_search(self, search_kwargs: dict) -> tuple[dict, float]:
         es_roundtrip_start = time.perf_counter()
+        if self.params.matching is not None:
+            search_kwargs["allow_partial_search_results"] = False
         response = await es.search(**search_kwargs)
         es_roundtrip_ms = (time.perf_counter() - es_roundtrip_start) * 1000
         response_dict = response.body if hasattr(response, "body") else response
+        if self.params.matching is not None:
+            ensure_complete_response(response_dict)
         return response_dict, es_roundtrip_ms
 
     async def _maybe_run_script_score_fallback(
@@ -1955,6 +2002,8 @@ class SearchResponseBuilder:
             hydrate_hits=self.params.hydrate_hits,
             include_non_public=self.params.include_non_public,
         )
+        if self.params.matching is not None:
+            result.setdefault("meta", {})["matching"] = self.params.matching.metadata()
         self._log_timing(execution)
         return result
 
@@ -1964,6 +2013,7 @@ class SearchResponseBuilder:
         total_hits_value = (response_hits.get("total") or {}).get("value")
         _log_aggregation_timing(
             operation="search_resources",
+            matching=self.params.matching.metadata() if self.params.matching else None,
             cache_status=self.facet_selection.cache_status,
             total_ms=total_ms,
             es_roundtrip_ms=execution.es_roundtrip_ms,
@@ -1977,6 +2027,65 @@ class SearchResponseBuilder:
         )
 
 
+async def prepare_matching(params: SearchParams, *, defer_probe: bool = False) -> None:
+    """One stage decision for all search surfaces, using the result builder's filters."""
+    if relevance_version() != "v2":
+        return
+    generation = await index_generation(es, params.index_name)
+    params.index_name = generation.rsplit(":", 1)[0]
+    params.matching = Matching("literal", generation)
+    if not is_ordinary_query(params.query, params.search_fields, params.adv_q):
+        return
+    query = params.query.strip()
+    literal = _build_all_fields_query(query)
+    # Existence needs eligibility only, not phrase/literal scoring boosts.
+    params.text_clause = candidate_query(query)
+    strict = SearchQueryBuilder(params, params.criteria(), SearchFacetSelection({}, ())).build()
+    strict_query = {"bool": strict.bool_query}
+    if defer_probe:
+        params.matching = await cached_matching(strict_query, generation)
+        if params.matching is None:
+            params.matching = Matching("all_terms", generation)
+            params.pending_matching_query = strict_query
+    else:
+        params.matching = await resolve_matching(
+            es, params.index_name, strict_query, generation=generation
+        )
+    params.text_clause = text_query(query, literal, partial=params.matching.mode == "partial_terms")
+
+
+async def aggregation_matching_query(
+    query, fq, include_filters, exclude_filters, adv_q, include_filter_operator, include_non_public
+):
+    params = SearchParams.from_inputs(
+        query=query,
+        fq=fq,
+        skip=0,
+        limit=1,
+        sort=None,
+        search_fields=None,
+        include_filters=include_filters,
+        exclude_filters=exclude_filters,
+        adv_q=adv_q,
+        facets=None,
+        hydrate_hits=False,
+        include_filter_operator=include_filter_operator,
+        include_non_public=include_non_public,
+    )
+    await prepare_matching(params)
+    plan = SearchQueryBuilder(params, params.criteria(), SearchFacetSelection({}, ())).build()
+    return params, plan.bool_query
+
+
+class FacetBuckets(list):
+    """List-compatible internal carrier for additive aggregation response metadata."""
+
+    def __init__(self, values, matching=None):
+        super().__init__(values)
+        self.matching = matching
+
+
+@generation_scope
 async def search_resources(
     query: str = None,
     fq: dict = None,
@@ -2015,6 +2124,11 @@ async def search_resources(
         search_criteria = params.criteria()
         logger.debug(f"Search criteria: {search_criteria}")
 
+        # Short keyword searches often succeed strictly: reuse their result totals.
+        # Longer searches retain the cheap probe so a zero does not pay for a full
+        # result/suggestion request before the partial retrieval. This affects work
+        # scheduling only; both paths use identical eligibility and stage cache keys.
+        await prepare_matching(params, defer_probe=len((params.query or "").split()) <= 3)
         facet_service = FacetService()
         facet_selection = await facet_service.prepare(params, search_criteria)
         query_plan = SearchQueryBuilder(
@@ -2031,6 +2145,31 @@ async def search_resources(
             query_plan,
             facet_selection,
         ).execute()
+        if params.pending_matching_query is not None:
+            total = execution.response_dict["hits"]["total"]
+            count = total["value"] if isinstance(total, dict) else total
+            if count == 0:
+                params.matching = Matching("partial_terms", params.matching.generation)
+                params.text_clause = text_query(
+                    params.query.strip(),
+                    _build_all_fields_query(params.query.strip()),
+                    partial=True,
+                )
+                # Do not reuse strict facets in a partial response.
+                facet_selection = await facet_service.prepare(params, search_criteria)
+                query_plan = SearchQueryBuilder(params, search_criteria, facet_selection).build()
+                # Suggestions depend on the input text, not the matching stage.
+                # Reuse the strict response rather than compute them twice.
+                query_plan.search_query.pop("suggest", None)
+                partial_execution = await SearchExecutor(
+                    params, query_plan, facet_selection
+                ).execute()
+                if "suggest" in execution.response_dict:
+                    partial_execution.response_dict["suggest"] = execution.response_dict["suggest"]
+                partial_execution.response_dict["took"] += execution.response_dict.get("took", 0)
+                partial_execution.es_roundtrip_ms += execution.es_roundtrip_ms
+                execution = partial_execution
+            await store_matching(params.pending_matching_query, params.matching)
         return await SearchResponseBuilder(
             params,
             search_criteria,
@@ -2138,6 +2277,8 @@ async def process_search_response(
         logger.debug("Total hits: %s", total_hits)
 
         hits = response["hits"]["hits"]
+        for hit in hits:
+            hit.get("_source", {}).pop("collection_titles", None)
         document_ids = [hit["_source"]["id"] for hit in hits]
         logger.debug("Found document IDs: %s", document_ids)
 
@@ -2497,6 +2638,37 @@ async def map_h3_aggregation(
 
         return bool_query
 
+    matching = None
+    if relevance_version() == "v2":
+        matching_params, logical_bool = await aggregation_matching_query(
+            q,
+            fq,
+            include_filters,
+            exclude_filters,
+            adv_q,
+            normalized_filter_operator,
+            include_non_public,
+        )
+        index_name = matching_params.index_name
+        matching = matching_params.matching
+        # The only extra constraint here is the rendering viewport.
+        viewport_filters = []
+        if west is not None and south is not None and east is not None and north is not None:
+            viewport_filters = [
+                {
+                    "geo_bounding_box": {
+                        "dcat_centroid": {
+                            "top_left": {"lat": north, "lon": west},
+                            "bottom_right": {"lat": south, "lon": east},
+                        }
+                    }
+                }
+            ]
+        must_clauses = logical_bool.get("must", [])
+        should_clauses = logical_bool.get("should", [])
+        combined_must_not = logical_bool.get("must_not", [])
+        filter_clauses = logical_bool.get("filter", []) + viewport_filters
+
     bool_query = build_bool_query(filter_clauses)
 
     # Larger bucket size for global requests (no bbox) so more hexes are returned.
@@ -2517,8 +2689,12 @@ async def map_h3_aggregation(
             aggs=aggs,
         )
     except NotFoundError:
+        if matching is not None:
+            raise
         return {"resolution": resolution, "hexes": [], "globalCount": 0}
     except Exception as e:
+        if matching is not None:
+            raise
         logger.exception(
             "map_h3_aggregation failed (index=%s, resolution=%s): %s",
             index_name,
@@ -2529,6 +2705,8 @@ async def map_h3_aggregation(
 
     try:
         body = resp.body if hasattr(resp, "body") else resp
+        if matching is not None:
+            ensure_complete_response(body)
         agg_data = body.get("aggregations", {})
         buckets = (agg_data.get("h3_terms") or {}).get("buckets", [])
         # Compact facet-style [h3, count] tuples (smaller payload than {"h3","count"} per item)
@@ -2538,7 +2716,11 @@ async def map_h3_aggregation(
         # so global count is search-scoped, not map-scoped.
         has_bbox = any("geo_bounding_box" in c for c in filter_clauses)
         if has_bbox:
-            rest = [c for c in filter_clauses if "geo_bounding_box" not in c]
+            rest = (
+                logical_bool.get("filter", [])
+                if matching is not None
+                else [c for c in filter_clauses if "geo_bounding_box" not in c]
+            )
             bool_no_bbox = build_bool_query(rest)
             try:
                 g_resp = await es.search(
@@ -2549,18 +2731,27 @@ async def map_h3_aggregation(
                     aggs={"global_bucket_agg": aggs["global_bucket_agg"]},
                 )
                 g_body = g_resp.body if hasattr(g_resp, "body") else g_resp
+                if matching is not None:
+                    ensure_complete_response(g_body)
                 global_count = int(
                     (g_body.get("aggregations", {}).get("global_bucket_agg") or {}).get(
                         "doc_count", 0
                     )
                 )
-            except (NotFoundError, Exception):
+            except Exception:
+                if matching is not None:
+                    raise
                 global_count = 0
         else:
             global_count = int((agg_data.get("global_bucket_agg") or {}).get("doc_count", 0))
 
-        return {"resolution": resolution, "hexes": hexes, "globalCount": global_count}
+        result = {"resolution": resolution, "hexes": hexes, "globalCount": global_count}
+        if matching is not None:
+            result["matching"] = matching.metadata()
+        return result
     except Exception as e:
+        if matching is not None:
+            raise
         logger.exception(
             "map_h3_aggregation response handling failed (resolution=%s): %s",
             resolution,
@@ -2941,6 +3132,20 @@ async def get_facet_values(
     if q_facet:
         agg_config["terms"]["include"] = _build_case_insensitive_facet_regex(q_facet)
 
+    matching = None
+    if relevance_version() == "v2":
+        matching_params, bool_query_dict = await aggregation_matching_query(
+            query,
+            fq,
+            include_filters,
+            exclude_filters,
+            adv_q,
+            normalized_filter_operator,
+            include_non_public,
+        )
+        index_name = matching_params.index_name
+        matching = matching_params.matching
+
     search_query = {
         "query": {"bool": bool_query_dict},
         "size": 0,  # We only want aggregations, not documents
@@ -2960,6 +3165,8 @@ async def get_facet_values(
         size=size,
         include_non_public=include_non_public,
     )
+    if matching is not None:
+        cache_key += ":" + matching.cache_token
     cache_lookup_start = time.perf_counter()
     cached_buckets = await _get_cached_facet_values(cache_key)
     cache_lookup_ms = (time.perf_counter() - cache_lookup_start) * 1000
@@ -2976,7 +3183,7 @@ async def get_facet_values(
             total_hits=len(cached_buckets),
             source="cache",
         )
-        return cached_buckets
+        return FacetBuckets(cached_buckets, matching)
 
     try:
         es_roundtrip_start = time.perf_counter()
@@ -2988,6 +3195,8 @@ async def get_facet_values(
         )
         es_roundtrip_ms = (time.perf_counter() - es_roundtrip_start) * 1000
         response_dict = response.body if hasattr(response, "body") else response
+        if matching is not None:
+            ensure_complete_response(response_dict)
         buckets = response_dict.get("aggregations", {}).get("facet_values", {}).get("buckets", [])
         cache_store_start = time.perf_counter()
         await _store_cached_facet_values(cache_key, facet_name, buckets)
@@ -3004,7 +3213,7 @@ async def get_facet_values(
             total_hits=len(buckets),
             source="primary",
         )
-        return buckets
+        return FacetBuckets(buckets, matching)
     except Exception as es_error:
         logger.error(f"Elasticsearch error getting facet values: {str(es_error)}", exc_info=True)
         raise HTTPException(
