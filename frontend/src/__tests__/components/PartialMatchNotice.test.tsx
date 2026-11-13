@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { PartialMatchNotice } from '../../components/search/PartialMatchNotice';
 
 describe('PartialMatchNotice', () => {
-  it('explains grouped matches without claiming that strict results were empty', () => {
+  it('leaves mixed results to the group headings without an alert', () => {
     render(
       <PartialMatchNotice
         matching={{
@@ -16,9 +16,7 @@ describe('PartialMatchNotice', () => {
         totalCount={15}
       />
     );
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Results matching all search terms appear first, followed by partial matches.'
-    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.queryByText(/No results matched/)).not.toBeInTheDocument();
   });
   it('explains broader results', () => {
