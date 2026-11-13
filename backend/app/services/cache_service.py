@@ -818,6 +818,16 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
             cache_args = {k: v for k, v in bound_args.arguments.items() if k != "request"}
 
             namespace = f"{func.__module__}.{func.__name__}"
+            if func.__module__.endswith(("endpoint_modules.search", "endpoint_modules.map")):
+                from app.elasticsearch.relevance import index_generation, relevance_version
+
+                cache_args["search_relevance"] = relevance_version()
+                if relevance_version() == "v2":
+                    from app.elasticsearch.client import es
+
+                    cache_args["search_generation"] = await index_generation(
+                        es, os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+                    )
             cache_key = (
                 build_cache_key(request=request, namespace=namespace, params=cache_args)
                 if request is not None
@@ -1011,6 +1021,10 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                 # Don't cache errors, just re-raise them
                 raise
 
+        if func.__module__.endswith(("endpoint_modules.search", "endpoint_modules.map")):
+            from app.elasticsearch.relevance import generation_scope
+
+            return generation_scope(wrapper)
         return wrapper
 
     return decorator

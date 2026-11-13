@@ -1,3 +1,4 @@
+import { PartialMatchNotice } from '../components/search/PartialMatchNotice';
 import React, { useEffect, useRef, useState } from 'react';
 import { Seo } from '../components/Seo';
 import { useSearchParams } from 'react-router';
@@ -535,6 +536,7 @@ function SearchContent({
           zero_results: pageResults.length === 0,
           properties: {
             constraints: serializeSearchParams(searchParams),
+            matching: activeSearchResults.meta?.matching,
             spelling_suggestions:
               activeSearchResults.meta?.spellingSuggestions || [],
           },
@@ -631,6 +633,10 @@ function SearchContent({
           {query ? `Search results for ${query}` : 'Search'}
         </h1>
         <div className="w-full px-4 sm:px-6 lg:px-8 pt-2">
+          <PartialMatchNotice
+            matching={activeSearchResults?.meta?.matching}
+            totalCount={activeSearchResults?.meta?.totalCount ?? 0}
+          />
           {/* Spelling Suggestions */}
           {spellingSuggestions.length > 0 && (
             <div className="mb-4 p-4 bg-blue-50 rounded-lg">

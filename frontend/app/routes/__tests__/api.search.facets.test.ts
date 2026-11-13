@@ -249,7 +249,7 @@ describe('api.search.facets loader', () => {
     expect(data).toEqual(mockFacetResponse);
   });
 
-  it('preserves upstream cache headers', async () => {
+  it('preserves diagnostics while delegating cache ownership to the backend', async () => {
     const mockRequest = new Request(
       'https://example.com/search/facets/dct_spatial_sm'
     );
@@ -274,7 +274,7 @@ describe('api.search.facets loader', () => {
 
     const response = await loader(loaderArgs);
 
-    expect(response.headers.get('cache-control')).toContain('s-maxage=43200');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(response.headers.get('etag')).toBe('W/"facet-test"');
     expect(response.headers.get('vary')).toBe('Accept-Encoding, Accept');
     expect(response.headers.get('x-cache')).toBe('HIT');

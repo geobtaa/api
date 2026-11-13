@@ -1,0 +1,499 @@
+{
+  "captured": "2026-11-13",
+  "source": "https://geo.btaa.org/api/v1/search?q=Minneapolis+streetcar",
+  "relevant_ids": [
+    "msn-id-1896",
+    "msn-id-1897",
+    "mdl-shgKk7S4XwyG",
+    "msn-id-1873",
+    "msn-id-1951",
+    "mdl-YzhxsLCLg2vR",
+    "mdl-aoKTwGu7FuoG",
+    "mdl-d0VqhYbCuuOo",
+    "mdl-ZEI5PyXE0Nql",
+    "p16022coll245:1075",
+    "p16022coll245:2",
+    "msn-id-1876",
+    "mdl-FUjq6u7Kx6VG",
+    "mdl-hER52wO8fxUX"
+  ],
+  "documents": [
+    {
+      "id": "msn-id-1896",
+      "dct_title_s": "Minneapolis streetcar track map, Minneapolis, Minnesota",
+      "dct_description_sm": [
+        "Track map of Minneapolis, Minnesota."
+      ],
+      "dct_creator_sm": [
+        "Twin City Rapid Transit"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "gbl_resourceType_sm": [
+        "Transportation maps"
+      ],
+      "dct_subject_sm": [
+        "Transportation"
+      ],
+      "dcat_keyword_sm": [
+        "Streetcars"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "msn-id-1897",
+      "dct_title_s": "Minneapolis streetcar track map, Minneapolis, Minnesota",
+      "dct_description_sm": [
+        "Track map of Minneapolis, Minnesota."
+      ],
+      "dct_creator_sm": [
+        "Twin City Rapid Transit"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "gbl_resourceType_sm": [
+        "Transportation maps"
+      ],
+      "dct_subject_sm": [
+        "Transportation"
+      ],
+      "dcat_keyword_sm": [
+        "Streetcars"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "mdl-shgKk7S4XwyG",
+      "dct_title_s": "Map of Minneapolis Accompanying Hudson's Dictionary of Minneapolis, Minnesota",
+      "dct_description_sm": [
+        "Map of Minneapolis including city parks, parkways streetcar lines."
+      ],
+      "dct_creator_sm": [
+        "J. Manz and Company"
+      ],
+      "dct_publisher_sm": [
+        "Hudson Publishing Company"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Minneapolis parkways",
+        "Minneapolis streetcar lines"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "msn-id-1873",
+      "dct_title_s": "Fort Snelling streetcar map, Hennepin County, Minnesota",
+      "dct_description_sm": [
+        "Map of the 1905 streetcar extension from Minneapolis to Fort Snelling."
+      ],
+      "dct_creator_sm": [
+        "Twin City Rapid Transit"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "gbl_resourceType_sm": [
+        "Transportation maps"
+      ],
+      "dct_subject_sm": [
+        "Transportation"
+      ],
+      "dcat_keyword_sm": [
+        "Streetcars"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Saint Paul",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "msn-id-1951",
+      "dct_title_s": "Fort Snelling streetcar map, Hennepin County, Minnesota",
+      "dct_description_sm": [
+        "Map of the 1905 streetcar extension from Minneapolis to Fort Snelling."
+      ],
+      "dct_creator_sm": [
+        "Twin City Rapid Transit"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "gbl_resourceType_sm": [
+        "Transportation maps"
+      ],
+      "dct_subject_sm": [
+        "Transportation"
+      ],
+      "dcat_keyword_sm": [
+        "Streetcars"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Saint Paul",
+        "Minnesota--Hennepin County",
+        "Minnesota--Ramsey County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "mdl-YzhxsLCLg2vR",
+      "dct_title_s": "Map Of Minneapolis, Minnesota",
+      "dct_description_sm": [
+        "Map of Minneapolis showing parks, railways, streetcar lines, and some landmarks."
+      ],
+      "dct_creator_sm": [
+        "Hudson, H.B."
+      ],
+      "dct_publisher_sm": [
+        "Hudson Publishing Company"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Minneapolis, Minnesota maps",
+        "Minneapolis Parks"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "mdl-aoKTwGu7FuoG",
+      "dct_title_s": "City of Minneapolis [Minnesota]",
+      "dct_description_sm": [
+        "Map of the city of Minneapolis showing streetcar lines; includes street and avenue guide."
+      ],
+      "dct_creator_sm": [
+        "Benneche, H.W."
+      ],
+      "dct_publisher_sm": [
+        "First & Security National Bank"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Streetcar lines"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "mdl-d0VqhYbCuuOo",
+      "dct_title_s": "Hudson's Map Of Minneapolis Compiled From Official Sources",
+      "dct_description_sm": [
+        "Map of Minneapolis with parkland and streetcar lines illustrated. Also includes an index to streets."
+      ],
+      "dct_creator_sm": [
+        "Hudson, H.B."
+      ],
+      "dct_publisher_sm": [
+        "Hudson Publishing Company"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Minneapolis, Minnesota maps",
+        "Minneapolis Parks",
+        "Streets",
+        "Street-railroads"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "mdl-ZEI5PyXE0Nql",
+      "dct_title_s": "Map of Minneapolis Accompanying Hudson's Dictionary of Minneapolis, Minnesota",
+      "dct_description_sm": [
+        "Map of Minneapolis including city parks, parkways streetcar lines, also has an advertisement for Power Equipment Company in upper right hand corner."
+      ],
+      "dct_creator_sm": [
+        "J. Manz and Company"
+      ],
+      "dct_publisher_sm": [
+        "Hudson Publishing Company"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Minneapolis parkways",
+        "Minneapolis streetcar lines",
+        "Power Equipment Company"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "p16022coll245:1075",
+      "dct_title_s": "Twin City map : St. Paul - Minneapolis, Minnesota",
+      "dct_alternative_sm": [
+        "Twin City map : St. Paul - Minneapolis, Minnesota"
+      ],
+      "dct_description_sm": [
+        "Shows electric, cable and streetcar lines.",
+        "\"January, 1891.\"; On verso: Text describing advantages of the Midway District of St. Paul and Minneapolis with an accompanying chart.",
+        "23 x 36 Centimeters"
+      ],
+      "dct_creator_sm": [
+        "Minnesota Transfer Board of Trade"
+      ],
+      "dct_publisher_sm": [
+        "Minnesota Transfer Board of Trade (Minnesota)"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Street Railroads"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Saint Paul",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-01"
+      ]
+    },
+    {
+      "id": "p16022coll245:2",
+      "dct_title_s": "Twin City map St. Paul - Minneapolis, Minnesota",
+      "dct_alternative_sm": [
+        "Twin City map St. Paul - Minneapolis, Minnesota"
+      ],
+      "dct_description_sm": [
+        "January, 1891. On verso: Text describing advantages of the Midway District of St. Paul and Minneapolis with an accompanying chart. Shows electric, cable and streetcar lines in red.",
+        "23 x 36 centimeters"
+      ],
+      "dct_creator_sm": [
+        "Minnesota Transfer Board of Trade."
+      ],
+      "dct_publisher_sm": [
+        "Minnesota Transfer Board of Trade (Minnesota)"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Street Railroads Minnesota Minneapolis Maps",
+        "Street Railroads Minnesota Saint Paul Maps",
+        "Minneapolis Metropolitan Area (Minn.) Maps",
+        "Saint Paul Metropolitan Area (Minn.) Maps"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Saint Paul",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-01"
+      ]
+    },
+    {
+      "id": "msn-id-1876",
+      "dct_title_s": "Map of streetcar system underground electrical conduits, Minneapolis and St. Paul, Minnesota",
+      "dct_description_sm": [
+        "Map of the electrical underground conduits showing individual manholes and substations in Minneapolis and St. Paul, Minnesota."
+      ],
+      "dct_creator_sm": [
+        "Twin City Rapid Transit"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "gbl_resourceType_sm": [
+        "Transportation maps"
+      ],
+      "dct_subject_sm": [
+        "Transportation"
+      ],
+      "dcat_keyword_sm": [
+        "Streetcars"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Saint Paul",
+        "Minnesota--Hennepin County",
+        "Minnesota--Ramsey County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "mdl-FUjq6u7Kx6VG",
+      "dct_title_s": "Minneapolis, Hennepin Co. Minn. 1896",
+      "dct_description_sm": [
+        "Map of Minneapolis shows elevation, public works, parks, lakes and railways."
+      ],
+      "dct_creator_sm": [
+        "Cappelen, F. W."
+      ],
+      "dct_publisher_sm": [
+        "City Engineer's Office"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Minneapolis parks",
+        "Minneapolis streetcar lines",
+        "Minneapolis water mains"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    },
+    {
+      "id": "mdl-hER52wO8fxUX",
+      "dct_title_s": "Map of Minneapolis, Hennepin County, Minnesota",
+      "dct_description_sm": [
+        "Map of Minneapolis shows elevation, public works, parks, lakes and railways"
+      ],
+      "dct_creator_sm": [
+        "Cappelen, F. W."
+      ],
+      "dct_publisher_sm": [
+        "City Engineer's Office"
+      ],
+      "schema_provider_s": "University of Minnesota",
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "dcat_keyword_sm": [
+        "Minneapolis parks",
+        "Minneapolis streetcar lines",
+        "Minneapolis water mains"
+      ],
+      "dct_spatial_sm": [
+        "Minnesota--Minneapolis",
+        "Minnesota--Hennepin County",
+        "Minnesota"
+      ],
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "05d-13"
+      ]
+    }
+  ]
+}

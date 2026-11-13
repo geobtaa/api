@@ -17,6 +17,7 @@ describe('search results proxy loader', () => {
       currentPage: 1,
       perPage: 20,
       query: 'maps',
+      matching: { mode: 'partial_terms', broadened: true, version: 'v2' },
     },
     included: [],
   };
@@ -81,6 +82,7 @@ describe('search results proxy loader', () => {
     expect(response.headers.get('content-type')).toContain('application/json');
     expect(response.headers.get('server-timing')).toContain('total;dur=4.2');
     expect(response.headers.get('x-cache')).toBe('HIT');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(response.headers.get('x-search-semantic-cache')).toBe('HIT');
     expect(await response.json()).toEqual(mockSearchResponse);
   });

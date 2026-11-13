@@ -1,3 +1,9 @@
+export interface SearchMatching {
+  mode: 'literal' | 'all_terms' | 'partial_terms';
+  broadened: boolean;
+  version: 'legacy' | 'v2';
+}
+
 export interface DataDictionaryEntry {
   id: number;
   resource_data_dictionary_id: number;
@@ -201,6 +207,7 @@ export interface FacetValue {
 }
 
 export interface FacetValuesMeta {
+  matching?: SearchMatching;
   totalCount: number;
   totalPages: number;
   currentPage: number;
@@ -250,6 +257,7 @@ export interface JsonApiResponse {
     last: string;
   };
   meta: {
+    matching?: SearchMatching;
     totalCount: number;
     totalPages: number;
     currentPage: number;
@@ -296,6 +304,7 @@ interface SpellingSuggestion {
 }
 
 interface SearchResponseMeta {
+  matching?: SearchMatching;
   pages: {
     current_page: number;
     next_page: number | null;

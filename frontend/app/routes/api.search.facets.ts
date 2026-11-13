@@ -21,6 +21,8 @@ function copyUpstreamHeaders(source: Headers): Headers {
   if (!headers.has('content-type')) {
     headers.set('content-type', 'application/json; charset=utf-8');
   }
+  // Delegate caching to the backend's generation-aware cache.
+  headers.set('cache-control', 'private, no-store');
 
   return headers;
 }

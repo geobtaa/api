@@ -1,3 +1,5 @@
+from .relevance_fields import SEARCH_FIELD_WEIGHTS
+
 INDEX_MAPPING = {
     "mappings": {
         "properties": {
@@ -226,3 +228,34 @@ INDEX_MAPPING = {
         }
     },
 }
+
+
+# Preserve original text/keyword mappings; new fields require a full source reindex.
+
+INDEX_MAPPING["mappings"]["_meta"] = {
+    "search_relevance": "v2",
+    "search_relevance_ready": False,
+}
+INDEX_MAPPING["mappings"]["properties"]["collection_titles"] = {"type": "text"}
+for _field in SEARCH_FIELD_WEIGHTS:
+    INDEX_MAPPING["mappings"]["properties"][_field].setdefault("fields", {})["search_en"] = {
+        "type": "text",
+        "analyzer": "catalog_english",
+        "search_analyzer": "catalog_english",
+    }
+INDEX_MAPPING["settings"]["index"]["analysis"].update(
+    {
+        "filter": {
+            "catalog_possessive": {"type": "stemmer", "language": "possessive_english"},
+            "catalog_stop": {"type": "stop", "stopwords": "_english_"},
+            "catalog_stemmer": {"type": "stemmer", "language": "light_english"},
+        },
+        "analyzer": {
+            "catalog_english": {
+                "type": "custom",
+                "tokenizer": "standard",
+                "filter": ["catalog_possessive", "lowercase", "catalog_stop", "catalog_stemmer"],
+            }
+        },
+    }
+)

@@ -1,1 +1,2 @@
 export const SEARCH_RESULTS_PER_PAGE = 20;
+export const SEARCH_RESPONSE_VERSION = '2';

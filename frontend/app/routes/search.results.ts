@@ -41,6 +41,8 @@ function copyUpstreamHeaders(source: Headers): Headers {
   if (!headers.has('content-type')) {
     headers.set('content-type', 'application/json; charset=utf-8');
   }
+  // Only the backend knows the current index generation and matching stage.
+  headers.set('cache-control', 'private, no-store');
 
   return headers;
 }
