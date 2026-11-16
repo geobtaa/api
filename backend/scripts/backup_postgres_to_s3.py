@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, TemporaryFile
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 DEFAULT_DATABASE_NAME = "btaa_geospatial_api"
@@ -46,6 +46,9 @@ class BackupConfig:
     sse: str | None = None
     sse_kms_key_id: str | None = None
     storage_class: str | None = None
+    stream: bool = False
+    expected_size_bytes: int = 512 * 1024**3
+    min_free_bytes: int = 5 * 1024**3
 
 
 @dataclass(frozen=True)
@@ -225,7 +228,7 @@ def _backup_lock(config: BackupConfig):
         try:
             current_payload = json.loads(lock_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            return
+            current_payload = {}
         if current_payload.get("token") == token:
             lock_path.unlink(missing_ok=True)
 
@@ -272,6 +275,9 @@ def _build_config() -> BackupConfig:
         sse=os.getenv("BACKUP_S3_SSE") or None,
         sse_kms_key_id=os.getenv("BACKUP_S3_SSE_KMS_KEY_ID") or None,
         storage_class=os.getenv("BACKUP_S3_STORAGE_CLASS") or None,
+        stream=_env_bool("BACKUP_POSTGRES_STREAM", default=False),
+        expected_size_bytes=_env_int("BACKUP_STREAM_EXPECTED_BYTES", 512 * 1024**3),
+        min_free_bytes=_env_int("BACKUP_MIN_FREE_BYTES", 5 * 1024**3),
     )
 
 
@@ -307,6 +313,7 @@ def _create_pg_dump(config: BackupConfig, output_path: Path) -> None:
             "9",
             "--no-owner",
             "--no-acl",
+            "--lock-wait-timeout=5s",
             "--file",
             str(output_path),
         ],
@@ -507,8 +514,193 @@ def _store_s3_backup(
     }
 
 
+def _multipart_client():
+    import boto3
+    from botocore.config import Config
+
+    return boto3.Session().client(
+        "s3",
+        config=Config(
+            retries={"mode": "standard", "total_max_attempts": 4},
+            connect_timeout=10,
+            read_timeout=120,
+        ),
+    )
+
+
+def _stream_pg_dump(config: BackupConfig, key: str) -> tuple[int, str]:
+    """Complete a multipart archive only after pg_dump succeeds; abort on failure."""
+    _require_command("pg_dump")
+    # Size parts for the expected archive without unbounded transfer buffering.
+    mib = 1024**2
+    part_size = max(
+        64 * mib, ((config.expected_size_bytes + 10000 * mib - 1) // (10000 * mib)) * mib
+    )
+    if part_size > 256 * mib or config.expected_size_bytes <= 0:
+        raise RuntimeError("BACKUP_STREAM_EXPECTED_BYTES exceeds the bounded streaming budget")
+    connection = _pg_connection_args(config.database_url)
+    client = _multipart_client()
+    options = {}
+    if config.sse:
+        options["ServerSideEncryption"] = config.sse
+    if config.sse_kms_key_id:
+        options["SSEKMSKeyId"] = config.sse_kms_key_id
+    if config.storage_class:
+        options["StorageClass"] = config.storage_class
+    upload_id = None
+    dump = None
+    digest, size = hashlib.sha256(), 0
+    with TemporaryFile() as errors:
+        try:
+            upload_id = client.create_multipart_upload(
+                Bucket=config.bucket,
+                Key=key,
+                **options,
+            )["UploadId"]
+            dump = subprocess.Popen(
+                [
+                    "pg_dump",
+                    *connection.args,
+                    "--format",
+                    "custom",
+                    "-Z",
+                    "6",
+                    "--no-owner",
+                    "--no-acl",
+                    "--lock-wait-timeout=5s",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=errors,
+                env=connection.env,
+            )
+            assert dump.stdout is not None
+            parts = []
+            while chunk := dump.stdout.read(part_size):
+                if not parts and chunk[:5] != b"PGDMP":
+                    raise RuntimeError("pg_dump did not produce a custom archive")
+                if len(parts) >= 10000:
+                    raise RuntimeError("Archive exceeded multipart budget; increase expected size")
+                digest.update(chunk)
+                size += len(chunk)
+                number = len(parts) + 1
+                result = client.upload_part(
+                    Bucket=config.bucket,
+                    Key=key,
+                    UploadId=upload_id,
+                    PartNumber=number,
+                    Body=chunk,
+                )
+                parts.append({"PartNumber": number, "ETag": result["ETag"]})
+            if dump.wait() != 0 or not parts:
+                raise RuntimeError("pg_dump failed during streaming backup")
+            client.complete_multipart_upload(
+                Bucket=config.bucket,
+                Key=key,
+                UploadId=upload_id,
+                MultipartUpload={"Parts": parts},
+            )
+            upload_id = None
+        except BaseException as exc:
+            if dump is not None and dump.poll() is None:
+                dump.terminate()
+                try:
+                    dump.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    dump.kill()
+                    dump.wait()
+            if upload_id is not None:
+                try:
+                    client.abort_multipart_upload(Bucket=config.bucket, Key=key, UploadId=upload_id)
+                except Exception as cleanup_error:
+                    print(
+                        f"WARNING: Could not abort multipart upload {upload_id}: {cleanup_error}",
+                        file=sys.stderr,
+                    )
+            if isinstance(exc, Exception):
+                errors.seek(0)
+                detail = errors.read().decode(errors="replace").strip()
+                raise RuntimeError(f"Streaming backup failed: {exc}; {detail}") from exc
+            raise
+        finally:
+            if dump is not None and dump.stdout is not None:
+                dump.stdout.close()
+            client.close()
+    return size, digest.hexdigest()
+
+
+def _check_local_capacity(config: BackupConfig) -> None:
+    previous = []
+    if config.local_dir:
+        previous = list((config.local_dir / config.destination / "postgres").glob("*.dump"))
+    # Preserve the last complete backup. Never delete it to make a new dump fit.
+    estimate = max((p.stat().st_size for p in previous), default=0)
+    required = int(estimate * 1.2) + config.min_free_bytes
+    free = shutil.disk_usage(config.work_dir).free
+    if free < required:
+        raise RuntimeError(
+            f"Insufficient backup staging space: free={free}, required={required}. "
+            "Use S3 streaming or provision storage; existing backups were preserved."
+        )
+
+
+def _create_streaming_backup(config: BackupConfig, filename: str, tmpdir: Path):
+    if config.target != "s3" or not config.bucket:
+        raise RuntimeError("Streaming requires the S3 backup target and bucket")
+    if config.expected_size_bytes <= 0:
+        raise RuntimeError("BACKUP_STREAM_EXPECTED_BYTES must be positive")
+    key = _s3_key(config.prefix, config.destination, "postgres", filename)
+    manifest_key = f"{key}.manifest.json"
+    try:
+        size, sha256 = _stream_pg_dump(config, key)
+        if int(_head_object(config, key).get("ContentLength", -1)) != size:
+            raise RuntimeError("S3 streamed object size mismatch")
+        manifest = {
+            "artifact": "postgres",
+            "database": DEFAULT_DATABASE_NAME,
+            "destination": config.destination,
+            "created_at": datetime.now(UTC).isoformat(),
+            "filename": filename,
+            "size_bytes": size,
+            "sha256": sha256,
+            "format": "pg_dump custom",
+            "target": "s3",
+            "streamed": True,
+            "s3_bucket": config.bucket,
+            "s3_key": key,
+            "retention_count": config.retention_count,
+        }
+        path = tmpdir / f"{filename}.manifest.json"
+        path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        _upload_file(config, path, manifest_key, {"artifact": "postgres", "sha256": sha256})
+        if int(_head_object(config, manifest_key).get("ContentLength", -1)) != path.stat().st_size:
+            raise RuntimeError("S3 backup manifest size mismatch")
+    except Exception:
+        # A failed/partial artifact must not count toward retention. Existing
+        # successful backups are untouched; cleanup failures remain visible.
+        for failed_key in (manifest_key, key):
+            try:
+                _delete_object(config, failed_key)
+            except Exception as cleanup_error:
+                print(
+                    f"WARNING: Could not remove failed backup {failed_key}: {cleanup_error}",
+                    file=sys.stderr,
+                )
+        raise
+    deleted = _prune_old_backups(
+        config, _s3_key(config.prefix, config.destination, "postgres") + "/"
+    )
+    print(f"PostgreSQL streaming backup complete: {size} bytes, sha256={sha256}", flush=True)
+    return {
+        "backup_key": key,
+        "manifest_key": manifest_key,
+        "deleted": deleted,
+        "size_bytes": size,
+        "sha256": sha256,
+    }
+
+
 def create_backup(config: BackupConfig) -> dict[str, object]:
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     filename = f"{DEFAULT_DATABASE_NAME}_{config.destination}_{timestamp}.dump"
     backup_prefix = _s3_key(config.prefix, config.destination, "postgres")
     backup_key = _s3_key(backup_prefix, filename)
@@ -519,6 +711,9 @@ def create_backup(config: BackupConfig) -> dict[str, object]:
         _backup_lock(config),
         TemporaryDirectory(prefix="postgres-", dir=str(config.work_dir)) as tmpdir,
     ):
+        if config.stream:
+            return _create_streaming_backup(config, filename, Path(tmpdir))
+        _check_local_capacity(config)
         dump_path = Path(tmpdir) / filename
         manifest_path = Path(tmpdir) / f"{filename}.manifest.json"
 

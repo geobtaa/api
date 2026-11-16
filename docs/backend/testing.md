@@ -154,3 +154,19 @@ coverage is enabled.
   quarter.
 - Keep this file and [../make_tasks.md](../make_tasks.md) aligned with new test
   targets or environment variables.
+
+### Analytics concurrency and archive regression tests
+
+Reporting tests use unique schemas on an explicitly configured disposable
+PostgreSQL server. Set `ANALYTICS_TEST_DATABASE_URL` to that server and run
+`tests/tasks/test_reporting_concurrency.py`, `test_reporting_storage.py`, and
+`test_reporting_publication.py`. They exercise committed concurrent writers,
+capture installation, bounded catch-up, archive preservation, and publication.
+
+`tests/scripts/test_backup_stream_restore.py` is an opt-in local archive
+round-trip test. Set `BACKUP_TEST_DATABASE_URL` to a disposable PostgreSQL server
+whose test account can create databases, and provide matching `pg_dump` and
+`pg_restore` clients on `PATH`. It creates and removes two uniquely named test
+databases, streams a complete custom archive to a local stand-in for object
+storage, restores it, and verifies binary data and indexes. It does not contact
+cloud storage. Never point these test settings at a deployed database.
