@@ -268,6 +268,14 @@ python scripts/manage_analytics_storage.py --mode size-report
 python scripts/manage_analytics_storage.py --mode ensure
 ```
 
+Run `--mode ensure` explicitly after local schema changes, with analytics writers
+paused. Routine `maintenance` and `reporting` runs require installed capture
+triggers and never recreate them. Installation fails promptly if a writer holds
+conflicting locks. Catch-up processes raw history in bounded transactions so
+capture can continue between batches. Database maintenance connections use
+bounded lock and statement waits; failures retain the previous report manifest.
+
+
 Deployed analytics maintenance commands, schedules, and verification procedures
 are restricted operations material.
 

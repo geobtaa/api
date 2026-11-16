@@ -10,7 +10,16 @@ from .archive import audit_oldest_archive, configured_archives, preserve
 from .contract import CALCULATION_VERSION, SOURCES, START, next_month, periods
 from .public_export import PUBLIC_PRIVACY_VERSION, public_report
 from .reports import build_report
-from .storage import LOCK, backfill, canonical, checksum, drain, health, install
+from .storage import (
+    LOCK,
+    backfill,
+    backfill_batch,
+    canonical,
+    checksum,
+    drain,
+    health,
+    require_installed,
+)
 
 CODE_LABELS = {
     "01": "Indiana University",
@@ -143,20 +152,14 @@ def run(engine, *, today=None, archives=None):
     today = today or datetime.now(timezone.utc).date()
     through = today.replace(day=1)
     with engine.begin() as conn:
-        install(conn)
-        conn.execute(
-            text("""CREATE TABLE IF NOT EXISTS analytics_reporting_installation (
-            singleton boolean PRIMARY KEY CHECK(singleton), started_at timestamptz NOT NULL);
-            INSERT INTO analytics_reporting_installation VALUES(true,now()) ON CONFLICT DO NOTHING
-        """)
-        )
+        require_installed(conn)
         started = conn.execute(
             text("SELECT started_at FROM analytics_reporting_installation")
         ).scalar()
     # Recover any inserts accepted before trigger installation or during a gap.
     # Available rows alone do not certify historical coverage.
-    with engine.begin() as conn:
-        for source in SOURCES:
+    for source in SOURCES:
+        with engine.begin() as conn:
             months = (
                 conn.execute(
                     text(
@@ -168,8 +171,13 @@ def run(engine, *, today=None, archives=None):
                 .scalars()
                 .all()
             )
-            for month in months:
-                backfill(conn, source, month)
+        for month in months:
+            after_id = None
+            while True:
+                with engine.begin() as conn:
+                    after_id = backfill_batch(conn, source, month, after_id)
+                if after_id is None:
+                    break
     # Bounded transactions: captured raw records remain recoverable between batches.
     while True:
         with engine.begin() as conn:

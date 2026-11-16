@@ -118,7 +118,10 @@ env:
     WEB_SSR_WORKERS: "4"
     BACKUP_ENABLED: "<%= ENV.fetch('BACKUP_ENABLED', 'true') %>"
     BACKUP_REQUIRED_DEST: prd
-    BACKUP_POSTGRES_TARGET: "<%= ENV.fetch('BACKUP_POSTGRES_TARGET', 'local') %>"
+    BACKUP_POSTGRES_TARGET: "<%= ENV.fetch('BACKUP_POSTGRES_TARGET', 's3') %>"
+    BACKUP_POSTGRES_STREAM: "<%= ENV.fetch('BACKUP_POSTGRES_STREAM', 'true') %>"
+    BACKUP_STREAM_EXPECTED_BYTES: "<%= ENV.fetch('BACKUP_STREAM_EXPECTED_BYTES', '549755813888') %>"
+    BACKUP_S3_SSE: "<%= ENV.fetch('BACKUP_S3_SSE', 'AES256') %>"
     BACKUP_LOCAL_DIR: "<%= ENV.fetch('BACKUP_LOCAL_DIR', '/var/backups/btaa-geospatial-api') %>"
     BACKUP_RETENTION_COUNT: "<%= ENV.fetch('BACKUP_RETENTION_COUNT', '1') %>"
     BACKUP_S3_BUCKET: "<%= ENV.fetch('BACKUP_S3_BUCKET', '') %>"
@@ -161,6 +164,14 @@ env:
 
 accessories:
   elasticsearch:
+    # Rebuild secure settings on each container creation; the writable layer is ephemeral.
+    cmd: >-
+      bash -ec '
+      test -n "$AWS_ACCESS_KEY_ID";
+      test -n "$AWS_SECRET_ACCESS_KEY";
+      printf %s "$AWS_ACCESS_KEY_ID" | bin/elasticsearch-keystore add -x -f s3.client.default.access_key;
+      printf %s "$AWS_SECRET_ACCESS_KEY" | bin/elasticsearch-keystore add -x -f s3.client.default.secret_key;
+      exec /usr/local/bin/docker-entrypoint.sh eswrapper'
     options:
       memory: 8g
     env:
@@ -175,4 +186,5 @@ accessories:
       memory: 18g
     env:
       clear:
-        REDIS_MAXMEMORY: "<%= ENV.fetch('REDIS_MAXMEMORY', '16gb') %>"
+        REDIS_MAXMEMORY: "<%= ENV.fetch('REDIS_MAXMEMORY', '12gb') %>"
+        REDIS_SAVE: "<%= ENV.fetch('REDIS_SAVE', '') %>"
