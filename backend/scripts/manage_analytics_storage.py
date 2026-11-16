@@ -99,8 +99,11 @@ def main() -> None:
         except Exception as exc:
             from app.services.analytics_reporting.storage import health
 
-            with engine.begin() as conn:
-                health(conn, "publication", "failed", type(exc).__name__)
+            try:
+                with engine.begin() as conn:
+                    health(conn, "publication", "failed", type(exc).__name__)
+            except Exception:
+                logger.exception("Could not record analytics publication failure")
             logger.error("Analytics publication failed; previous manifest retained")
             raise
         finally:

@@ -872,7 +872,9 @@ def _drop_expired_partitions(conn: Connection, config: RawAnalyticsTableConfig) 
             continue
         # A parent lock excludes inserts routed through any child until commit.
         # The archive receipt is checked under that same lock as deletion.
-        conn.execute(text(f"LOCK TABLE {_ident(config.table_name)} IN ACCESS EXCLUSIVE MODE"))
+        # Earlier sources may already have acquired the capture advisory lock.
+        # Never wait here: writers acquire raw locks before that advisory lock.
+        conn.execute(text(f"LOCK TABLE {_ident(config.table_name)} IN ACCESS EXCLUSIVE MODE NOWAIT"))
         reporting_health = conn.execute(
             text("SELECT to_regclass('analytics_reporting_health')")
         ).scalar()

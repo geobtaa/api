@@ -82,6 +82,7 @@ def test_prune_old_backups_keeps_newest_count(monkeypatch, tmp_path: Path):
         {"Key": "prefix/backup-4.dump", "LastModified": "2026-05-20T05:30:04Z"},
         {"Key": "prefix/backup-4.dump.manifest.json", "LastModified": "2026-05-20T05:30:04Z"},
     ]
+    objects.extend({"Key": f"prefix/backup-{i}.dump.manifest.json"} for i in (1, 2, 3))
     deleted: list[str] = []
 
     monkeypatch.setattr(backup, "_list_objects", lambda _config, _prefix: objects)
@@ -389,3 +390,33 @@ def test_backup_lock_cleanup_does_not_hide_dump_failure(tmp_path):
         with backup._backup_lock(config):
             (tmp_path / backup.LOCK_FILENAME).unlink()
             raise RuntimeError("dump failed")
+
+
+def test_orphaned_dump_does_not_displace_verified_backups(monkeypatch, tmp_path):
+    config = streaming_config(tmp_path)
+    objects = [
+        {"Key": "prefix/old.dump", "LastModified": "2026-01-01"},
+        {"Key": "prefix/new.dump", "LastModified": "2026-01-02"},
+        {"Key": "prefix/interrupted.dump", "LastModified": "2026-01-03"},
+        {"Key": "prefix/old.dump.manifest.json"},
+        {"Key": "prefix/new.dump.manifest.json"},
+    ]
+    monkeypatch.setattr(backup, "_list_objects", lambda *_: objects)
+    monkeypatch.setattr(backup, "_delete_object", lambda *_: pytest.fail("must preserve backups"))
+    assert backup._prune_old_backups(config, "prefix/") == []
+
+
+def test_staged_s3_backup_verifies_dump_before_publishing_manifest(monkeypatch, tmp_path):
+    from dataclasses import replace
+
+    config = replace(streaming_config(tmp_path), stream=False, min_free_bytes=0)
+    uploaded, deleted = [], []
+    monkeypatch.setattr(backup, "_create_pg_dump", lambda _, p: p.write_bytes(b"PGDMPdata"))
+    monkeypatch.setattr(backup, "_upload_file", lambda _, p, k, m: uploaded.append(k))
+    monkeypatch.setattr(backup, "_head_object", lambda *_: {"ContentLength": 0})
+    monkeypatch.setattr(backup, "_delete_object", lambda _, k: deleted.append(k))
+    monkeypatch.setattr(backup, "_prune_old_backups", lambda *_: pytest.fail("must not prune"))
+    with pytest.raises(RuntimeError, match="size mismatch"):
+        backup.create_backup(config)
+    assert len(uploaded) == 1 and uploaded[0].endswith(".dump")
+    assert set(deleted) == {uploaded[0], uploaded[0] + ".manifest.json"}

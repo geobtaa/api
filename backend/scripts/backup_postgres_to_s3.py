@@ -400,10 +400,14 @@ def _delete_object(config: BackupConfig, key: str) -> None:
 
 
 def _prune_old_backups(config: BackupConfig, backup_prefix: str) -> list[str]:
+    listed = _list_objects(config, backup_prefix)
+    keys = {str(obj.get("Key", "")) for obj in listed}
+    # An interrupted run can leave a completed dump without its commit manifest.
+    # It must not displace an older, complete backup from the retention window.
     objects = [
         obj
-        for obj in _list_objects(config, backup_prefix)
-        if str(obj.get("Key", "")).endswith(".dump")
+        for obj in listed
+        if str(obj.get("Key", "")).endswith(".dump") and f"{obj['Key']}.manifest.json" in keys
     ]
     objects.sort(key=lambda obj: str(obj.get("LastModified", "")), reverse=True)
 
@@ -471,6 +475,30 @@ def _store_local_backup(
     }
 
 
+def _commit_s3_manifest(config, key, manifest_path, size, metadata):
+    """Publish the retention marker only after the complete dump is verified."""
+    if int(_head_object(config, key).get("ContentLength", -1)) != size:
+        raise RuntimeError("S3 backup object size mismatch")
+    manifest_key = f"{key}.manifest.json"
+    _upload_file(config, manifest_path, manifest_key, metadata)
+    if (
+        int(_head_object(config, manifest_key).get("ContentLength", -1))
+        != manifest_path.stat().st_size
+    ):
+        raise RuntimeError("S3 backup manifest size mismatch")
+
+
+def _remove_failed_s3_backup(config, key):
+    for failed_key in (f"{key}.manifest.json", key):
+        try:
+            _delete_object(config, failed_key)
+        except Exception as cleanup_error:
+            print(
+                f"WARNING: Could not remove failed backup {failed_key}: {cleanup_error}",
+                file=sys.stderr,
+            )
+
+
 def _store_s3_backup(
     config: BackupConfig,
     dump_path: Path,
@@ -489,15 +517,12 @@ def _store_s3_backup(
         "sha256": sha256,
     }
     print(f"Uploading dump to s3://{config.bucket}/{backup_key}", flush=True)
-    _upload_file(config, dump_path, backup_key, metadata)
-    _upload_file(config, manifest_path, manifest_key, metadata)
-
-    head = _head_object(config, backup_key)
-    if int(head.get("ContentLength", -1)) != size_bytes:
-        raise RuntimeError(
-            f"S3 object size mismatch for {backup_key}: "
-            f"expected={size_bytes} actual={head.get('ContentLength')}"
-        )
+    try:
+        _upload_file(config, dump_path, backup_key, metadata)
+        _commit_s3_manifest(config, backup_key, manifest_path, size_bytes, metadata)
+    except BaseException:
+        _remove_failed_s3_backup(config, backup_key)
+        raise
 
     backup_prefix = str(Path(backup_key).parent).replace("\\", "/")
     deleted = _prune_old_backups(config, f"{backup_prefix}/")
@@ -599,7 +624,6 @@ def _stream_pg_dump(config: BackupConfig, key: str) -> tuple[int, str]:
                 UploadId=upload_id,
                 MultipartUpload={"Parts": parts},
             )
-            upload_id = None
         except BaseException as exc:
             if dump is not None and dump.poll() is None:
                 dump.terminate()
@@ -652,8 +676,6 @@ def _create_streaming_backup(config: BackupConfig, filename: str, tmpdir: Path):
     manifest_key = f"{key}.manifest.json"
     try:
         size, sha256 = _stream_pg_dump(config, key)
-        if int(_head_object(config, key).get("ContentLength", -1)) != size:
-            raise RuntimeError("S3 streamed object size mismatch")
         manifest = {
             "artifact": "postgres",
             "database": DEFAULT_DATABASE_NAME,
@@ -671,20 +693,11 @@ def _create_streaming_backup(config: BackupConfig, filename: str, tmpdir: Path):
         }
         path = tmpdir / f"{filename}.manifest.json"
         path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-        _upload_file(config, path, manifest_key, {"artifact": "postgres", "sha256": sha256})
-        if int(_head_object(config, manifest_key).get("ContentLength", -1)) != path.stat().st_size:
-            raise RuntimeError("S3 backup manifest size mismatch")
-    except Exception:
+        _commit_s3_manifest(config, key, path, size, {"artifact": "postgres", "sha256": sha256})
+    except BaseException:
         # A failed/partial artifact must not count toward retention. Existing
         # successful backups are untouched; cleanup failures remain visible.
-        for failed_key in (manifest_key, key):
-            try:
-                _delete_object(config, failed_key)
-            except Exception as cleanup_error:
-                print(
-                    f"WARNING: Could not remove failed backup {failed_key}: {cleanup_error}",
-                    file=sys.stderr,
-                )
+        _remove_failed_s3_backup(config, key)
         raise
     deleted = _prune_old_backups(
         config, _s3_key(config.prefix, config.destination, "postgres") + "/"

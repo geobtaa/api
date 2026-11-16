@@ -187,3 +187,27 @@ def test_explicit_install_fails_fast_without_holding_reporting_locks(reporting_e
         install(conn)
         insert(conn, 3)
         assert conn.execute(text("SELECT count(*) FROM analytics_reporting_outbox")).scalar() == 3
+
+
+def test_retention_does_not_wait_for_raw_locks_after_capture_lock(reporting_engine, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    from app.services.analytics_reporting.storage import LOCK
+    from db.migrations import analytics_storage as storage
+
+    config = next(c for c in storage.RAW_ANALYTICS_TABLES if c.table_name == "analytics_searches")
+    monkeypatch.setattr(storage, "_maintenance_state_date", lambda *_: date(2026, 7, 31))
+    monkeypatch.setenv(config.retention_env, "0")
+    with reporting_engine.begin() as writer:
+        # An insert holds the raw table lock before its capture trigger can run.
+        writer.execute(text("LOCK TABLE analytics_searches IN ROW EXCLUSIVE MODE"))
+        with pytest.raises(OperationalError, match="could not obtain lock"):
+            with reporting_engine.begin() as retention:
+                # Retention of an earlier source can already hold the global
+                # capture lock. Waiting for the next source would invert the
+                # writer's raw-table -> capture lock ordering.
+                retention.execute(text(f"SELECT pg_advisory_xact_lock({LOCK})"))
+                storage._drop_expired_partitions(retention, config)
+        insert(writer)
+    with reporting_engine.begin() as conn:
+        assert conn.execute(text("SELECT count(*) FROM analytics_searches")).scalar() == 1

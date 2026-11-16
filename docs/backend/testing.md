@@ -169,4 +169,6 @@ whose test account can create databases, and provide matching `pg_dump` and
 `pg_restore` clients on `PATH`. It creates and removes two uniquely named test
 databases, streams a complete custom archive to a local stand-in for object
 storage, restores it, and verifies binary data and indexes. It does not contact
-cloud storage. Never point these test settings at a deployed database.
+cloud storage. CI runs this test using client binaries from its disposable
+PostgreSQL service container, ensuring server/client version compatibility.
+Never point these test settings at a deployed database.

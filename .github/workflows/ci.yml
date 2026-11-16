@@ -67,6 +67,8 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:2345/btaa_geospatial_api_test
       # Retention tests use isolated schemas; do not silently skip them in CI.
       ANALYTICS_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:2345/btaa_geospatial_api_test
+      BACKUP_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:2345/btaa_geospatial_api_test
+      BACKUP_TEST_CLIENT_PORT: "5432"
       APPLICATION_URL: http://localhost:8000
       ELASTICSEARCH_URL: http://localhost:9200
       ELASTICSEARCH_INDEX: btaa_geospatial_api_test
@@ -143,6 +145,18 @@ jobs:
           finally:
               conn.close()
           PY
+
+      - name: Prepare matching PostgreSQL test clients
+        env:
+          POSTGRES_TEST_CONTAINER: ${{ job.services.paradedb.id }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pg-test-bin"
+          for command in pg_dump pg_restore; do
+            printf '#!/bin/sh\nexec docker exec -i -e PGPASSWORD %s %s "$@"\n' \
+              "$POSTGRES_TEST_CONTAINER" "$command" > "$RUNNER_TEMP/pg-test-bin/$command"
+            chmod +x "$RUNNER_TEMP/pg-test-bin/$command"
+          done
+          echo "$RUNNER_TEMP/pg-test-bin" >> "$GITHUB_PATH"
 
       - name: Lint backend
         run: make lint-check
