@@ -108,7 +108,31 @@ def checksum(value) -> str:
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
+def require_installed(conn):
+    """Read-only readiness check; routine reporting must never reinstall triggers."""
+    for relation in ("analytics_reporting_installation", "analytics_reporting_outbox"):
+        if not conn.execute(text("SELECT to_regclass(:name)"), {"name": relation}).scalar():
+            raise RuntimeError("Reporting schema is missing; run analytics storage ensure first")
+    for source in SOURCES:
+        ready = conn.execute(
+            text("""SELECT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgrelid=to_regclass(:source) AND tgname='reporting_capture'
+                  AND tgenabled IN ('O', 'A')
+                  AND tgfoid=to_regproc('analytics_reporting_capture'))"""),
+            {"source": source},
+        ).scalar()
+        if not ready:
+            raise RuntimeError(f"Reporting capture is missing or disabled for {source}")
+
+
 def install(conn):
+    # Writers take raw-table locks before the capture advisory lock. Take all raw
+    # locks first, before touching reporting relations. Fail immediately if busy:
+    # queued exclusive locks must not stall normal inserts behind a migration.
+    tables = ", ".join(f'"{source}"' for source in sorted(SOURCES))
+    conn.execute(text(f"LOCK TABLE {tables} IN ACCESS EXCLUSIVE MODE NOWAIT"))
+    conn.execute(text(f"SELECT pg_advisory_xact_lock({LOCK})"))
     conn.execute(text(DDL))
     # Lock protocol: installation/retention take the same exclusive lock as capture.
     # This also serializes generation changes with archival receipt verification.
@@ -164,7 +188,26 @@ def install(conn):
         )
 
 
-def backfill(conn, source: str, month: date):
+def backfill_batch(conn, source: str, month: date, after_id=None, limit=2000):
+    """Recover a bounded keyset page, releasing the capture lock between batches."""
+    if source not in SOURCES or month.day != 1 or limit < 1:
+        raise ValueError("Invalid source/month/batch size")
+    ids = (
+        conn.execute(
+            text(f"""SELECT id FROM "{source}" WHERE partition_month=:month
+            AND (:after_id IS NULL OR id>:after_id) ORDER BY id LIMIT :limit"""),
+            {"month": month, "after_id": after_id, "limit": limit},
+        )
+        .scalars()
+        .all()
+    )
+    if not ids:
+        return None
+    backfill(conn, source, month, first_id=ids[0], last_id=ids[-1])
+    return ids[-1]
+
+
+def backfill(conn, source: str, month: date, *, first_id=None, last_id=None):
     """Capture available raw records, without asserting historical completeness."""
     if source not in SOURCES or month.day != 1:
         raise ValueError("Invalid source/month")
@@ -176,9 +219,11 @@ def backfill(conn, source: str, month: date):
         FROM "{source}" r CROSS JOIN LATERAL
           (SELECT analytics_reporting_body(to_jsonb(r)) AS body) b
         WHERE r.partition_month=:month
+          AND (:first_id IS NULL OR r.id>=:first_id)
+          AND (:last_id IS NULL OR r.id<=:last_id)
         ON CONFLICT DO NOTHING
     """),
-        {"source": source, "month": month},
+        {"source": source, "month": month, "first_id": first_id, "last_id": last_id},
     ).rowcount
     conn.execute(
         text("""INSERT INTO analytics_reporting_months(month,generation)

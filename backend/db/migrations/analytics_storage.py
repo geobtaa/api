@@ -19,7 +19,11 @@ def _sync_database_url() -> str:
 
 
 def analytics_storage_engine() -> Engine:
-    return create_engine(_sync_database_url(), poolclass=NullPool)
+    return create_engine(
+        _sync_database_url(),
+        poolclass=NullPool,
+        connect_args={"options": "-c lock_timeout=5s -c statement_timeout=30min"},
+    )
 
 
 def _ident(name: str) -> str:
@@ -924,7 +928,12 @@ def run_analytics_maintenance(engine: Engine | None = None) -> Dict[str, int]:
         "dropped_partitions": 0,
     }
     try:
-        summary.update(ensure_analytics_storage_schema(engine))
+        # Schema conversion belongs to explicit installation, not a daily job.
+        # Only create missing future partitions; avoid ALTERs and full-table
+        # backfills against actively written raw tables on every run.
+        with engine.begin() as conn:
+            for config in RAW_ANALYTICS_TABLES:
+                summary["created_partitions"] += _ensure_future_partitions(conn, config)
         with engine.begin() as conn:
             conn.execute(text("SET LOCAL TIME ZONE 'UTC'"))
             # Serialize maintenance, including its retention checks.
