@@ -209,6 +209,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Run frontend runtime tests
+        run: npm run test:runtime
+
       - name: Run frontend tests
         run: npm test -- --run
 

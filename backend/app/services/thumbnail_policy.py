@@ -80,7 +80,16 @@ def normalize_thumbnail_image(
         with Image.open(io.BytesIO(content)) as opened:
             # JPEG decoder downsampling avoids expanding old full-resolution
             # captures before reducing them to a thumbnail. EXIF is applied next.
-            opened.draft("RGB", (THUMBNAIL_MAX_EDGE * 2, THUMBNAIL_MAX_EDGE * 2))
+            decode_edge = THUMBNAIL_MAX_EDGE * 2
+            opened.draft("RGB", (decode_edge, decode_edge))
+            if opened.format == "JPEG2000":
+                # JPEG 2000 ignores draft(). Discard resolution levels in the
+                # decoder before allocating pixels, including mislabeled legacy
+                # captures whose MIME type says image/jpeg.
+                reduction = 0
+                while opened.width * opened.height > decode_edge**2 * (1 << (2 * reduction)):
+                    reduction += 1
+                opened.reduce = reduction
             opened.load()
             image = ImageOps.exif_transpose(opened)
 

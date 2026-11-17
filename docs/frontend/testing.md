@@ -36,6 +36,21 @@ After changing frontend dependencies, run `make frontend-reset` from the
 repository root for a running local Compose frontend, then hard-refresh the
 browser.
 
+## Server startup checks
+
+Run `npm run test:runtime` from `frontend/` to check the server startup command
+with real Node subprocesses. The checks verify inherited `NODE_OPTIONS`, the
+instrumentation preload order, and invalid heap-budget rejection. CI runs these
+checks before the frontend unit tests.
+
+`npm start` preserves inherited `NODE_OPTIONS` while loading AppSignal before
+source-map support. For local profiling, standard Node flags can therefore be
+supplied without replacing those preloads. The combined application launcher
+also accepts an optional positive-integer `WEB_SSR_MAX_OLD_SPACE_MB` for each SSR
+process. This bounds V8's old generation, not total process memory; buffers,
+native allocations and other workers still require headroom. Deployed worker
+budgets and rollout procedures belong in the restricted operations docs.
+
 ## Dependency security
 
 Run `npm audit` after dependency changes. Security overrides in `package.json`

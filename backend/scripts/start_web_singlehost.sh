@@ -8,9 +8,15 @@ export PATH="/opt/venv/bin:$PATH"
 export WEB_UVICORN_WORKERS="${WEB_UVICORN_WORKERS:-2}"
 export WEB_INTERNAL_UVICORN_WORKERS="${WEB_INTERNAL_UVICORN_WORKERS:-1}"
 export WEB_SSR_WORKERS="${WEB_SSR_WORKERS:-1}"
+WEB_SSR_MAX_OLD_SPACE_MB="${WEB_SSR_MAX_OLD_SPACE_MB:-}"
 
 if ! [[ "${WEB_SSR_WORKERS}" =~ ^[1-9][0-9]*$ ]]; then
   echo "[start_web_singlehost] WEB_SSR_WORKERS must be a positive integer, got ${WEB_SSR_WORKERS}" >&2
+  exit 1
+fi
+
+if [ -n "${WEB_SSR_MAX_OLD_SPACE_MB}" ] && ! [[ "${WEB_SSR_MAX_OLD_SPACE_MB}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "[start_web_singlehost] WEB_SSR_MAX_OLD_SPACE_MB must be a positive integer" >&2
   exit 1
 fi
 
@@ -84,6 +90,11 @@ fi
 echo "[start_web_singlehost] starting ${WEB_SSR_WORKERS} SSR worker(s) (react-router-serve)"
 cd /app/frontend
 export NODE_ENV="${NODE_ENV:-production}"
+# Each SSR process shares the container with API workers. Budget its V8 old
+# generation independently; native allocations still need container headroom.
+if [ -n "${WEB_SSR_MAX_OLD_SPACE_MB}" ]; then
+  export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${WEB_SSR_MAX_OLD_SPACE_MB}"
+fi
 
 # Let SSR talk directly to FastAPI on loopback so loader/action fetches avoid
 # an extra nginx hop inside the same container. By default SSR uses its own
