@@ -49,3 +49,14 @@ def test_unavailable_reduced_resolution_does_not_retry_full_decode():
     source = io.BytesIO()
     Image.new("RGB", (2048, 2048)).save(source, format="JPEG2000", num_resolutions=1)
     assert policy.normalize_thumbnail_image(source.getvalue(), "image/jp2") == (None, None)
+
+
+@pytest.mark.parametrize("edge", [0, -1])
+def test_nonpositive_output_edge_is_rejected_before_decoding(monkeypatch, edge):
+    source = io.BytesIO()
+    Image.new("RGB", (20, 10)).save(source, format="PNG")
+    monkeypatch.setattr(policy, "THUMBNAIL_MAX_EDGE", edge)
+    monkeypatch.setattr(
+        policy.Image, "open", lambda *args: pytest.fail("Invalid bounds must not decode")
+    )
+    assert policy.normalize_thumbnail_image(source.getvalue(), "image/png") == (None, None)

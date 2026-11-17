@@ -73,7 +73,7 @@ def normalize_thumbnail_image(
     - strips metadata by re-encoding
     - re-compresses to bounded delivery formats
     """
-    if not content:
+    if not content or THUMBNAIL_MAX_EDGE <= 0:
         return None, None
 
     try:
