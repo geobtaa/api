@@ -218,6 +218,15 @@ durable fallback across cache churn, restarts, and deploys.
 `VISUAL_ASSET_CACHE_TTL_SECONDS=0` stores these hot Redis keys without expiry.
 Deployed TTL, memory, and eviction settings are restricted operations material.
 
+Thumbnail normalization uses decoder-level reduction for JPEG and JPEG 2000
+before loading pixels. Format detection comes from the image header, so a legacy
+JPEG 2000 capture mislabeled as `image/jpeg` still follows the reduced-resolution
+path. Small JPEG 2000 images can decode without additional resolution levels;
+large codestreams that cannot provide the requested reduction fail normalization
+instead of retrying a full-resolution allocation. Existing output-size, alpha,
+orientation, and content-hash checks still apply, and original stored captures
+remain available.
+
 Thumbnail lookup checks durable source mappings before queuing work. Older
 URL-keyed captures can be converted on read when their exact historical v3 URL
 hash proves the selected source, or their saved success state matches that source.
