@@ -1,4 +1,8 @@
 declare module 'mirador' {
+  export const ConnectedThumbnailCanvasGrouping: import('react').ComponentType<
+    Record<string, unknown>
+  >;
+
   type MiradorViewer = (
     config: Record<string, unknown>,
     plugins?: unknown[]

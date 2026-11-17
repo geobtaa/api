@@ -83,10 +83,12 @@ export function MiradorViewerPage() {
     let cancelled = false;
 
     async function boot() {
-      const [miradorModule, downloadPluginModule] = await Promise.all([
-        import('mirador') as Promise<MiradorModule>,
-        import('mirador-dl-plugin') as Promise<MiradorDownloadPluginModule>,
-      ]);
+      const [miradorModule, downloadPluginModule, thumbnailPluginModule] =
+        await Promise.all([
+          import('mirador') as Promise<MiradorModule>,
+          import('mirador-dl-plugin') as Promise<MiradorDownloadPluginModule>,
+          import('../components/resource/MiradorThumbnailNavigation'),
+        ]);
 
       if (cancelled) return;
 
@@ -155,7 +157,15 @@ export function MiradorViewerPage() {
             workspace: { showZoomControls: true },
             workspaceControlPanel: { enabled: false },
           },
-          [...downloadPlugins, miradorRotationPlugin]
+          [
+            ...downloadPlugins,
+            miradorRotationPlugin,
+            {
+              target: 'ThumbnailNavigation',
+              mode: 'wrap',
+              component: thumbnailPluginModule.MiradorThumbnailNavigation,
+            },
+          ]
         ) ?? null;
     }
 

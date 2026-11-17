@@ -2,6 +2,7 @@ import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MiradorViewerPage } from '../../pages/MiradorViewerPage';
 import { MiradorRotationControls } from '../../components/resource/MiradorRotationControls';
+import { MiradorThumbnailNavigation } from '../../components/resource/MiradorThumbnailNavigation';
 
 const viewer = vi.hoisted(() => vi.fn());
 vi.mock('mirador', () => ({ default: { viewer } }));
@@ -53,6 +54,11 @@ describe('Mirador presentation', () => {
             target: 'ZoomControls',
             mode: 'wrap',
             component: MiradorRotationControls,
+          },
+          {
+            target: 'ThumbnailNavigation',
+            mode: 'wrap',
+            component: MiradorThumbnailNavigation,
           },
         ]
       );
