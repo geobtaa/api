@@ -1,6 +1,7 @@
-import { render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import L from 'leaflet';
+import { attachBasemapSwitcher } from '../../../config/basemaps';
 import LocationMap from '../../../components/resource/LocationMap.client';
 
 const mockMapInstance = {
@@ -80,5 +81,69 @@ describe('LocationMap client', () => {
         })
       );
     });
+  });
+});
+
+describe('Location map basemap lifecycle', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each([
+    { type: 'Point' as const, coordinates: [-93, 45] },
+    {
+      type: 'Polygon' as const,
+      coordinates: [
+        [
+          [-94, 44],
+          [-92, 44],
+          [-92, 46],
+          [-94, 44],
+        ],
+      ],
+    },
+    {
+      type: 'MultiPolygon' as const,
+      coordinates: [
+        [
+          [
+            [-94, 44],
+            [-92, 44],
+            [-92, 46],
+            [-94, 44],
+          ],
+        ],
+      ],
+    },
+  ])('sets the $type resource view before adding tiles', (geometry) => {
+    const { unmount } = render(<LocationMap geometry={geometry} />);
+    const view =
+      geometry.type === 'Point'
+        ? mockMapInstance.setView
+        : mockMapInstance.fitBounds;
+    expect(view.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(attachBasemapSwitcher).mock.invocationCallOrder[0]
+    );
+    expect(mockMapInstance.setView).not.toHaveBeenCalledWith([0, 0], 2);
+    unmount();
+  });
+
+  it('announces failures and clears the warning on switching or resource navigation', () => {
+    const { rerender, unmount } = render(
+      <LocationMap geometry={{ type: 'Point', coordinates: [-93, 45] }} />
+    );
+    const onError = vi.mocked(attachBasemapSwitcher).mock.calls[0][3]!;
+    const cleanup = vi.mocked(attachBasemapSwitcher).mock.results[0].value;
+    act(() => onError(true));
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Choose another basemap'
+    );
+    act(() => onError(false));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    act(() => onError(true));
+    rerender(
+      <LocationMap geometry={{ type: 'Point', coordinates: [-94, 46] }} />
+    );
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    unmount();
   });
 });

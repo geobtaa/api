@@ -127,3 +127,55 @@ The frontend creates a `WarpedMapLayer` from `@allmaps/leaflet` using the annota
 1. Add the resource ID to `FEATURED_RESOURCE_IDS` in `frontend/src/config/featured.ts`.
 2. For **Allmaps** items: Ensure the resource has an `resource_allmaps` record with `annotated = true` and a valid IIIF manifest. Run the Allmaps processing task if needed (see [scripts.md](../backend/scripts.md)).
 3. For **GeoBlacklight** items: Ensure `meta.ui.viewer` is populated (protocol, endpoint, geometry).
+
+
+## Resource Location map basemap resilience
+
+The resource sidebar Location map fits its geometry before attaching the shared
+Leaflet basemap switcher, avoiding tile requests for a temporary world view.
+Point resources start at zoom 14; bounds fitting is capped at zoom 18 so either
+configured basemap can display even very small extents.
+
+Shared Leaflet OpenStreetMap layers explicitly use
+`referrerPolicy: 'strict-origin-when-cross-origin'`. Browser HTTP caching remains
+unchanged.
+
+The Location map opts into tile-error reporting from `attachBasemapSwitcher`.
+Failed tiles are hidden without fetching a replacement image, while geometry,
+attribution, and the Layers control remain available. An accessible status
+message invites the user to select another basemap. Failures are remembered per
+basemap for the current map instance, so one successful tile cannot incorrectly
+clear a partial-failure warning. Selecting an unaffected layer clears the message;
+selecting a previously failed layer shows it again. Resource navigation resets
+this state and removes old listeners. There are no automatic retries or provider
+switches. This behavior does not diagnose the upstream reason for a failed tile.
+
+OSM layers in these two resource maps use a status-aware tile loader. It makes
+one CORS fetch per tile with normal browser HTTP caching, omitted credentials,
+and the explicit referrer policy. Non-success HTTP responses (including 403 with
+a valid error image) are rejected before image decoding. Successful response
+bytes are displayed through a temporary blob URL, which is released after decoding
+or cancellation. Tile unloads and layer removal cancel pending work. Network,
+CORS, and decoding errors use the same warning; there is no second image request
+or cache-bypass retry. Browser-managed cache revalidation remains enabled.
+
+This requires CORS access to OSM and, if a Content Security Policy is configured,
+permission to connect to the tile origin and display blob images. A CORS-denied
+response is treated as unavailable even when its status cannot be read. A valid
+error image served with HTTP 200 remains indistinguishable from a successful map
+tile by status alone. The imagery alternative retains ordinary Leaflet loading.
+
+For local verification, open a resource map with browser Network recording enabled
+and **Disable cache unchecked**. Confirm its first tile requests match the resource
+view. Block the tile domain locally to exercise the warning, then select the
+alternative layer. Remove the browser request block when finished.
+
+
+The large Leaflet resource viewer uses the same basemap switcher and error
+handling, including the explicit OSM referrer policy and saved basemap preference.
+Its warning is a Leaflet control inside the map, so it remains visible in
+fullscreen. Basemap failures do not remove resource overlays or their opacity and
+inspection controls. Disconnecting the viewer removes the error listeners, status
+control, and map. IIIF image viewers do not use geographic basemaps and retain
+their existing image behavior; the separate OpenLayers viewers are unchanged.
+Basemaps keep a lower stacking order than resource tiles when switching providers.
