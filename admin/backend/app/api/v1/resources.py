@@ -710,8 +710,8 @@ async def confirm_published_edit(
     resource_id: ResourceID,
     key: RequestKey,
 ):
-    """Confirm the exact preview and atomically enqueue projection of the committed version."""
-    return await editor.edit(
+    """Commit the previewed edit and report when the public read path serves its revision."""
+    saved = await editor.edit(
         database,
         actor,
         resource_id,
@@ -721,3 +721,6 @@ async def confirm_published_edit(
         published=True,
         preview_id=command.preview_id,
     )
+    if request.app.state.settings.app_env == "dev2":
+        return await editor.wait_for_public_read(database, saved)
+    return saved

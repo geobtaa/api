@@ -247,7 +247,9 @@ function EditorForm({
       setPreview(null);
       setSaved(
         published
-          ? 'Saved · updating dev2'
+          ? result.projection_status === 'live'
+            ? 'Live on dev2'
+            : 'Saved · updating dev2'
           : `Saved version ${result.lock_version}.`
       );
     } catch (caught) {
@@ -533,7 +535,9 @@ function EditorForm({
             >
               {published
                 ? preview
-                  ? 'Confirm published changes'
+                  ? busy
+                    ? 'Saving published changes…'
+                    : 'Confirm published changes'
                   : 'Preview published changes'
                 : 'Save changes'}
             </ActionButton>
