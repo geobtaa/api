@@ -384,6 +384,7 @@ async def refresh_cache_for_changed_resources(
     *,
     rewarm: bool = True,
     warm_generated_assets: bool = True,
+    representation_version: str | None = None,
 ) -> dict[str, Any]:
     """
     Invalidate and re-warm cached public pages tagged with changed resource IDs.
@@ -438,6 +439,7 @@ async def refresh_cache_for_changed_resources(
         batch_representation_delete_stats = await delete_resource_representations(
             batch_ids,
             cache_service=cache,
+            **({"version": representation_version} if representation_version else {}),
         )
         representation_delete_stats = _merge_representation_delete_stats(
             representation_delete_stats,

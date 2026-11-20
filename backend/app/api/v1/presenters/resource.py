@@ -65,6 +65,8 @@ class ResourcePresenter:
         core_attributes = {}
 
         for key, value in resource_data.items():
+            if key == "lock_version":
+                continue
             if key in ResourcePresenter.ui_field_names:
                 ui_fields[key] = value
             elif value is not None:
@@ -144,6 +146,11 @@ class ResourcePresenter:
             "id": str(resource_id),
             "attributes": nested_attributes if nested_attributes else {},
             "meta": {
+                **(
+                    {"catalogVersion": resource_data["lock_version"]}
+                    if "lock_version" in resource_data
+                    else {}
+                ),
                 "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
                 "@type": "BtaaAardvarkRecord",
                 "ui": restructured_ui,

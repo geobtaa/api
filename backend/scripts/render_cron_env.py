@@ -36,6 +36,7 @@ ALLOWED_PREFIXES = (
     "DB_POOL_",
     "ELASTICSEARCH_",
     "KITHE_BRIDGE_",
+    "GEOMG_",
     "LOG_",
     "OPENAI_",
     "POSTGRES_",

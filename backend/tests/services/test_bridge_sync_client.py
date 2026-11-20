@@ -7,6 +7,7 @@ from app.services.bridge_sync.client import KitheBridgeClient
 
 class FakeResponse:
     status_code = 200
+    is_redirect = False
 
     def raise_for_status(self) -> None:
         return None
@@ -27,7 +28,9 @@ class FakeSession:
         headers: Optional[dict[str, str]] = None,
         timeout: Optional[int] = None,
         verify: Optional[bool] = None,
+        allow_redirects: bool = True,
     ) -> FakeResponse:
+        assert not allow_redirects
         self.calls.append(
             {
                 "url": url,

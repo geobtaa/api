@@ -1,0 +1,79 @@
+# Isolated dev2 candidate. Traffic is reachable only inside the deployment network.
+service: geospatial-api-geomg-alpha
+image: <%= ENV.fetch("GEOMG_API_IMAGE", "ewlarson/btaa-geospatial-api") %>
+require_destination: true
+registry:
+  server: ghcr.io
+  username: <%= ENV.fetch("KAMAL_REGISTRY_USERNAME") %>
+  password: [KAMAL_REGISTRY_PASSWORD]
+ssh:
+  user: <%= ENV.fetch("KAMAL_SSH_USER") %>
+builder:
+  arch: amd64
+  dockerfile: Dockerfile.kamal
+  args:
+    VITE_API_BASE_URL: /api/v1
+    VITE_KAMAL_DEST: dev2
+servers:
+  web:
+    hosts: [<%= ENV.fetch("KAMAL_HOST") %>]
+    proxy: false
+    cmd: bash /app/scripts/start_web_singlehost.sh
+    options:
+      network-alias: geospatial-api-alpha
+    env:
+      secret: [DATABASE_URL, ADMIN_USERNAME, ADMIN_PASSWORD]
+  projector:
+    hosts: [<%= ENV.fetch("KAMAL_HOST") %>]
+    proxy: false
+    cmd: bash -c 'cd /app/backend && exec /opt/venv/bin/python -m scripts.project_geomg_edits'
+    env:
+      secret: [DATABASE_URL]
+  cron:
+    hosts: [<%= ENV.fetch("KAMAL_HOST") %>]
+    proxy: false
+    cmd: bash /app/scripts/start_cron.sh
+    options:
+      user: root
+      volume: /var/lib/geospatial-api-alpha/checkpoints:/state
+    env:
+      clear:
+        KITHE_BRIDGE_URL: https://geomg.lib.umn.edu/api/kithe_bridge
+        KITHE_BRIDGE_VERIFY_SSL: "true"
+        GEOMG_INGEST_URL: http://geomg-admin-alpha:8000/api/v1/admin/intake/bridge-batches
+        GEOMG_BRIDGE_STATE_DIR: /state
+      secret: [GEOMG_INGEST_TOKEN, KITHE_BRIDGE_TOKEN]
+env:
+  clear:
+    APP_ENV: development
+    IS_DOCKER: "true"
+    PYTHONPATH: /app/backend
+    GEOMG_ADMIN_ENABLED: "true"
+    GEOMG_CATALOG_ENABLED: "true"
+    GEOMG_CANDIDATE_ID: <%= ENV.fetch("GEOMG_CANDIDATE_ID", "geomg_alpha_dev2") %>
+    GEOMG_CANDIDATE_API_ORIGIN: http://geospatial-api-alpha:8000
+    ELASTICSEARCH_URL: http://geospatial-api-geomg-alpha-elasticsearch:9200
+    ELASTICSEARCH_INDEX: <%= ENV.fetch("GEOMG_CANDIDATE_ID", "geomg_alpha_dev2") %>
+    REDIS_HOST: geospatial-api-geomg-alpha-redis
+    RESOURCE_REPRESENTATION_CACHE_VERSION: <%= ENV.fetch("GEOMG_CANDIDATE_ID", "geomg_alpha_dev2") %>
+    CACHE_APP_VERSION: <%= ENV.fetch("GEOMG_CANDIDATE_ID", "geomg_alpha_dev2") %>
+    ENDPOINT_CACHE: "true"
+    WEB_UVICORN_WORKERS: "1"
+    WEB_INTERNAL_UVICORN_WORKERS: "0"
+    WEB_SSR_WORKERS: "1"
+    FEEDBACK_EMAIL_ENABLED: "false"
+    BRIDGE_SYNC_REPORT_ENABLED: "false"
+accessories:
+  redis:
+    image: redis:7-alpine
+    host: <%= ENV.fetch("KAMAL_HOST") %>
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
+    host: <%= ENV.fetch("KAMAL_HOST") %>
+    env:
+      clear:
+        discovery.type: single-node
+        xpack.security.enabled: "false"
+        ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    directories:
+      - /var/lib/geospatial-api-alpha/elasticsearch:/usr/share/elasticsearch/data

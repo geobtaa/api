@@ -1,3 +1,5 @@
+import os
+
 from sqlalchemy import (
     ARRAY,
     JSON,
@@ -19,6 +21,8 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 metadata = MetaData()
+
+GEOMG_CATALOG_ENABLED = os.getenv("GEOMG_CATALOG_ENABLED") == "true"
 
 resources = Table(
     "resources",
@@ -109,6 +113,7 @@ resources = Table(
     Column("date_modified_dtsi", TIMESTAMP),
     Column("geomg_id_s", String),
     Column("publication_state", String),
+    *([Column("lock_version", Integer)] if GEOMG_CATALOG_ENABLED else []),
     Column("import_id", String),
 )
 

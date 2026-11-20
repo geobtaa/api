@@ -1958,3 +1958,9 @@ analytics-evidence-check: ## Reproduce and verify evidence packets without chang
 SEARCH_RELEVANCE_TEST_URL ?= http://localhost:19283
 test-search-relevance: ## Run isolated Elasticsearch 9 relevance contracts and unit tests
 	cd backend && SEARCH_RELEVANCE_TEST_URL="$(SEARCH_RELEVANCE_TEST_URL)" BTAA_SKIP_TEST_DB=1 ENDPOINT_CACHE=false REDIS_DB=15 python -m pytest tests/elasticsearch/test_relevance.py tests/elasticsearch/test_relevance_integration.py tests/elasticsearch/test_relevance_postgres.py tests/scripts/test_reindex_relevance.py tests/services/test_bridge_search_index.py -q
+
+.PHONY: geomg-alpha-config
+geomg-alpha-config: ## Validate both sibling configurations using dev2's existing Kamal secret files.
+	@test "$(KAMAL_DEST)" = dev2
+	@kamal config -d dev2 -c config/deploy.geomg-alpha.yml >/dev/null
+	@kamal config -d dev2 -c admin/config/deploy.alpha.yml >/dev/null

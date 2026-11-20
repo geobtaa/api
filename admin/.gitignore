@@ -1,0 +1,22 @@
+.DS_Store
+.env
+.python-version
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.coverage
+coverage.xml
+coverage_html_report/
+backend/.venv/
+frontend/coverage/
+frontend/dist/
+frontend/node_modules/
+frontend/*.tsbuildinfo
+tmp/
+
+# Kamal credentials are local-only. Keep the documented template.
+.kamal/secrets
+.kamal/secrets.*
+!.kamal/secrets.example

@@ -1,0 +1,3 @@
+env:
+  clear:
+    APP_ENV: dev2

@@ -113,3 +113,5 @@ frontend/dist/
 
 # --- Optional: keep small in-repo samples available to builds ---
 #!samples/**
+
+/admin/
