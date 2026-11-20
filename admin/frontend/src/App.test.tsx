@@ -152,6 +152,47 @@ describe('App', () => {
     expect(screen.getByText('admin.session:read')).toBeInTheDocument();
   });
 
+  it.each([true, false])(
+    'shows a simple alpha role and reserves account setup for admins (%s)',
+    async (admin) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'X-GEOMG-Auth-Mode': 'local-password' }),
+          json: async () => ({
+            authenticated: true,
+            actor: {
+              kind: 'user',
+              actor_id: 'fixture',
+              email: 'tester@example.edu',
+              display_name: 'Tester',
+              permissions: admin
+                ? ['identity:manage', 'resources:read']
+                : ['resources:read'],
+              set_ids: null,
+            },
+          }),
+        })
+      );
+      render(
+        <MemoryRouter initialEntries={['/access']}>
+          <App />
+        </MemoryRouter>
+      );
+      expect(
+        await screen.findByText(admin ? 'Administrator' : 'Catalog editor')
+      ).toBeVisible();
+      expect(
+        screen.getByRole('link', { name: 'Open catalog' })
+      ).toHaveAttribute('href', '/resources');
+      expect(screen.queryByText('resources:read')).toBeNull();
+      if (admin) expect(screen.getByText('Tester accounts')).toBeVisible();
+      else expect(screen.queryByText('Tester accounts')).toBeNull();
+    }
+  );
+
   it('shows explicit fallbacks for optional actor details', async () => {
     vi.stubGlobal(
       'fetch',

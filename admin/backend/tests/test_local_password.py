@@ -4,15 +4,19 @@ from uuid import uuid4
 
 import httpx2
 import pytest
+import test_managing_sets
 from sqlalchemy import func, select, update
 from test_api import make_settings
+from test_managing_sets import create, headers
 
 from app.domain import DomainError
 from app.identity import passwords
 from app.identity.local_schemas import LocalAccount
-from app.identity.models import local_credentials
+from app.identity.models import accounts, local_credentials
 from app.main import create_app
+from app.resources.models import resources
 
+set_api_fixture = test_managing_sets.api
 ROOT = "/api/v1/admin"
 LOCAL = ROOT + "/identity/local"
 H = {"X-GEOMG-Request": "1"}
@@ -26,7 +30,7 @@ def test_local_mode_is_explicit():
 
 
 @pytest.mark.integration
-async def test_alpha_accounts(database_engine):
+async def test_alpha_accounts(database_engine, set_api_fixture):
     settings = replace(make_settings(), auth_mode="local-password", app_env="dev2")
     app = create_app(settings=settings)
     app.state.database_engine = database_engine
@@ -63,7 +67,12 @@ async def test_alpha_accounts(database_engine):
         who = await owner.get(ROOT + "/session")
         assert who.status_code == 200, who.text
         key = {**H, "Idempotency-Key": str(uuid4())}
-        data = {"email": "tester@example.edu", "permissions": ["resources:read"], "set_ids": []}
+        data = {"email": "tester@example.edu"}
+        assert (
+            await owner.post(
+                LOCAL + "/accounts", headers=key, json={**data, "permissions": ["identity:manage"]}
+            )
+        ).status_code == 422
         assert (await tester.post(LOCAL + "/accounts", headers=key, json=data)).status_code == 401
         created = await owner.post(LOCAL + "/accounts", headers=key, json=data)
         assert created.status_code == 200, created.text
@@ -74,9 +83,43 @@ async def test_alpha_accounts(database_engine):
         ] is None
         assert (await signin(tester, data["email"], code)).status_code == 200
         assert (await signin(tester, data["email"], code)).status_code == 401
-        assert (await tester.get(ROOT + "/session")).json()["actor"]["set_ids"] == []
+        # Existing sessions for previously scoped testers receive the current catalog role.
+        async with database_engine.begin() as conn:
+            await conn.execute(
+                update(accounts)
+                .where(accounts.c.actor_id == created.json()["actor_id"])
+                .values(all_sets=False)
+            )
+        actor = (await tester.get(ROOT + "/session")).json()["actor"]
+        assert actor["set_ids"] is None
+        assert "resources:edit-published" in actor["permissions"]
+        assert "identity:manage" not in actor["permissions"]
         assert (await tester.post(LOCAL + "/accounts", headers=key, json=data)).status_code == 403
-        assert (await tester.get(ROOT + "/resources")).json()["items"] == []
+        assert (
+            await tester.post(LOCAL + "/resets", headers=key, json={"email": admin.email})
+        ).status_code == 403
+        set_client, _ = set_api_fixture
+        for i in (1, 2):
+            scope = await create(set_client)
+            rid = f"catalog-role-{i}"
+            created_resource = await owner.post(
+                ROOT + "/resources",
+                headers=headers(),
+                json={"id": rid, "title": "Original", "set_id": scope["set_id"]},
+            )
+            assert created_resource.status_code == 201, created_resource.text
+            async with database_engine.begin() as conn:
+                await conn.execute(
+                    update(resources)
+                    .where(resources.c.id == rid)
+                    .values(publication_state="published")
+                )
+            preview = await tester.post(
+                ROOT + f"/resources/{rid}/published-edits/preview",
+                headers=H,
+                json={"lock_version": 1, "values": {"dct_title_s": "Edited"}},
+            )
+            assert preview.status_code == 200, preview.text
         assert (await tester.delete(ROOT + "/session", headers=H)).status_code == 200
         assert (await tester.get(ROOT + "/session")).status_code == 401
         assert (await signin(tester, data["email"])).status_code == 200

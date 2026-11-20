@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { appUrl, request } from './api';
 import { PasswordForm, AccountForm } from './LocalAccounts';
 import { ui } from './ui/styles';
@@ -66,10 +67,6 @@ export function AccessPage() {
     <main id="main-content" className={ui.page}>
       <p className={ui.kicker}>Access</p>
       <h1>Administrative session</h1>
-      <p className="max-w-2xl text-base leading-7 text-text-secondary">
-        GEOMG keeps identity and permissions behind the administrative API.
-      </p>
-
       <section
         className="mt-6 max-w-3xl rounded-lg border border-border bg-surface p-5 shadow-xs sm:p-6 [&>:last-child]:mb-0"
         aria-live="polite"
@@ -82,24 +79,37 @@ export function AccessPage() {
               Authenticated
             </p>
             <h2>{state.session.actor.display_name}</h2>
-            <dl className={ui.definitionList}>
-              <div>
-                <dt>Actor type</dt>
-                <dd>{state.session.actor.kind.replace('_', ' ')}</dd>
+            {local ? (
+              <div className="my-3">
+                <p>
+                  {state.session.actor.permissions.includes('identity:manage')
+                    ? 'Administrator'
+                    : 'Catalog editor'}
+                </p>
+                <Link className={ui.backLink} to="/resources">
+                  Open catalog
+                </Link>
               </div>
-              <div>
-                <dt>Email</dt>
-                <dd>{state.session.actor.email ?? 'Not supplied'}</dd>
-              </div>
-              <div>
-                <dt>Permissions</dt>
-                <dd>
-                  {state.session.actor.permissions.length > 0
-                    ? state.session.actor.permissions.join(', ')
-                    : 'No permissions assigned'}
-                </dd>
-              </div>
-            </dl>
+            ) : (
+              <dl className={ui.definitionList}>
+                <div>
+                  <dt>Actor type</dt>
+                  <dd>{state.session.actor.kind.replace('_', ' ')}</dd>
+                </div>
+                <div>
+                  <dt>Email</dt>
+                  <dd>{state.session.actor.email ?? 'Not supplied'}</dd>
+                </div>
+                <div>
+                  <dt>Permissions</dt>
+                  <dd>
+                    {state.session.actor.permissions.length > 0
+                      ? state.session.actor.permissions.join(', ')
+                      : 'No permissions assigned'}
+                  </dd>
+                </div>
+              </dl>
+            )}
             {local && (
               <button
                 type="button"
@@ -126,7 +136,10 @@ export function AccessPage() {
             {local &&
               state.session.actor.set_ids === null &&
               state.session.actor.permissions.includes('identity:manage') && (
-                <AccountForm permissions={state.session.actor.permissions} />
+                <details className="mt-6">
+                  <summary className="cursor-pointer">Tester accounts</summary>
+                  <AccountForm />
+                </details>
               )}
           </>
         )}

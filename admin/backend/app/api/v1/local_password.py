@@ -5,7 +5,13 @@ from app.api.dependencies import Database, RequestKey, mutation_header
 from app.api.v1.identity import Administrator
 from app.auth import LOCAL_COOKIE
 from app.identity import passwords
-from app.identity.local_schemas import LocalAccount, PasswordLogin, ResetAccount, SetupResponse
+from app.identity.local_schemas import (
+    CATALOG_EDITOR_PERMISSIONS,
+    LocalAccount,
+    LocalEmail,
+    PasswordLogin,
+    SetupResponse,
+)
 
 router = APIRouter(
     prefix="/admin/identity/local", tags=["identity"], dependencies=[Depends(mutation_header)]
@@ -14,7 +20,7 @@ router = APIRouter(
 
 @router.post("/accounts", response_model=SetupResponse, operation_id="identity_local_provision")
 async def provision(
-    command: LocalAccount,
+    command: LocalEmail,
     actor: Administrator,
     database: Database,
     key: RequestKey,
@@ -22,12 +28,15 @@ async def provision(
 ):
     """Return a single-use setup code once. Replays return only account and expiry."""
     response.headers["Cache-Control"] = "no-store"
-    return await passwords.provision(database, actor, command, key)
+    tester = LocalAccount(
+        email=command.email, permissions=sorted(CATALOG_EDITOR_PERMISSIONS), set_ids=None
+    )
+    return await passwords.provision(database, actor, tester, key)
 
 
 @router.post("/resets", response_model=SetupResponse, operation_id="identity_local_reset")
 async def reset(
-    command: ResetAccount,
+    command: LocalEmail,
     actor: Administrator,
     database: Database,
     key: RequestKey,

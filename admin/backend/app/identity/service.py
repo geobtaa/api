@@ -13,7 +13,16 @@ from sqlalchemy import delete, func, insert, select, update
 from app.auth import Actor
 from app.domain import DomainError
 from app.identity.actors import actor_identity
-from app.identity.models import accounts, audit, grants, invitations, sessions, set_scopes
+from app.identity.local_schemas import CATALOG_EDITOR_PERMISSIONS
+from app.identity.models import (
+    accounts,
+    audit,
+    grants,
+    invitations,
+    local_credentials,
+    sessions,
+    set_scopes,
+)
 from app.persistence import actors
 from app.sets.models import commands, sets
 
@@ -59,7 +68,13 @@ async def resolve_actor(connection, subject):
     account = (
         (
             await connection.execute(
-                select(accounts)
+                select(
+                    accounts,
+                    select(local_credentials.c.actor_id)
+                    .where(local_credentials.c.actor_id == accounts.c.actor_id)
+                    .exists()
+                    .label("local_password"),
+                )
                 .where(accounts.c.actor_id == subject["id"])
                 .with_for_update(read=True)
             )
@@ -78,15 +93,19 @@ async def resolve_actor(connection, subject):
         .scalars()
         .all()
     )
+    local = subject["kind"] == "user" and account["local_password"]
+    if local:
+        administrator = account["all_sets"] and "identity:manage" in permissions
+        permissions = CATALOG_EDITOR_PERMISSIONS.union(permissions if administrator else ())
     return Actor(
         subject["subject_key"],
         subject["kind"],
         subject["display_name"],
-        subject["display_name"] if subject["subject_key"].startswith("local:") else None,
+        subject["display_name"] if local else None,
         frozenset(permissions),
         frozenset(),  # Archived Lifecycle grants are never current Set authority.
         None
-        if account["all_sets"]
+        if local or account["all_sets"]
         else frozenset(
             (
                 await connection.scalars(
@@ -411,8 +430,6 @@ async def change_account(engine, actor, target_id, command, key):
             )
         )
         if not command.active:
-            from app.identity.models import local_credentials
-
             await connection.execute(
                 update(local_credentials)
                 .where(local_credentials.c.actor_id == target_id)

@@ -91,7 +91,7 @@ export function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-export function AccountForm({ permissions }: { permissions: string[] }) {
+export function AccountForm() {
   const [reset, setReset] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -110,21 +110,7 @@ export function AccountForm({ permissions }: { permissions: string[] }) {
     try {
       const result = await request<{ setup_code: string | null }>(
         base + (reset ? '/resets' : '/accounts'),
-        post(
-          {
-            email: data.get('email'),
-            ...(reset
-              ? {}
-              : {
-                  permissions: data.getAll('permissions'),
-                  set_ids: String(data.get('sets'))
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                }),
-          },
-          key
-        )
+        post({ email: data.get('email') }, key)
       );
       setCode(
         result.setup_code ||
@@ -142,7 +128,6 @@ export function AccountForm({ permissions }: { permissions: string[] }) {
       onSubmit={submit}
       onChange={changed}
     >
-      <h2>Manage alpha accounts</h2>
       <label>
         Action
         <SelectControl
@@ -157,24 +142,6 @@ export function AccountForm({ permissions }: { permissions: string[] }) {
         Tester email
         <TextInput required type="email" name="email" />
       </label>
-      {!reset && (
-        <>
-          <label>
-            Permissions
-            <SelectControl name="permissions" multiple>
-              {permissions
-                .filter((p) => p !== 'admin.session:read')
-                .map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-            </SelectControl>
-          </label>
-          <label>
-            Managing Set IDs (comma separated)
-            <TextInput name="sets" />
-          </label>
-        </>
-      )}
       {reset && (
         <p>
           Issuing a reset code ends the tester’s active sessions and disables

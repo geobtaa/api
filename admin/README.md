@@ -16,6 +16,6 @@ From this directory, copy `.env.example` to `.env` and run `docker compose up --
 
 Run `make install`, `make check`, and `npm --prefix frontend run build` to install dependencies, check the app and build the UI. Backend integration tests use a disposable PostgreSQL database. Run `make fixtures-check` to verify the Geoportal test corpus.
 
-The sibling app supports a mounted UI at `/admin/` and API at `/admin/api/v1/`. The public API keeps its operational endpoints at `/api/v1/admin`. Alpha accounts use a staff-provided single-use setup code and a local password. Institutional authentication remains the production requirement.
+The sibling app supports a mounted UI at `/admin/` and API at `/admin/api/v1/`. The public API keeps its operational endpoints at `/api/v1/admin`. Administrators create an alpha tester by email. Every tester can create and edit catalog records across Sets, including confirmed edits to published records. Only administrators can provision accounts and issue password reset codes. Testers use a staff-provided single-use setup code and a local password. Institutional authentication remains the production requirement.
 
 See the [public documentation policy](../docs/security_docs_policy.md) for the boundary around operational runbooks.

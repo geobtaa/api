@@ -35,27 +35,22 @@ it('sets a password using the private setup code and opens the session', async (
   });
 });
 
-it('provisions scoped accounts and issues replacement codes', async () => {
+it('provisions catalog editors by email and issues replacement codes', async () => {
   const fetch = vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ setup_code: 'one-time-code' }),
   });
   vi.stubGlobal('fetch', fetch);
-  render(
-    <AccountForm permissions={['resources:read', 'admin.session:read']} />
-  );
+  render(<AccountForm />);
   fireEvent.change(screen.getByLabelText('Tester email'), {
     target: { value: 'tester@example.edu' },
   });
-  fireEvent.change(screen.getByLabelText(/Managing Set IDs/), {
-    target: { value: 'set-1, set-2' },
-  });
+  expect(screen.queryByLabelText('Permissions')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
   expect(await screen.findByText('one-time-code')).toBeVisible();
-  expect(JSON.parse(fetch.mock.calls[0][1].body).set_ids).toEqual([
-    'set-1',
-    'set-2',
-  ]);
+  expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+    email: 'tester@example.edu',
+  });
   fireEvent.change(screen.getByLabelText('Action'), {
     target: { value: 'reset' },
   });
