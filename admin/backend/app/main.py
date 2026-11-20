@@ -63,6 +63,14 @@ def create_app(
         else Path(__file__).resolve().parents[2] / "frontend" / "dist"
     ).resolve()
 
+    # Production assets are immutable for the lifetime of the app. Requests
+    # select a known build entry, never a path to resolve on the filesystem.
+    frontend_files = {
+        entry.relative_to(static_root).as_posix(): resolved
+        for entry in static_root.rglob("*")
+        if entry.is_file() and (resolved := entry.resolve()).is_relative_to(static_root)
+    }
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
@@ -227,13 +235,9 @@ def create_app(
     async def frontend(path: str) -> Response:
         if path == "api" or path.startswith("api/"):
             return error_response(404, "not_found", "Not found")
-        candidate = (static_root / path).resolve()
-        if path and candidate.is_relative_to(static_root) and candidate.is_file():
-            return FileResponse(candidate)
-
-        index = static_root / "index.html"
-        if index.is_file():
-            return FileResponse(index)
+        asset = frontend_files.get(path) or frontend_files.get("index.html")
+        if asset is not None:
+            return FileResponse(asset)
 
         return JSONResponse(
             {

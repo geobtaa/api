@@ -85,3 +85,15 @@ def test_built_frontend_files_and_client_routes_are_served(tmp_path: Path) -> No
 
     assert asset.text == "asset"
     assert client_route.text == "<h1>GEOMG Admin</h1>"
+
+
+def test_frontend_only_serves_files_in_the_build(tmp_path: Path) -> None:
+    build = tmp_path / "dist"
+    build.mkdir()
+    (build / "index.html").write_text("frontend")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside")
+    (build / "external-link.txt").symlink_to(outside)
+    with TestClient(create_app(frontend_dist=build, settings=make_settings())) as client:
+        assert client.get("/external-link.txt").text == "frontend"
+        assert client.get("/api/unknown").status_code == 404
