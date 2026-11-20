@@ -234,3 +234,10 @@ def test_streaming_backup_default_preserves_encryption():
     production = (REPO_ROOT / "config/deploy.prd.yml").read_text()
     assert "ENV.fetch('BACKUP_POSTGRES_STREAM', 'true')" in production
     assert "ENV.fetch('BACKUP_S3_SSE', 'AES256')" in production
+
+
+def test_dev2_regular_release_omits_the_cutover_credential():
+    base = _load_deploy_config("config/deploy.yml")["env"]["secret"]
+    dev2 = _load_deploy_config("config/deploy.dev2.yml")["env"]
+    assert set(dev2["secret"]) == set(base) - {"KITHE_BRIDGE_TOKEN"}
+    assert dev2["clear"]["KITHE_BRIDGE_URL"] == ""

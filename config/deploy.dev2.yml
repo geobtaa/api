@@ -42,6 +42,7 @@ env:
     APP_ENV: development
     APP_REVISION: "<%= ENV.fetch('APP_REVISION') { ENV.fetch('KAMAL_VERSION') { `git rev-parse --verify HEAD`.strip } } %>"
     KAMAL_DEST: dev2
+    KITHE_BRIDGE_URL: ""
     APPSIGNAL_ACTIVE: "true"
     APPSIGNAL_APP_ENV: development
     APPSIGNAL_APP_NAME: "BTAA Geospatial API - Development"
@@ -84,6 +85,27 @@ env:
     WEB_UVICORN_WORKERS: "3"
     WEB_INTERNAL_UVICORN_WORKERS: "4"
     WEB_SSR_WORKERS: "3"
+
+  secret:
+    - REDIS_PASSWORD
+    - POSTGRES_PASSWORD
+    - DATABASE_URL
+    - OPENAI_API_KEY
+    - OPENAI_MODEL
+    - ADMIN_USERNAME
+    - ADMIN_PASSWORD
+<% if ENV.fetch('ANALYTICS_PASSWORD', '').strip != '' %>
+    - ANALYTICS_PASSWORD
+<% end %>
+    - BTAA_GEOSPATIAL_API_KEY
+    - TURNSTILE_SECRET_KEY
+    - APPSIGNAL_PUSH_API_KEY
+<% if ENV.fetch('SMTP_USERNAME', '').strip != '' %>
+    - SMTP_USERNAME
+<% end %>
+<% if ENV.fetch('SMTP_PASSWORD', '').strip != '' %>
+    - SMTP_PASSWORD
+<% end %>
 
 accessories:
   redis:

@@ -4,6 +4,8 @@ GEOMG is the staff catalog editor for the BTAA Geospatial API. A Resource can be
 
 On dev2, confirmation waits briefly for search and detail to serve the saved revision. The editor shows **Live on dev2** once both reads succeed. If indexing takes longer, it shows **Saved · updating dev2** and checks again automatically. Staff can then open the Geoportal search results and record page to see the change.
 
+Dev2 uses the private Kithe Bridge for the one-time baseline and watermark catch-up. The regular dev2 release omits the Bridge scheduler, public sync endpoints, and ingestion credential. The operator enables the private receiver during cutover with `GEOMG_CUTOVER_BRIDGE=true`. Staff retain access to authorized review evidence.
+
 After a verified full reindex, operators can set `GEOMG_PROJECTION_BASELINE_END` to the timezone-qualified timestamp of the quiescent catalog snapshot. The projector serves staff edits first, followed by later feed changes. Older requests continue through normal verification.
 
 Staff may correct already-published legacy records while required fields are missing. Each edit must preserve every currently populated required field. New publication requires the full publication metadata.

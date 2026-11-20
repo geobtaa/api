@@ -181,9 +181,12 @@ def create_app(
         application.include_router(fixture_router, prefix="/api/v1")
         application.include_router(local_resource_router, prefix="/api/v1")
     if app_settings.app_env == "dev2":
+        from app.resources.alpha_bridge import cutover_router
         from app.resources.alpha_bridge import router as alpha_bridge_router
 
         application.include_router(alpha_bridge_router, prefix="/api/v1")
+        if app_settings.bridge_token_sha256 and app_settings.bridge_token_expires_at:
+            application.include_router(cutover_router, prefix="/api/v1")
     application.include_router(resource_router, prefix="/api/v1")
     application.include_router(workflow_router, prefix="/api/v1")
     application.include_router(workflow_catalog_router, prefix="/api/v1")
