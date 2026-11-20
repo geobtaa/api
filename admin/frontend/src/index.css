@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+@import './config/theme.css';
+
+@plugin '@tailwindcss/forms' {
+  strategy: 'class';
+}
+
+/* Primitive document defaults. Components and page layouts use Tailwind utilities. */
+@layer base {
+  body {
+    @apply min-h-screen bg-surface-muted font-sans text-text-primary antialiased;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-4 outline-active;
+  }
+  h1 {
+    @apply mb-3 text-3xl leading-tight font-semibold tracking-tight [overflow-wrap:anywhere];
+  }
+  h2 {
+    @apply mb-4 text-xl leading-snug font-semibold;
+  }
+  h3 {
+    @apply mb-3 text-lg leading-snug font-semibold;
+  }
+  p {
+    @apply mb-4 leading-relaxed;
+  }
+  a {
+    @apply text-active underline-offset-4;
+  }
+  button,
+  summary {
+    @apply cursor-pointer;
+  }
+  button:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+  label {
+    @apply text-sm font-medium text-text-primary;
+  }
+  fieldset {
+    @apply min-w-0;
+  }
+  summary {
+    @apply py-2 text-sm font-medium text-active;
+  }
+  pre {
+    @apply max-w-full overflow-auto rounded-md border border-border bg-surface-subtle p-4 text-xs leading-5;
+  }
+  code {
+    @apply font-mono text-[0.85em];
+  }
+  [role='alert'] {
+    @apply text-danger;
+  }
+}

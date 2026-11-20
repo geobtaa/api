@@ -3,17 +3,39 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 
 from app.api.errors import PUBLIC_ERROR_RESPONSES
+from db.models import GEOMG_CATALOG_ENABLED, resources
 from db.session import async_engine as engine
 from db.session import async_session
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Create router
-router = APIRouter(responses=PUBLIC_ERROR_RESPONSES)
+
+def public_catalog_query(*columns):
+    """Legacy catalogs retain their existing reads. Unified catalogs also contain staff drafts."""
+    query = select(*columns)
+    if GEOMG_CATALOG_ENABLED:
+        query = query.where(resources.c.publication_state == "published")
+    return query
+
+
+async def require_published_resource(request: Request):
+    identifier = request.path_params.get("id")
+    if identifier is not None and GEOMG_CATALOG_ENABLED:
+        async with get_async_session() as session:
+            query = public_catalog_query(resources.c.id).where(resources.c.id == identifier)
+            if await session.scalar(query) is None:
+                raise HTTPException(404, "Resource not found")
+
+
+router = APIRouter(
+    responses=PUBLIC_ERROR_RESPONSES,
+    dependencies=[Depends(require_published_resource)],
+)
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -74,7 +96,7 @@ def filter_resource_fields(resource_dict: dict, fields_param: Optional[str]) -> 
 # Import all endpoint modules to register routes
 # These imports must come after router/constants are defined
 # Export FastAPI imports for testing
-from fastapi import HTTPException, Query, Request  # noqa: E402, I001
+from fastapi import Query  # noqa: E402, I001
 from fastapi.responses import HTMLResponse, JSONResponse  # noqa: E402, I001
 
 # Export classes and utilities for testing
@@ -89,7 +111,6 @@ from app.services.link_service import LinkService  # noqa: E402, I001
 from app.services.ogm_field_mapper import OGMFieldMapper  # noqa: E402, I001
 from app.services.relationship_service import RelationshipService  # noqa: E402, I001
 from app.services.spatial_facet_service import SpatialFacetService  # noqa: E402, I001
-from db.models import resources  # noqa: E402, I001
 
 from . import (  # noqa: E402, I001
     list,

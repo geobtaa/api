@@ -1,0 +1,79 @@
+[project]
+name = "geomg-admin"
+version = "0.1.0"
+description = "BTAA GEOMG administrative API"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic==1.19.2",
+    "argon2-cffi>=25.1.0",
+    "asyncpg==0.31.0",
+    "fastapi==0.141.1",
+    "greenlet==3.5.5",
+    "pydantic==2.13.4",
+    "python-dotenv==1.2.3",
+    "SQLAlchemy==2.0.52",
+    "starlette==1.6.0",
+    "uvicorn==0.52.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx2==2.12.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.4",
+]
+
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+exclude = [
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "coverage_html_report",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.per-file-target-version]
+"../scripts/link_resource_sources.py" = "py311"
+"../scripts/recover_resource_sources.py" = "py311"
+"../scripts/link_resource_sets.py" = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = ["integration: requires the disposable local PostgreSQL service"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+[tool.coverage.html]
+directory = "coverage_html_report"

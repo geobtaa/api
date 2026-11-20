@@ -76,7 +76,10 @@ class KitheBridgeClient:
                     headers={"X-Bridge-Token": self.token},
                     timeout=self.request_timeout,
                     verify=self.verify_ssl,
+                    allow_redirects=False,
                 )
+                if response.is_redirect:
+                    raise ValueError("Kithe Bridge redirects are not accepted")
                 return response
             except (
                 requests.exceptions.ConnectionError,

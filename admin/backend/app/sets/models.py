@@ -1,0 +1,70 @@
+"""Each Source can own many Sets; each Set manages its own Resources and work."""
+
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Table,
+    Text,
+    Uuid,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+
+from app.persistence import metadata
+
+sets = Table(
+    "sets",
+    metadata,
+    Column("set_id", String(128), primary_key=True),
+    Column("source_id", String(128), ForeignKey("sources.source_id"), nullable=False),
+    Column("represented_by_id", Text, ForeignKey("resources.id", name="set_representative")),
+    Column("title", String(250), nullable=False),
+    Column("description", Text, nullable=False, server_default=""),
+    Column("endpoint_url", String(2048)),
+    Column("admin_notes", Text, nullable=False, server_default=""),
+    Column("legacy_code", Text, nullable=False, server_default=""),
+    Column("set_scope", Text, nullable=False, server_default=""),
+    Column("endpoint_description", Text, nullable=False, server_default=""),
+    Column("workflow", Text, nullable=False, server_default=""),
+    Column("workflow_catalog_id", String(128), ForeignKey("workflow_catalog.workflow_id")),
+    Column("review_interval", Text, nullable=False, server_default=""),
+    Column("harvest_interval", Text, nullable=False, server_default=""),
+    Column("tags", Text, nullable=False, server_default=""),
+    Column("status", String(16), nullable=False, server_default="active"),
+    Column("lock_version", Integer, nullable=False, server_default="1"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("created_by_actor_id", Uuid, ForeignKey("actors.id"), nullable=False),
+    Column("updated_by_actor_id", Uuid, ForeignKey("actors.id"), nullable=False),
+    CheckConstraint("set_id ~ '^[A-Za-z0-9_-]{1,128}$'", name="set_id_format"),
+    CheckConstraint("length(btrim(title)) > 0", name="set_title"),
+    CheckConstraint("length(description) <= 5000", name="set_description_bound"),
+    CheckConstraint("length(admin_notes) <= 10000", name="set_notes_bound"),
+    CheckConstraint("lock_version > 0", name="set_version"),
+    CheckConstraint("length(legacy_code) <= 128", name="set_legacy_code_bound"),
+    CheckConstraint("length(set_scope) <= 5000", name="set_set_scope_bound"),
+    CheckConstraint("length(endpoint_description) <= 1000", name="set_endpoint_description_bound"),
+    CheckConstraint("length(workflow) <= 128", name="set_workflow_bound"),
+    CheckConstraint("length(review_interval) <= 64", name="set_review_interval_bound"),
+    CheckConstraint("length(harvest_interval) <= 64", name="set_harvest_interval_bound"),
+    CheckConstraint("length(tags) <= 2000", name="set_tags_bound"),
+    CheckConstraint("status IN ('active', 'inactive', 'retired')", name="set_status"),
+    Index("sets_source_id", "source_id"),
+    Index("sets_title_id", func.lower(Column("title")), "set_id"),
+)
+
+commands = Table(
+    "set_commands",
+    metadata,
+    Column("actor_id", Uuid, ForeignKey("actors.id"), primary_key=True),
+    Column("operation", Text, primary_key=True),
+    Column("idempotency_key", Uuid, primary_key=True),
+    Column("request_hash", String(64), nullable=False),
+    Column("response", JSONB),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)

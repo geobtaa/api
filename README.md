@@ -12,6 +12,8 @@ library systems. The website is one expression of that work, but the repository
 also supports API consumers, GIS users, campus integrations, operational
 workflows, and future agent-facing discovery tools.
 
+The [GEOMG Admin app](admin/README.md) provides the staff catalog editor and runs as an independently buildable sibling.
+
 ## What This System Does
 
 - Serves a public Geoportal web application for searching and viewing BTAA

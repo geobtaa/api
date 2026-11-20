@@ -2,18 +2,24 @@ from typing import Optional
 
 from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.sql import select
 
 from app.api.schemas import ResourceCollectionResponse
 from app.api.v1.utils import create_jsonapi_response, process_resource, sanitize_for_json
 from app.services.cache_service import cached_endpoint
-from db.models import resources
+from db.models import GEOMG_CATALOG_ENABLED, resources
 
-from . import LIST_CACHE_TTL, filter_resource_fields, get_async_session, logger, router
+from . import (
+    LIST_CACHE_TTL,
+    filter_resource_fields,
+    get_async_session,
+    logger,
+    public_catalog_query,
+    router,
+)
 
 
 @router.get("/resources/", response_model=ResourceCollectionResponse)
-@cached_endpoint(ttl=LIST_CACHE_TTL)
+@cached_endpoint(ttl=LIST_CACHE_TTL, enabled=not GEOMG_CATALOG_ENABLED)
 async def list_resources(
     request: Request,
     skip: int = 0,
@@ -24,7 +30,7 @@ async def list_resources(
 ):
     try:
         async with get_async_session() as session:
-            query = select(resources).offset(skip).limit(limit)
+            query = public_catalog_query(resources).offset(skip).limit(limit)
             logger.debug("Executing resource list query: %s", query)
             result = await session.execute(query)
             results = result.fetchall()  # Get full rows instead of scalars

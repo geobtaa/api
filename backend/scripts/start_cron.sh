@@ -18,11 +18,16 @@ export BRIDGE_SYNC_LOCAL_TIMEZONE="${BRIDGE_SYNC_LOCAL_TIMEZONE:-${CRON_LOCAL_TI
 /opt/venv/bin/python3 /app/scripts/render_cron_env.py /tmp/cron-container-env.sh
 
 {
-  printf "ADMIN_USERNAME=%s\n" "${ADMIN_USERNAME}"
-  printf "ADMIN_PASSWORD=%s\n" "${ADMIN_PASSWORD}"
-  printf "APPLICATION_URL=%s\n" "${APPLICATION_URL}"
-  printf "BRIDGE_TRIGGER=%s\n" "${BRIDGE_TRIGGER:-incremental_cron}"
-  cat /app/config/crontab
+  if [[ "${GEOMG_CATALOG_ENABLED:-false}" == true ]]; then
+    # Candidate runs only the existing hourly Bridge schedule.
+    sed -n -e '/^SHELL=/p' -e '/^PATH=/p' -e '/^BASH_ENV=/p' -e '/trigger_bridge_sync_cron\.py/p' /app/config/crontab
+  else
+    printf "ADMIN_USERNAME=%s\n" "${ADMIN_USERNAME}"
+    printf "ADMIN_PASSWORD=%s\n" "${ADMIN_PASSWORD}"
+    printf "APPLICATION_URL=%s\n" "${APPLICATION_URL}"
+    printf "BRIDGE_TRIGGER=%s\n" "${BRIDGE_TRIGGER:-incremental_cron}"
+    cat /app/config/crontab
+  fi
 } | crontab -
 
 exec cron -f

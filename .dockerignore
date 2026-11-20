@@ -117,3 +117,4 @@ frontend/dist/
 **/.viewer-browser-build/
 **/test-results/
 **/playwright-report/
+/admin/

@@ -1,0 +1,62 @@
+services:
+  api:
+    build:
+      context: .
+      target: development
+    container_name: geomg-admin-api
+    environment:
+      APP_ENV: development
+      APP_NAME: ${APP_NAME:-GEOMG Admin}
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      AUTH_MODE: ${AUTH_MODE:-development}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@paradedb:5432/${POSTGRES_DB:-geomg}
+      DEV_AUTH_ACTOR_ID: ${DEV_AUTH_ACTOR_ID:-local-developer}
+      DEV_AUTH_DISPLAY_NAME: ${DEV_AUTH_DISPLAY_NAME:-Local Developer}
+      DEV_AUTH_EMAIL: ${DEV_AUTH_EMAIL:-developer@localhost}
+      DEV_AUTH_PERMISSIONS: ${DEV_AUTH_PERMISSIONS:-admin.session:read,sources:read,sources:use,sources:create,sources:update,source-activity:read,source-activity:create,sets:read,sets:create,sets:update,set-activity:read,resources:read,resources:create,resources:associate,resources:import,resources:bulk-update,resources:update,tasks:read,tasks:create,tasks:update,tasks:complete,work:configure,work:report}
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      paradedb:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+
+  frontend:
+    build:
+      context: ./frontend
+      target: deps
+    container_name: geomg-admin-frontend
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8000
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+
+  paradedb:
+    image: paradedb/paradedb:0.25.5
+    container_name: geomg-admin-paradedb
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-geomg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-2345}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - paradedb_data:/var/lib/postgresql
+
+volumes:
+  frontend_node_modules:
+  paradedb_data:
