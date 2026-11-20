@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+from datetime import datetime
 from urllib.parse import quote
 
 import httpx
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 CLAIM_NEXT_PROJECTION = text("""
 WITH claim AS (
     SELECT p.resource_id, p.resource_version, r.publication_state, r.gbl_suppressed_b,
-           b.resource_version IS DISTINCT FROM p.resource_version AS staff_edit
+           b.resource_version IS DISTINCT FROM p.resource_version AS staff_edit,
+           p.created_at > CAST(:baseline_end AS timestamptz) AS after_baseline
     FROM public.resource_projection_requests p
     JOIN public.resources r ON r.id=p.resource_id AND r.lock_version=p.resource_version
     LEFT JOIN public.alpha_bridge_state b ON b.resource_id=p.resource_id
@@ -27,6 +29,7 @@ WITH claim AS (
     -- A Bridge write records its accepted version in the same transaction.
     -- Staff-edited versions therefore take precedence over the initial feed.
     ORDER BY (b.resource_version IS DISTINCT FROM p.resource_version) DESC,
+             (p.created_at > CAST(:baseline_end AS timestamptz)) DESC NULLS LAST,
              p.next_attempt_at,p.created_at LIMIT 1 FOR UPDATE OF p SKIP LOCKED
 )
 UPDATE public.resource_projection_requests p SET next_attempt_at=now()+interval '5 minutes'
@@ -69,7 +72,7 @@ async def visible(client, resource_id, version, *, published, searchable, header
     return indexed["_source"].get("lock_version") == version and any(current(hit) for hit in hits)
 
 
-def staff_read_headers(origin):
+def live_read_headers(origin):
     """Use the dev2 server API credential only for its configured private verifier."""
     if origin not in {"http://geospatial-api-alpha:8000", "http://geospatial-api-alpha-v2:8000"}:
         return {}
@@ -77,8 +80,8 @@ def staff_read_headers(origin):
     return {"X-API-Key": key} if key else {}
 
 
-async def deliver_one(client, staff_headers=None):
-    row = await database.fetch_one(CLAIM_NEXT_PROJECTION)
+async def deliver_one(client, live_headers=None, baseline_end=None):
+    row = await database.fetch_one(CLAIM_NEXT_PROJECTION.bindparams(baseline_end=baseline_end))
     if not row:
         return False
     rid, version = row["resource_id"], row["resource_version"]
@@ -100,7 +103,7 @@ async def deliver_one(client, staff_headers=None):
                     client,
                     rid,
                     version,
-                    headers=staff_headers if row["staff_edit"] else None,
+                    headers=live_headers if row["staff_edit"] or row["after_baseline"] else None,
                     published=published,
                     searchable=published and not row["gbl_suppressed_b"],
                 )
@@ -128,10 +131,14 @@ async def main():
         raise RuntimeError("The unified catalog migration must complete first")
     try:
         origin = os.environ["GEOMG_CANDIDATE_API_ORIGIN"]
-        staff_headers = staff_read_headers(origin)
+        live_headers = live_read_headers(origin)
+        cutoff = os.getenv("GEOMG_PROJECTION_BASELINE_END")
+        baseline_end = datetime.fromisoformat(cutoff) if cutoff else None
+        if baseline_end is not None and baseline_end.tzinfo is None:
+            raise ValueError("GEOMG_PROJECTION_BASELINE_END requires a timezone")
         async with httpx.AsyncClient(base_url=origin, timeout=20) as client:
             while True:
-                if not await deliver_one(client, staff_headers):
+                if not await deliver_one(client, live_headers, baseline_end):
                     await asyncio.sleep(1)
     finally:
         await database.disconnect()

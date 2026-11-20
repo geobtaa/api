@@ -28,6 +28,8 @@ servers:
     proxy: false
     cmd: bash -c 'cd /app/backend && exec /opt/venv/bin/python -m scripts.project_geomg_edits'
     env:
+      clear:
+        GEOMG_PROJECTION_BASELINE_END: "<%= ENV.fetch('GEOMG_PROJECTION_BASELINE_END', '') %>"
       secret: [DATABASE_URL, BTAA_GEOSPATIAL_API_KEY]
   cron:
     hosts: [<%= ENV.fetch("KAMAL_HOST") %>]
