@@ -325,6 +325,7 @@ async def test_published_preview_confirmation_and_pending_projection(
 ):
     from datetime import date
 
+    from app.resources.editor import wait_for_public_read
     from app.resources.models import projection_requests
 
     client, actors, _, record = await seed(api)
@@ -376,6 +377,14 @@ async def test_published_preview_confirmation_and_pending_projection(
         assert saved.json()["projection_status"] == "pending"
     async with database_engine.begin() as conn:
         assert await conn.scalar(select(func.count()).select_from(projection_requests)) == 1
+    result = await wait_for_public_read(database_engine, saved.json(), timeout=0.1)
+    assert result.projection_status == "pending"
+    async with database_engine.begin() as conn:
+        await conn.execute(update(projection_requests).values(visible_at=func.now()))
+    result = await wait_for_public_read(database_engine, saved.json())
+    assert result.projection_status == "live"
+    newer = {**saved.json(), "lock_version": 3}
+    assert (await wait_for_public_read(database_engine, newer)).projection_status == "pending"
     actors[0] = replace(actors[0], set_ids=frozenset())
     assert (
         await client.post(path + "/published-edits", headers=key, json=confirm)

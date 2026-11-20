@@ -2,6 +2,8 @@
 
 GEOMG is the staff catalog editor for the BTAA Geospatial API. A Resource can belong to one managing Set, which determines its Source and staff editing scope. Confirmed published edits commit the metadata, Activity entry and search refresh request in the same PostgreSQL transaction.
 
+On dev2, confirmation waits briefly for search and detail to serve the saved revision. The editor shows **Live on dev2** once both reads succeed. If indexing takes longer, it shows **Saved · updating dev2** and checks again automatically. Staff can then open the Geoportal search results and record page to see the change.
+
 Staff may correct already-published legacy records while required fields are missing. Each edit must preserve every currently populated required field. New publication requires the full publication metadata.
 
 ## Local development

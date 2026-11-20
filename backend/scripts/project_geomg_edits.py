@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 CLAIM_NEXT_PROJECTION = text("""
 WITH claim AS (
-    SELECT p.resource_id, p.resource_version, r.publication_state, r.gbl_suppressed_b
+    SELECT p.resource_id, p.resource_version, r.publication_state, r.gbl_suppressed_b,
+           b.resource_version IS DISTINCT FROM p.resource_version AS staff_edit
     FROM public.resource_projection_requests p
     JOIN public.resources r ON r.id=p.resource_id AND r.lock_version=p.resource_version
     LEFT JOIN public.alpha_bridge_state b ON b.resource_id=p.resource_id
@@ -35,10 +36,11 @@ RETURNING claim.*,p.next_attempt_at AS lease
 """)
 
 
-async def visible(client, resource_id, version, *, published, searchable):
-    detail = await client.get("/api/v1/resources/" + quote(resource_id, safe=""))
+async def visible(client, resource_id, version, *, published, searchable, headers=None):
+    detail = await client.get("/api/v1/resources/" + quote(resource_id, safe=""), headers=headers)
     search = await client.post(
         "/api/v1/search",
+        headers=headers,
         json={
             "adv_q": [{"op": "AND", "f": "id", "q": resource_id}],
             "per_page": 10,
@@ -67,7 +69,15 @@ async def visible(client, resource_id, version, *, published, searchable):
     return indexed["_source"].get("lock_version") == version and any(current(hit) for hit in hits)
 
 
-async def deliver_one(client):
+def staff_read_headers(origin):
+    """Use the dev2 server API credential only for its configured private verifier."""
+    if origin not in {"http://geospatial-api-alpha:8000", "http://geospatial-api-alpha-v2:8000"}:
+        return {}
+    key = os.getenv("BTAA_GEOSPATIAL_API_KEY")
+    return {"X-API-Key": key} if key else {}
+
+
+async def deliver_one(client, staff_headers=None):
     row = await database.fetch_one(CLAIM_NEXT_PROJECTION)
     if not row:
         return False
@@ -90,6 +100,7 @@ async def deliver_one(client):
                     client,
                     rid,
                     version,
+                    headers=staff_headers if row["staff_edit"] else None,
                     published=published,
                     searchable=published and not row["gbl_suppressed_b"],
                 )
@@ -116,11 +127,11 @@ async def main():
     if not await database.fetch_val("SELECT EXISTS(SELECT FROM public.alpha_catalog_seed)"):
         raise RuntimeError("The unified catalog migration must complete first")
     try:
-        async with httpx.AsyncClient(
-            base_url=os.environ["GEOMG_CANDIDATE_API_ORIGIN"], timeout=20
-        ) as client:
+        origin = os.environ["GEOMG_CANDIDATE_API_ORIGIN"]
+        staff_headers = staff_read_headers(origin)
+        async with httpx.AsyncClient(base_url=origin, timeout=20) as client:
             while True:
-                if not await deliver_one(client):
+                if not await deliver_one(client, staff_headers):
                     await asyncio.sleep(1)
     finally:
         await database.disconnect()

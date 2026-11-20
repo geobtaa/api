@@ -1,10 +1,12 @@
 """Shared compact editor contract and selective draft mutations."""
 
+import asyncio
 from uuid import uuid4
 
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import ARRAY, Boolean, Integer, func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.activity import activity
 from app.domain import DomainError
@@ -399,6 +401,35 @@ async def edit(
             )
         )
     return result
+
+
+async def wait_for_public_read(engine, saved, *, timeout=12):
+    """Wait after commit for the projector to verify this exact public revision."""
+    result = ResourceDetailResponse.model_validate(saved)
+    if result.projection_status != "pending":
+        return result
+    query = (
+        select(projection_requests.c.visible_at)
+        .join(resources, resources.c.id == projection_requests.c.resource_id)
+        .where(
+            resources.c.id == result.id,
+            resources.c.lock_version == result.lock_version,
+            projection_requests.c.resource_version == result.lock_version,
+        )
+    )
+    try:
+        async with asyncio.timeout(timeout):
+            while True:
+                async with engine.connect() as conn:
+                    row = (await conn.execute(query)).first()
+                if row is None:
+                    return result
+                if row.visible_at is not None:
+                    return result.model_copy(update={"projection_status": "live"})
+                await asyncio.sleep(0.2)
+    except TimeoutError, SQLAlchemyError:
+        # The metadata and outbox already committed. The UI can resume polling.
+        return result
 
 
 def prepare_changes(row, command, old, *, published=False):

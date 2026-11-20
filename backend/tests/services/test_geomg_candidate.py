@@ -49,6 +49,16 @@ def test_bridge_restarts_with_same_receipt_and_separate_watermark(tmp_path, monk
     assert client.fetch_page.call_args.kwargs["changed_since"]
 
 
+def test_staff_verification_uses_only_a_configured_private_origin(monkeypatch):
+    origin = "http://geospatial-api-alpha-v2:8000"
+    monkeypatch.delenv("BTAA_GEOSPATIAL_API_KEY", raising=False)
+    assert projector.staff_read_headers(origin) == {}
+    monkeypatch.setenv("BTAA_GEOSPATIAL_API_KEY", "fixture")
+    assert projector.staff_read_headers(origin) == {"X-API-Key": "fixture"}
+    assert projector.staff_read_headers(origin + ".example.test") == {}
+    assert projector.staff_read_headers("https://example.test") == {}
+
+
 @pytest.mark.asyncio
 async def test_visible_requires_current_detail_search_and_index(monkeypatch):
     doc = {"id": "record", "meta": {"catalogVersion": 3}}
@@ -140,8 +150,10 @@ async def test_staff_projection_precedes_bulk_and_honors_retry_lease():
                 VALUES ('feed',2,now()-interval '1 hour'),('staff',3,now());
         """)
         claim = str(projector.CLAIM_NEXT_PROJECTION).replace("public.", "pg_temp.")
-        assert (await connection.fetchrow(claim))["resource_id"] == "staff"
-        assert (await connection.fetchrow(claim))["resource_id"] == "feed"
+        staff = await connection.fetchrow(claim)
+        feed = await connection.fetchrow(claim)
+        assert staff["resource_id"] == "staff" and staff["staff_edit"]
+        assert feed["resource_id"] == "feed" and not feed["staff_edit"]
         assert await connection.fetchrow(claim) is None
     finally:
         await connection.close()

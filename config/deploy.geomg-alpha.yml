@@ -22,13 +22,13 @@ servers:
     options:
       network-alias: geospatial-api-alpha
     env:
-      secret: [DATABASE_URL, ADMIN_USERNAME, ADMIN_PASSWORD]
+      secret: [DATABASE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, BTAA_GEOSPATIAL_API_KEY]
   projector:
     hosts: [<%= ENV.fetch("KAMAL_HOST") %>]
     proxy: false
     cmd: bash -c 'cd /app/backend && exec /opt/venv/bin/python -m scripts.project_geomg_edits'
     env:
-      secret: [DATABASE_URL]
+      secret: [DATABASE_URL, BTAA_GEOSPATIAL_API_KEY]
   cron:
     hosts: [<%= ENV.fetch("KAMAL_HOST") %>]
     proxy: false

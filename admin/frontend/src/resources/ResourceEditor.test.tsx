@@ -36,7 +36,11 @@ const initial: ResourceDetailData = {
   import_warnings: [],
 };
 const ok = (data: unknown) => ({ ok: true, json: async () => data });
-function setup({ editable = true, published = false } = {}) {
+function setup({
+  editable = true,
+  published = false,
+  projectionStatus = 'pending',
+} = {}) {
   let current = {
     ...initial,
     editable,
@@ -71,7 +75,11 @@ function setup({ editable = true, published = false } = {}) {
         },
       });
     if (url.endsWith('/published-edits'))
-      return ok({ ...current, lock_version: 2, projection_status: 'pending' });
+      return ok({
+        ...current,
+        lock_version: 2,
+        projection_status: projectionStatus,
+      });
     if (options?.method === 'PATCH') {
       patches.push(options);
       const payload = JSON.parse(String(options.body));
@@ -427,27 +435,33 @@ it('shows nested Distribution validation errors without losing input', async () 
   expect(screen.getByLabelText('URL 1')).toHaveValue('bad');
 });
 
-it('previews and confirms the edited public record before reporting a saved version', async () => {
-  const { fetch } = setup({ published: true });
-  await ready();
-  fireEvent.change(screen.getByLabelText('Title (required)'), {
-    target: { value: 'Alpha title' },
-  });
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Preview published changes' })
-  );
-  expect(
-    await screen.findByRole('region', { name: 'Published edit preview' })
-  ).toBeVisible();
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Confirm published changes' })
-  );
-  expect(await screen.findByText('Saved · updating dev2')).toBeVisible();
-  const submitted = fetch.mock.calls.find(([url]) =>
-    url.endsWith('/published-edits')
-  );
-  expect(JSON.parse(String(submitted?.[1]?.body))).toMatchObject({
-    confirmed: true,
-    preview_id: 'reviewed',
-  });
-});
+it.each([
+  ['pending', 'Saved · updating dev2'],
+  ['live', 'Live on dev2'],
+])(
+  'reports the confirmed public revision as %s',
+  async (projectionStatus, message) => {
+    const { fetch } = setup({ published: true, projectionStatus });
+    await ready();
+    fireEvent.change(screen.getByLabelText('Title (required)'), {
+      target: { value: 'Alpha title' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Preview published changes' })
+    );
+    expect(
+      await screen.findByRole('region', { name: 'Published edit preview' })
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm published changes' })
+    );
+    expect(await screen.findByText(message)).toBeVisible();
+    const submitted = fetch.mock.calls.find(([url]) =>
+      url.endsWith('/published-edits')
+    );
+    expect(JSON.parse(String(submitted?.[1]?.body))).toMatchObject({
+      confirmed: true,
+      preview_id: 'reviewed',
+    });
+  }
+);
