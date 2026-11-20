@@ -12,7 +12,7 @@ builder:
   arch: amd64
   dockerfile: Dockerfile.kamal
   args:
-    VITE_API_BASE_URL: /api/v1
+    VITE_API_BASE_URL: https://<%= ENV.fetch("GEOMG_PUBLIC_HOST", ENV.fetch("KAMAL_HOST")) %>/api/v1
     VITE_KAMAL_DEST: dev2
 servers:
   web:
@@ -35,7 +35,7 @@ servers:
     cmd: bash /app/scripts/start_cron.sh
     options:
       user: root
-      volume: /var/lib/geospatial-api-alpha/checkpoints:/state
+      volume: geomg_alpha_dev2_checkpoints:/state
     env:
       clear:
         KITHE_BRIDGE_URL: https://geomg.lib.umn.edu/api/kithe_bridge
@@ -75,5 +75,5 @@ accessories:
         discovery.type: single-node
         xpack.security.enabled: "false"
         ES_JAVA_OPTS: "-Xms1g -Xmx1g"
-    directories:
-      - /var/lib/geospatial-api-alpha/elasticsearch:/usr/share/elasticsearch/data
+    volumes:
+      - geomg_alpha_dev2_elasticsearch:/usr/share/elasticsearch/data

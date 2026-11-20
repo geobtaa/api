@@ -16,6 +16,24 @@ from db.database import database
 
 logger = logging.getLogger(__name__)
 
+CLAIM_NEXT_PROJECTION = text("""
+WITH claim AS (
+    SELECT p.resource_id, p.resource_version, r.publication_state, r.gbl_suppressed_b
+    FROM public.resource_projection_requests p
+    JOIN public.resources r ON r.id=p.resource_id AND r.lock_version=p.resource_version
+    LEFT JOIN public.alpha_bridge_state b ON b.resource_id=p.resource_id
+    WHERE p.visible_at IS NULL AND p.next_attempt_at<=now()
+    -- A Bridge write records its accepted version in the same transaction.
+    -- Staff-edited versions therefore take precedence over the initial feed.
+    ORDER BY (b.resource_version IS DISTINCT FROM p.resource_version) DESC,
+             p.next_attempt_at,p.created_at LIMIT 1 FOR UPDATE OF p SKIP LOCKED
+)
+UPDATE public.resource_projection_requests p SET next_attempt_at=now()+interval '5 minutes'
+FROM claim WHERE p.resource_id=claim.resource_id
+AND p.resource_version=claim.resource_version
+RETURNING claim.*,p.next_attempt_at AS lease
+""")
+
 
 async def visible(client, resource_id, version, *, published, searchable):
     detail = await client.get("/api/v1/resources/" + quote(resource_id, safe=""))
@@ -50,21 +68,7 @@ async def visible(client, resource_id, version, *, published, searchable):
 
 
 async def deliver_one(client):
-    row = await database.fetch_one(
-        text("""
-        WITH claim AS (
-            SELECT p.resource_id, p.resource_version, r.publication_state, r.gbl_suppressed_b
-            FROM public.resource_projection_requests p
-            JOIN public.resources r ON r.id=p.resource_id AND r.lock_version=p.resource_version
-            WHERE p.visible_at IS NULL AND p.next_attempt_at<=now()
-            ORDER BY p.next_attempt_at,p.created_at LIMIT 1 FOR UPDATE OF p SKIP LOCKED
-        )
-        UPDATE public.resource_projection_requests p SET next_attempt_at=now()+interval '5 minutes'
-        FROM claim WHERE p.resource_id=claim.resource_id
-        AND p.resource_version=claim.resource_version
-        RETURNING claim.*,p.next_attempt_at AS lease
-    """)
-    )
+    row = await database.fetch_one(CLAIM_NEXT_PROJECTION)
     if not row:
         return False
     rid, version = row["resource_id"], row["resource_version"]
@@ -76,6 +80,7 @@ async def deliver_one(client):
         if index.get("enabled") and not index.get("errors"):
             cache = await refresh_cache_for_changed_resources(
                 [rid],
+                rewarm=False,
                 warm_generated_assets=False,
                 representation_version=os.environ["RESOURCE_REPRESENTATION_CACHE_VERSION"],
             )

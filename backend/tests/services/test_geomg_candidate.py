@@ -1,5 +1,7 @@
+import os
 from unittest.mock import AsyncMock, Mock
 
+import asyncpg
 import httpx
 import pytest
 
@@ -113,3 +115,33 @@ async def test_public_catalog_hides_drafts_before_serving_resource_routes(monkey
                 "/resources/unpublished/metadata",
             ):
                 assert (await client.get(path)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_staff_projection_precedes_bulk_and_honors_retry_lease():
+    url = os.getenv("SEARCH_RELEVANCE_TEST_DB_URL")
+    if not url:
+        pytest.skip("Set SEARCH_RELEVANCE_TEST_DB_URL to an isolated PostgreSQL service")
+    connection = await asyncpg.connect(url)
+    try:
+        await connection.execute("""
+            CREATE TEMP TABLE resource_projection_requests (
+                resource_id text, resource_version int, visible_at timestamptz,
+                next_attempt_at timestamptz, created_at timestamptz DEFAULT now()
+            );
+            CREATE TEMP TABLE resources (
+                id text, lock_version int, publication_state text, gbl_suppressed_b boolean
+            );
+            CREATE TEMP TABLE alpha_bridge_state (resource_id text, resource_version int);
+            INSERT INTO resources VALUES
+                ('feed',2,'published',false),('staff',3,'published',false);
+            INSERT INTO alpha_bridge_state VALUES ('feed',2),('staff',2);
+            INSERT INTO resource_projection_requests(resource_id,resource_version,next_attempt_at)
+                VALUES ('feed',2,now()-interval '1 hour'),('staff',3,now());
+        """)
+        claim = str(projector.CLAIM_NEXT_PROJECTION).replace("public.", "pg_temp.")
+        assert (await connection.fetchrow(claim))["resource_id"] == "staff"
+        assert (await connection.fetchrow(claim))["resource_id"] == "feed"
+        assert await connection.fetchrow(claim) is None
+    finally:
+        await connection.close()
