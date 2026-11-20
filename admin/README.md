@@ -4,6 +4,8 @@ GEOMG is the staff catalog editor for the BTAA Geospatial API. A Resource can be
 
 On dev2, confirmation waits briefly for search and detail to serve the saved revision. The editor shows **Live on dev2** once both reads succeed. If indexing takes longer, it shows **Saved · updating dev2** and checks again automatically. Staff can then open the Geoportal search results and record page to see the change.
 
+After a verified full reindex, operators can set `GEOMG_PROJECTION_BASELINE_END` to the timezone-qualified timestamp of the quiescent catalog snapshot. The projector serves staff edits first, followed by later feed changes. Older requests continue through normal verification.
+
 Staff may correct already-published legacy records while required fields are missing. Each edit must preserve every currently populated required field. New publication requires the full publication metadata.
 
 ## Local development

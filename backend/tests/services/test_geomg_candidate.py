@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock
 
 import asyncpg
@@ -49,14 +50,14 @@ def test_bridge_restarts_with_same_receipt_and_separate_watermark(tmp_path, monk
     assert client.fetch_page.call_args.kwargs["changed_since"]
 
 
-def test_staff_verification_uses_only_a_configured_private_origin(monkeypatch):
+def test_live_verification_uses_only_a_configured_private_origin(monkeypatch):
     origin = "http://geospatial-api-alpha-v2:8000"
     monkeypatch.delenv("BTAA_GEOSPATIAL_API_KEY", raising=False)
-    assert projector.staff_read_headers(origin) == {}
+    assert projector.live_read_headers(origin) == {}
     monkeypatch.setenv("BTAA_GEOSPATIAL_API_KEY", "fixture")
-    assert projector.staff_read_headers(origin) == {"X-API-Key": "fixture"}
-    assert projector.staff_read_headers(origin + ".example.test") == {}
-    assert projector.staff_read_headers("https://example.test") == {}
+    assert projector.live_read_headers(origin) == {"X-API-Key": "fixture"}
+    assert projector.live_read_headers(origin + ".example.test") == {}
+    assert projector.live_read_headers("https://example.test") == {}
 
 
 @pytest.mark.asyncio
@@ -144,16 +145,25 @@ async def test_staff_projection_precedes_bulk_and_honors_retry_lease():
             );
             CREATE TEMP TABLE alpha_bridge_state (resource_id text, resource_version int);
             INSERT INTO resources VALUES
-                ('feed',2,'published',false),('staff',3,'published',false);
-            INSERT INTO alpha_bridge_state VALUES ('feed',2),('staff',2);
+                ('feed',2,'published',false),('delta',3,'published',false),('staff',3,'published',false);
+            INSERT INTO alpha_bridge_state VALUES ('feed',2),('delta',3),('staff',2);
             INSERT INTO resource_projection_requests(resource_id,resource_version,next_attempt_at)
-                VALUES ('feed',2,now()-interval '1 hour'),('staff',3,now());
+                VALUES ('feed',2,now()-interval '1 hour'),('staff',3,now()),('delta',3,now());
+            UPDATE resource_projection_requests SET created_at='2000-01-01'
+            WHERE resource_id='feed';
         """)
         claim = str(projector.CLAIM_NEXT_PROJECTION).replace("public.", "pg_temp.")
-        staff = await connection.fetchrow(claim)
-        feed = await connection.fetchrow(claim)
+        claim = claim.replace(":baseline_end", "$1")
+        cutoff = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        staff = await connection.fetchrow(claim, cutoff)
+        delta = await connection.fetchrow(claim, cutoff)
+        feed = await connection.fetchrow(claim, cutoff)
+        assert (
+            delta["resource_id"] == "delta" and not delta["staff_edit"] and delta["after_baseline"]
+        )
+        assert not feed["after_baseline"]
         assert staff["resource_id"] == "staff" and staff["staff_edit"]
         assert feed["resource_id"] == "feed" and not feed["staff_edit"]
-        assert await connection.fetchrow(claim) is None
+        assert await connection.fetchrow(claim, cutoff) is None
     finally:
         await connection.close()
