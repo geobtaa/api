@@ -1,4 +1,5 @@
 import { appUrl } from './api';
+import btaaLogo from './assets/btaa-logo.png?inline';
 import { showWorkManagement } from './config/features';
 import { MaintenancePage } from './work/Maintenance';
 import { WorkPage } from './work/Work';
@@ -57,7 +58,7 @@ function Layout() {
           aria-label="GEOMG Admin home"
         >
           <img
-            src={appUrl('/btaa-logo.png')}
+            src={btaaLogo}
             alt="Big Ten Academic Alliance"
             width="651"
             height="383"

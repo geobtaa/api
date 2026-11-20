@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
+import btaaLogo from './assets/btaa-logo.png?inline';
 
 describe('App', () => {
   afterEach(() => {
@@ -23,7 +24,7 @@ describe('App', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('img', { name: 'Big Ten Academic Alliance' })
-    ).toHaveAttribute('src', '/btaa-logo.png');
+    ).toHaveAttribute('src', btaaLogo);
     expect(
       screen.getByRole('link', { name: 'GEOMG Admin home' })
     ).toHaveTextContent('Metadata administration');
