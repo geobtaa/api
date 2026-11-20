@@ -322,12 +322,12 @@ async def edit(
         values, links = prepare_changes(row, command, old, published=published)
         if published:
             candidate = {**row, **values}
-            missing = [name for name in SCHEMA["required"] if not candidate.get(name)]
+            missing = [name for name in SCHEMA["required"] if row[name] and not candidate.get(name)]
             if missing:
                 raise DomainError(
                     422,
                     "publication_incomplete",
-                    "Missing publication fields: " + ", ".join(missing),
+                    "Edit would remove required publication fields: " + ", ".join(missing),
                 )
         if dry_run:
             changes = {

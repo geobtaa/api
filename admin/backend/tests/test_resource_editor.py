@@ -319,7 +319,10 @@ def test_editor_contract_separates_rights_and_relationships():
     ]
 
 
-async def test_published_preview_confirmation_and_pending_projection(api, database_engine):
+@pytest.mark.parametrize("legacy_gaps", [False, True])
+async def test_published_preview_confirmation_and_pending_projection(
+    api, database_engine, legacy_gaps
+):
     from datetime import date
 
     from app.resources.models import projection_requests
@@ -339,7 +342,7 @@ async def test_published_preview_confirmation_and_pending_projection(api, databa
                 b1g_code_s="test",
                 b1g_dct_accrualMethod_s="Manual",
                 b1g_dateAccessioned_s=date.today(),
-                b1g_language_sm=["English"],
+                b1g_language_sm=None if legacy_gaps else ["English"],
             )
         )
     body = {"lock_version": 1, "values": {"dct_title_s": "Published edit"}}
@@ -348,6 +351,15 @@ async def test_published_preview_confirmation_and_pending_projection(api, databa
     ).status_code == 403
     actors[0] = replace(actors[0], permissions=actors[0].permissions | {"resources:edit-published"})
     assert (await client.patch(path, headers=headers(), json=body)).status_code == 409
+    removed = {**body, "clear_fields": ["dct_license_sm"]}
+    rejected = await client.post(path + "/published-edits/preview", headers=headers(), json=removed)
+    assert rejected.status_code == 422
+    if legacy_gaps:
+        repaired = {**body, "values": {"b1g_language_sm": ["English"]}}
+        improved = await client.post(
+            path + "/published-edits/preview", headers=headers(), json=repaired
+        )
+        assert improved.status_code == 200, improved.text
     preview = await client.post(path + "/published-edits/preview", headers=headers(), json=body)
     assert preview.status_code == 200, preview.text
     assert preview.json()["changes"]["dct_title_s"]["after"] == "Published edit"
