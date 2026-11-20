@@ -30,5 +30,7 @@ env:
     CORS_ORIGINS: https://<%= ENV.fetch("KAMAL_HOST") %>
   secret:
     - DATABASE_URL
+<% if ENV["GEOMG_CUTOVER_BRIDGE"] == "true" %>
     - ALPHA_BRIDGE_TOKEN_SHA256
     - ALPHA_BRIDGE_TOKEN_EXPIRES_AT
+<% end %>

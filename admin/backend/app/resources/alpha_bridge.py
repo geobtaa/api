@@ -384,9 +384,10 @@ async def ingest(engine, batch, key, version):
 
 
 router = APIRouter(prefix="/admin/intake", tags=["resources"])
+cutover_router = APIRouter(prefix="/admin/intake", tags=["resources"])
 
 
-@router.post(
+@cutover_router.post(
     "/bridge-batches",
     operation_id="intake_accept_bridge_batch",
     response_model=Result,

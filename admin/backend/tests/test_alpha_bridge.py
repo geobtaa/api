@@ -141,3 +141,7 @@ async def test_scoped_bridge_conflicts_deletions_pilot_and_replay(api, database_
             headers={**headers(key), "X-GEOMG-Bridge-Token": "test-key"},
         )
         assert accepted.status_code == 200, accepted.text
+
+    closed = create_app(settings=replace(settings, bridge_token_sha256=None))
+    assert path not in closed.openapi()["paths"]
+    assert "/api/v1/admin/intake/bridge-reviews" in closed.openapi()["paths"]

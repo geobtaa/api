@@ -4,6 +4,10 @@ Tests for admin endpoints.
 These tests cover cache management, reindexing, and resource processing endpoints.
 """
 
+import os
+import subprocess
+import sys
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -80,3 +84,18 @@ class TestAdminEndpoints:
         if admin_routes:
             assert any("/api/v1/admin/cache/clear" in route for route in routes)
             assert any("/api/v1/admin/reindex" in route for route in routes)
+
+
+def test_dev2_omits_bridge_routes_and_preserves_other_admin_operations():
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from fastapi import FastAPI; from app.api.v1.endpoint_modules.admin import router; "
+            "app=FastAPI(); app.include_router(router); paths=app.openapi()['paths']; "
+            "assert paths and '/bridge/sync' not in paths; "
+            "assert not any(path.startswith('/bridge/') for path in paths)",
+        ],
+        env={**os.environ, "KAMAL_DEST": "dev2"},
+        check=True,
+    )

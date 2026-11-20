@@ -211,3 +211,10 @@ def test_frontend_appsignal_preloads_before_other_node_require_hooks():
 
     assert "--require ./appsignal.cjs --require source-map-support/register" in package_text
     assert "--require source-map-support/register --require ./appsignal.cjs" not in package_text
+
+
+def test_dev2_regular_release_omits_the_cutover_credential():
+    base = _load_deploy_config("config/deploy.yml")["env"]["secret"]
+    dev2 = _load_deploy_config("config/deploy.dev2.yml")["env"]
+    assert set(dev2["secret"]) == set(base) - {"KITHE_BRIDGE_TOKEN"}
+    assert dev2["clear"]["KITHE_BRIDGE_URL"] == ""

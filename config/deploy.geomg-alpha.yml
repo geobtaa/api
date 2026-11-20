@@ -31,20 +31,7 @@ servers:
       clear:
         GEOMG_PROJECTION_BASELINE_END: "<%= ENV.fetch('GEOMG_PROJECTION_BASELINE_END', '') %>"
       secret: [DATABASE_URL, BTAA_GEOSPATIAL_API_KEY]
-  cron:
-    hosts: [<%= ENV.fetch("KAMAL_HOST") %>]
-    proxy: false
-    cmd: bash /app/scripts/start_cron.sh
-    options:
-      user: root
-      volume: geomg_alpha_dev2_checkpoints:/state
-    env:
-      clear:
-        KITHE_BRIDGE_URL: https://geomg.lib.umn.edu/api/kithe_bridge
-        KITHE_BRIDGE_VERIFY_SSL: "true"
-        GEOMG_INGEST_URL: http://geomg-admin-alpha:8000/api/v1/admin/intake/bridge-batches
-        GEOMG_BRIDGE_STATE_DIR: /state
-      secret: [GEOMG_INGEST_TOKEN, KITHE_BRIDGE_TOKEN]
+
 env:
   clear:
     APP_ENV: development

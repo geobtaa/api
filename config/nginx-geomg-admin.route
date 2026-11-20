@@ -1,3 +1,6 @@
+# The cutover importer uses the private service directly.
+location = /admin/api/v1/admin/intake/bridge-batches { return 404; }
+location = /admin/api/v1/admin/intake/bridge-batches/ { return 404; }
 location = /admin {
     return 308 /admin/$is_args$args;
 }
