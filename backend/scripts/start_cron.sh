@@ -22,7 +22,11 @@ export BRIDGE_SYNC_LOCAL_TIMEZONE="${BRIDGE_SYNC_LOCAL_TIMEZONE:-${CRON_LOCAL_TI
   printf "ADMIN_PASSWORD=%s\n" "${ADMIN_PASSWORD}"
   printf "APPLICATION_URL=%s\n" "${APPLICATION_URL}"
   printf "BRIDGE_TRIGGER=%s\n" "${BRIDGE_TRIGGER:-incremental_cron}"
-  cat /app/config/crontab
+  if [[ "${KAMAL_DEST:-}" == dev2 ]]; then
+    sed '/trigger_bridge_sync_cron\.py/d' /app/config/crontab
+  else
+    cat /app/config/crontab
+  fi
 } | crontab -
 
 exec cron -f

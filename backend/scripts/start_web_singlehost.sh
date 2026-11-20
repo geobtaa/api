@@ -32,6 +32,18 @@ if [ "${WEB_INTERNAL_UVICORN_WORKERS}" != "0" ]; then
   INTERNAL_UVICORN_PID=$!
 fi
 
+# Enable the sibling GEOMG route only on the isolated alpha frontend.
+mkdir -p /etc/nginx/geomg
+if [[ "${GEOMG_ADMIN_ENABLED:-false}" == true ]]; then
+  if [[ "${KAMAL_DEST:-}" != dev2 ]]; then
+    echo "The GEOMG alpha requires the dev2 destination" >&2
+    exit 1
+  fi
+  cp /etc/nginx/geomg-admin.route /etc/nginx/geomg/admin.conf
+else
+  : > /etc/nginx/geomg/admin.conf
+fi
+
 echo "[start_web_singlehost] configuring nginx SSR upstream for ${WEB_SSR_WORKERS} worker(s)"
 {
   echo "upstream ssr_backend {"

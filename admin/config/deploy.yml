@@ -1,0 +1,54 @@
+# Generic Kamal 2 configuration. Deployment-specific values come from the
+# environment so public source never needs real hosts or credentials.
+service: geomg-admin
+image: <%= ENV.fetch("KAMAL_IMAGE", "ewlarson/geomg-admin") %>
+
+builder:
+  arch: amd64
+  dockerfile: Dockerfile
+  target: production
+
+ssh:
+  user: <%= ENV.fetch("KAMAL_SSH_USER") %>
+
+servers:
+  web:
+    hosts:
+      - <%= ENV.fetch("KAMAL_HOST") %>
+
+proxy:
+  ssl: true
+  host: <%= ENV.fetch("KAMAL_HOST") %>
+  app_port: 8000
+  healthcheck:
+    path: /api/v1/health
+
+registry:
+  server: ghcr.io
+  username: <%= ENV.fetch("KAMAL_REGISTRY_USERNAME") %>
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+env:
+  clear:
+    APP_ENV: production
+    APP_NAME: GEOMG Admin
+    APP_VERSION: "0.1.0"
+    AUTH_MODE: saml
+    CORS_ORIGINS: https://<%= ENV.fetch("KAMAL_HOST") %>
+    PYTHONUNBUFFERED: "1"
+  secret:
+    - DATABASE_URL
+
+accessories:
+  paradedb:
+    image: paradedb/paradedb:0.25.5
+    host: <%= ENV.fetch("KAMAL_HOST") %>
+    env:
+      clear:
+        POSTGRES_DB: geomg
+        POSTGRES_USER: postgres
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - /var/lib/geomg-admin/postgres:/var/lib/postgresql

@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Indiana University",
+    "entity_id": "https://idp.login.iu.edu/idp/shibboleth"
+  },
+  {
+    "name": "Michigan State University",
+    "entity_id": "urn:mace:incommon:msu.edu"
+  },
+  {
+    "name": "Northwestern University",
+    "entity_id": "urn:mace:incommon:northwestern.edu"
+  },
+  {
+    "name": "The Ohio State University",
+    "entity_id": "urn:mace:incommon:osu.edu"
+  },
+  {
+    "name": "The Pennsylvania State University",
+    "entity_id": "urn:mace:incommon:psu.edu"
+  },
+  {
+    "name": "Purdue University",
+    "entity_id": "https://idp.purdue.edu/idp/shibboleth"
+  },
+  {
+    "name": "Rutgers University",
+    "entity_id": "urn:mace:incommon:rutgers.edu"
+  },
+  {
+    "name": "University of Chicago",
+    "entity_id": "urn:mace:incommon:uchicago.edu"
+  },
+  {
+    "name": "University of Illinois Urbana-Champaign",
+    "entity_id": "urn:mace:incommon:uiuc.edu"
+  },
+  {
+    "name": "University of Iowa",
+    "entity_id": "urn:mace:incommon:uiowa.edu"
+  },
+  {
+    "name": "University of Maryland, College Park",
+    "entity_id": "urn:mace:incommon:umd.edu"
+  },
+  {
+    "name": "University of Michigan",
+    "entity_id": "https://shibboleth.umich.edu/idp/shibboleth"
+  },
+  {
+    "name": "University of Minnesota",
+    "entity_id": "urn:mace:incommon:umn.edu"
+  },
+  {
+    "name": "University of Nebraska-Lincoln",
+    "entity_id": "https://shib.unl.edu/idp/shibboleth"
+  },
+  {
+    "name": "University of Oregon",
+    "entity_id": "https://shibboleth.uoregon.edu/idp/shibboleth"
+  },
+  {
+    "name": "University of Southern California",
+    "entity_id": "urn:mace:incommon:usc.edu"
+  },
+  {
+    "name": "University of Washington",
+    "entity_id": "urn:mace:incommon:washington.edu"
+  },
+  {
+    "name": "University of Wisconsin-Madison",
+    "entity_id": "https://login.wisc.edu/idp/shibboleth"
+  }
+]

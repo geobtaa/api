@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 security = HTTPBasic()
 router = APIRouter(dependencies=[Depends(verify_credentials)])
+bridge_router = APIRouter()
 
 
 def validate_ip_addresses(ip_list: List[str]) -> None:
@@ -474,7 +475,7 @@ async def trigger_ogm_harvest(body: TriggerOGMHarvestRequest):
     return create_response({"queued": body.ogm_repo_name, "task_id": task.id})
 
 
-@router.post("/bridge/sync")
+@bridge_router.post("/bridge/sync")
 async def trigger_bridge_sync(body: TriggerBridgeSyncRequest):
     """Trigger a bridge sync crawl (enqueues Celery)."""
     if body.batched:
@@ -543,7 +544,7 @@ BRIDGE_SYNC_TASK_NAMES = {
 }
 
 
-@router.post("/bridge/sync/cancel")
+@bridge_router.post("/bridge/sync/cancel")
 async def cancel_bridge_sync():
     """Cancel all running bridge sync runs and revoke active/reserved
     bridge sync Celery tasks."""
@@ -632,7 +633,7 @@ async def get_ogm_harvest_run(run_id: int):
     return create_response({"run": run})
 
 
-@router.get("/bridge/sync/runs")
+@bridge_router.get("/bridge/sync/runs")
 async def list_bridge_sync_runs(
     status: Optional[str] = Query(None, description="Filter by bridge_status"),
     limit: int = Query(50, ge=1, le=500),
@@ -642,7 +643,7 @@ async def list_bridge_sync_runs(
     return create_response({"runs": runs})
 
 
-@router.get("/bridge/sync/runs/{run_id}")
+@bridge_router.get("/bridge/sync/runs/{run_id}")
 async def get_bridge_sync_run(run_id: int):
     run = await bridge_repo.get_sync_run(run_id)
     if not run:
@@ -650,7 +651,7 @@ async def get_bridge_sync_run(run_id: int):
     return create_response({"run": run})
 
 
-@router.get("/bridge/sync/status")
+@bridge_router.get("/bridge/sync/status")
 async def bridge_sync_status(
     include_celery: bool = Query(False, description="Include Celery active tasks (best-effort)"),
     runs_limit: int = Query(200, ge=1, le=1000, description="How many recent runs to summarize"),
@@ -674,7 +675,7 @@ async def bridge_sync_status(
     return create_response(payload)
 
 
-@router.get("/bridge/missing")
+@bridge_router.get("/bridge/missing")
 async def list_bridge_missing(
     limit: int = Query(200, ge=1, le=2000),
     offset: int = Query(0, ge=0),
@@ -955,3 +956,7 @@ async def download_ogm_dump_file(run_id: int, filename: str):
         media_type = "application/octet-stream"
 
     return FileResponse(str(candidate), media_type=media_type, filename=safe_filename)
+
+
+if os.getenv("KAMAL_DEST") != "dev2":
+    router.include_router(bridge_router)

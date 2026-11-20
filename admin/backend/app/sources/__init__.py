@@ -1,0 +1,1 @@
+"""Independent originating-environment groupings."""

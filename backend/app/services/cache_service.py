@@ -697,7 +697,9 @@ class CacheService:
 
 
 # Create decorator for caching endpoint responses
-def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str]] = None):
+def cached_endpoint(
+    ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str]] = None, enabled: bool = True
+):
     """Decorator to cache endpoint responses (binary-safe, versioned keys)."""
 
     def decorator(func):
@@ -802,7 +804,7 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
 
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            if not ENDPOINT_CACHE:
+            if not enabled or not ENDPOINT_CACHE:
                 return await func(*args, **kwargs)
 
             # Get the function signature

@@ -1,0 +1,18 @@
+# Disposable integration database; never attaches the development/production volume.
+name: geomg-tests
+services:
+  postgres:
+    image: paradedb/paradedb:0.25.5
+    environment:
+      POSTGRES_USER: geomg_test
+      POSTGRES_PASSWORD: geomg_test
+      POSTGRES_DB: geomg_test
+    ports:
+      - "127.0.0.1:${TEST_POSTGRES_PORT:-25432}:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geomg_test -d geomg_test"]
+      interval: 1s
+      timeout: 5s
+      retries: 30

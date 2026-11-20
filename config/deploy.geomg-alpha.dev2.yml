@@ -1,0 +1,3 @@
+env:
+  clear:
+    KAMAL_DEST: dev2

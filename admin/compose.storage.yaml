@@ -1,0 +1,18 @@
+# Opt-in external storage. Create these directories before starting Compose.
+# Refuse missing paths so an unmounted external disk cannot silently redirect data.
+services:
+  paradedb:
+    volumes:
+      - type: bind
+        source: ${PROJECT_DATA_DIR:?Set PROJECT_DATA_DIR to an existing external project directory}/postgresql
+        target: /var/lib/postgresql
+        bind:
+          create_host_path: false
+  frontend:
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - type: bind
+        source: ${PROJECT_DATA_DIR:?Set PROJECT_DATA_DIR to an existing external project directory}/node_modules
+        target: /app/node_modules
+        bind:
+          create_host_path: false
