@@ -68,13 +68,7 @@ async def resolve_actor(connection, subject):
     account = (
         (
             await connection.execute(
-                select(
-                    accounts,
-                    select(local_credentials.c.actor_id)
-                    .where(local_credentials.c.actor_id == accounts.c.actor_id)
-                    .exists()
-                    .label("local_password"),
-                )
+                select(accounts)
                 .where(accounts.c.actor_id == subject["id"])
                 .with_for_update(read=True)
             )
@@ -93,7 +87,16 @@ async def resolve_actor(connection, subject):
         .scalars()
         .all()
     )
-    local = subject["kind"] == "user" and account["local_password"]
+    local = subject["kind"] == "user" and subject["subject_key"].startswith("local:")
+    if local:
+        local = (
+            await connection.scalar(
+                select(local_credentials.c.actor_id).where(
+                    local_credentials.c.actor_id == subject["id"]
+                )
+            )
+            is not None
+        )
     if local:
         administrator = account["all_sets"] and "identity:manage" in permissions
         permissions = CATALOG_EDITOR_PERMISSIONS.union(permissions if administrator else ())
