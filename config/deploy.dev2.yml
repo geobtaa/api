@@ -13,7 +13,7 @@ servers:
   worker:
     hosts:
       - lib-geoportal-dev-web-01.oit.umn.edu
-    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
+    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO --concurrency=2"
     options:
       cpus: 0.75
       memory: 1536m
@@ -24,6 +24,7 @@ servers:
     cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
       user: root
+      memory: 1024m
 
 proxy:
   host: geodev.btaa.org,lib-geoportal-dev-web-01.oit.umn.edu
@@ -83,8 +84,8 @@ env:
     SQLALCHEMY_ASYNC_MAX_OVERFLOW: "1"
     SQLALCHEMY_ASYNC_POOL_TIMEOUT: "5"
     WEB_UVICORN_WORKERS: "3"
-    WEB_INTERNAL_UVICORN_WORKERS: "4"
-    WEB_SSR_WORKERS: "3"
+    WEB_INTERNAL_UVICORN_WORKERS: "2"
+    WEB_SSR_WORKERS: "2"
 
   secret:
     - REDIS_PASSWORD
