@@ -1,5 +1,5 @@
 {
-  "version": "0.15.0",
-  "release_date": "2026-11-13",
-  "summary": "Improve catalog search with English stemming, collection context, and all-term matches followed by partial matches; update collection policy links and production smoke checks."
+  "version": "0.16.0",
+  "release_date": "2026-11-24",
+  "summary": "Add MapLibre and OGM Viewer previews with the Positron basemap, Open in GeoLibre links in viewer archive order, accessible bookmarks, and title sorting for equal search scores. Fix metadata section links and update Tornado."
 }
