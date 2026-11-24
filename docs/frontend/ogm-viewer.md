@@ -3,7 +3,7 @@
 The application consumes a source-built prerelease of
 [geobtaa/ogm-viewer](https://github.com/geobtaa/ogm-viewer/tree/feature/viewer-integration),
 based on upstream v1.7.0. The dependency key remains `ogm-viewer`; the tarball
-contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.4`. `package.json` names an
+contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.5`. `package.json` names an
 exact release asset URL and `package-lock.json` pins its integrity.
 `fork-build.json` inside the installed package identifies its source commit,
 upstream baseline, build Node version, and lockfile hash. No upstream PRs have
@@ -17,6 +17,8 @@ UW–Madison Image API records use an encoded slash (`%2F`) in the identifier.
 When the publisher's `info.json` expands that slash, the viewer keeps the
 requested encoding for image tiles and Downloads links. See
 [viewer issue #3](https://github.com/geobtaa/ogm-viewer/issues/3) for a live example.
+
+Records with multiple PMTiles archives show one preview tab per archive, in metadata order. See [viewer issue #7](https://github.com/geobtaa/ogm-viewer/issues/7).
 
 Upstream 1.7.0 adds COG index-map mosaics, FGDC-derived legends, layer ordering
 controls, and improved handling of blocked requests. Our selection/navigation
