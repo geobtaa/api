@@ -108,6 +108,44 @@ describe('LinksTable', () => {
     );
   });
 
+  it('opens each GeoLibre dataset through a native external link', () => {
+    const url =
+      'https://web.geolibre.app/?data=https%3A%2F%2Fexample.org%2Fparks.geojson';
+    const { rerender } = render(<LinksTable links={mockLinks} />);
+    expect(screen.queryByRole('link', { name: /GeoLibre/ })).toBeNull();
+    rerender(
+      <LinksTable
+        links={{
+          ...mockLinks,
+          'Open in GeoLibre': [{ label: 'GeoJSON', url }],
+        }}
+      />
+    );
+    const parks = screen.getByRole('link', {
+      name: 'Open in GeoLibre: GeoJSON',
+    });
+    expect(parks).toHaveAttribute('href', url);
+    expect(parks).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(parks).toHaveAttribute('target', '_blank');
+    parks.focus();
+    expect(parks).toHaveFocus();
+    parks.addEventListener('click', (event) => event.preventDefault(), {
+      once: true,
+    });
+    fireEvent.click(parks);
+    expect(scheduleAnalyticsBatch).toHaveBeenCalledWith({
+      events: [
+        expect.objectContaining({
+          event_type: 'external_geoportal_click',
+          destination_url: url,
+        }),
+      ],
+    });
+    expect(
+      screen.getByRole('button', { name: 'Open in ArcGIS' })
+    ).toBeInTheDocument();
+  });
+
   it('opens lightbox for Web Services category', () => {
     render(<LinksTable links={mockLinks} />);
     const webServicesButton = screen.getByRole('button', {
