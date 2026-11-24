@@ -445,7 +445,7 @@ This migration successfully transforms the distribution data from an unstructure
 
 The resource-links endpoint and the detail page’s link data include an
 `Open in GeoLibre` group when a resource has public access rights and at least
-one eligible file. Each link passes the complete dataset URL as the encoded
+one eligible file or feature service. Each link passes the complete dataset URL as the encoded
 `data` parameter. Resource pages use distribution rows when present and read
 legacy Aardvark references when rows are unavailable.
 
@@ -463,6 +463,12 @@ ordinary dataset query parameters (`layer`, `version`, `v`, `bbox`, `limit`)
 and omits URLs with other parameters, embedded credentials or fragments.
 These checks run against catalog metadata. Remote availability can change
 between a catalog update and a visit.
+
+### Feature services
+
+WFS previews request a maximum of 100 features from a named layer on a verified public WFS 2.0 endpoint. The layer comes from a cataloged type name or the record’s `gbl_wxsIdentifier_s`. Open in GeoLibre requests the server’s GeoJSON format. GeoServer requests use longitude–latitude order.
+
+OGC API Features previews use a named collection or its `/items` distribution on a verified service. The link requests GeoJSON, preserves a cataloged bounding box and caps the first page at 100 features. Service roots, credential-bearing URLs and unrecognized query parameters are skipped. These links preview the first page of the dataset.
 
 ### Checking a collection
 

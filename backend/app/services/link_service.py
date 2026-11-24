@@ -76,7 +76,7 @@ class LinkService:
             references = self.distribution_context.reference_payload or coerce_reference_mapping(
                 self.resource_dict.get("dct_references_s")
             )
-            if launch_links := geolibre_links(references):
+            if launch_links := geolibre_links(references, self._wxs_identifier()):
                 links["Open in GeoLibre"] = launch_links
 
         # Add "Documentation" links
