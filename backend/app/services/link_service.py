@@ -8,6 +8,9 @@ from app.services.distribution_repository import (
     build_distribution_context,
     fetch_distribution_context,
 )
+from app.services.geolibre import geolibre_links
+from app.services.geolibre_raster import capabilities_for, raster_links, raster_projects
+from app.services.reference_reconstruction import coerce_reference_mapping
 from db.database import database
 
 logger = logging.getLogger(__name__)
@@ -38,7 +41,7 @@ class LinkService:
         self.by_uri = distribution_context.by_uri
         self._legacy_refs_cache: Optional[Dict[str, Any]] = None
 
-    def get_links(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_links(self, *, raster_documents=None) -> Dict[str, List[Dict[str, Any]]]:
         """
         Get all links for a resource organized by category.
 
@@ -66,6 +69,16 @@ class LinkService:
         arcgis_links = self._get_arcgis_links()
         if arcgis_links:
             links["Open in ArcGIS"] = arcgis_links
+
+        if self._is_public():
+            references = self._references()
+            launch_links = geolibre_links(references, self._wxs_identifier())
+            if resource_id := self.resource_dict.get("id"):
+                launch_links.extend(
+                    raster_links(resource_id, self.get_raster_projects(raster_documents))
+                )
+            if launch_links:
+                links["Open in GeoLibre"] = launch_links
 
         # Add "Documentation" links
         documentation_links = self._get_documentation_links()
@@ -252,35 +265,54 @@ class LinkService:
 
         return links
 
+    def _is_public(self):
+        rights = self.resource_dict.get(
+            "dct_accessRights_s", self.resource_dict.get("dct_accessrights_s")
+        )
+        return isinstance(rights, str) and rights.strip().casefold() == "public"
+
+    def _references(self):
+        return self.distribution_context.reference_payload or coerce_reference_mapping(
+            self.resource_dict.get("dct_references_s")
+        )
+
+    async def raster_documents(self):
+        if not self._is_public() or self.resource_dict.get("gbl_suppressed_b"):
+            return {}
+        return await capabilities_for(self._references(), self._wxs_identifier())
+
+    def get_raster_projects(self, documents=None):
+        if not self._is_public() or self.resource_dict.get("gbl_suppressed_b"):
+            return {}
+        return raster_projects(
+            self._references(),
+            self._wxs_identifier(),
+            self._wms_bbox(),
+            self.resource_dict.get("dct_title_s"),
+            documents,
+        )
+
+    @staticmethod
+    async def for_resource_id(resource_id: str):
+        resource = await database.fetch_one(
+            """SELECT id, dct_title_s, dct_references_s, "dct_accessRights_s",
+                      "gbl_wxsIdentifier_s", dcat_bbox, gbl_suppressed_b
+               FROM resources WHERE id = :resource_id""",
+            {"resource_id": resource_id},
+        )
+        if resource:
+            return LinkService(dict(resource), await fetch_distribution_context(resource_id))
+        return None
+
     @staticmethod
     async def get_resource_links(resource_id: str) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Get all links for a resource by its ID organized by category.
-
-        Args:
-            resource_id: The ID of the resource
-
-        Returns:
-            Dictionary with category names as keys and arrays of link objects as values
-        """
         try:
-            # Fetch the resource from the database
-            resource_query = """
-                SELECT id, dct_title_s, dct_references_s, "gbl_wxsIdentifier_s", dcat_bbox
-                FROM resources
-                WHERE id = :resource_id
-            """
-            resource = await database.fetch_one(resource_query, {"resource_id": resource_id})
-
-            if not resource:
-                logger.warning(f"Resource {resource_id} not found")
-                return {}
-
-            # Create LinkService instance and get links
-            distribution_context = await fetch_distribution_context(resource_id)
-            link_service = LinkService(dict(resource), distribution_context=distribution_context)
-            return link_service.get_links()
-
+            service = await LinkService.for_resource_id(resource_id)
+            return (
+                service.get_links(raster_documents=await service.raster_documents())
+                if service
+                else {}
+            )
         except Exception as e:
             logger.error(f"Error getting resource links for {resource_id}: {e}", exc_info=True)
             return {}
@@ -440,25 +472,14 @@ class LinkService:
 
         # Fallback to the legacy field if we didn't find anything
         if not references:
-            raw_refs = self.resource_dict.get("dct_references_s")
-            if isinstance(raw_refs, str):
-                try:
-                    import json
-
-                    raw_refs = json.loads(raw_refs)
-                except Exception:
-                    raw_refs = None
-            if isinstance(raw_refs, dict):
-                # Coerce mixed values to simple URLs where possible
-                coerced: Dict[str, Any] = {}
-                for uri, value in raw_refs.items():
-                    if isinstance(value, str):
-                        coerced[uri] = value
-                    elif isinstance(value, dict):
-                        url = value.get("url") or value.get("@id") or value.get("id")
-                        if url:
-                            coerced[uri] = url
-                references = coerced
+            raw_refs = coerce_reference_mapping(self.resource_dict.get("dct_references_s"))
+            for uri, value in raw_refs.items():
+                if isinstance(value, str):
+                    references[uri] = value
+                elif isinstance(value, dict):
+                    url = value.get("url") or value.get("@id") or value.get("id")
+                    if url:
+                        references[uri] = url
 
         self._legacy_refs_cache = references
         return references

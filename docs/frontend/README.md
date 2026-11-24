@@ -151,3 +151,11 @@ dragging, and touch interactions remain available.
 Resource source links are native anchors, supporting URL previews, copy-link,
 and modifier clicks. Multiple source URLs are displayed individually. Web
 Services, Metadata, and Open in ArcGIS retain their selection dialogs.
+
+**Open in GeoLibre** appears in the Links section of a public resource with an
+eligible distribution. Each native link names the format and opens the dataset
+in a new tab. When the API supplies multiple files of one format, the labels
+include a number and any available layer name. WFS and OGC API Features links open a GeoJSON preview of up to 100 features. WMS and WMTS links open a map at the record’s extent and draw tiles from the publisher. All “Open in” actions appear
+at the end of the Links section, after Documentation when present.
+
+See the [distribution eligibility rules and example datasets](../backend/distribution_tables.md#open-in-geolibre).
