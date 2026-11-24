@@ -78,21 +78,7 @@ export function MapGeosearchControl({
     const control = new CustomControl({ position });
     control.addTo(map);
 
-    const controlContainer = control.getContainer();
-    if (position === 'topright' && controlContainer?.parentElement) {
-      const cornerContainer = controlContainer.parentElement;
-      const zoomControl = cornerContainer
-        .querySelector('.maplibregl-ctrl-zoom-in, .geo-map-zoom-button')
-        ?.closest('.maplibregl-ctrl-group');
-
-      if (zoomControl?.nextSibling) {
-        cornerContainer.insertBefore(controlContainer, zoomControl.nextSibling);
-      } else if (zoomControl) {
-        cornerContainer.appendChild(controlContainer);
-      }
-    }
-
-    setContainer(controlContainer);
+    setContainer(control.getContainer());
 
     return () => {
       control.remove();

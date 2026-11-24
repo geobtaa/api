@@ -20,6 +20,7 @@ from mcp.types import (
 from sqlalchemy import func, select
 
 from app.services.search_service import SearchService
+from app.services.viewer_html import resource_viewer_html
 from app.version import APP_VERSION
 from db.models import resources
 from db.session import async_session as app_async_session
@@ -678,45 +679,7 @@ class OGMMCPService:
             resource_id = arguments["id"]
             embed = arguments.get("embed", False)
 
-            # Build the record URL for the viewer
-            base_url = self._public_api_base()
-            record_url = f"{base_url}/api/v1/resources/{resource_id}/metadata"
-
-            # Create the HTML content
-            html_content = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OGM Viewer - Resource {resource_id}</title>
-    <style>
-        body {{
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }}
-        .viewer-container {{
-            width: 100vw;
-            height: 100vh;
-        }}
-        {".viewer-container { height: 600px; }" if embed else ""}
-    </style>
-</head>
-<body>
-    <div class="viewer-container">
-        <ogm-viewer light-basemap="https://tiles.openfreemap.org/styles/positron"
-            dark-basemap="https://tiles.openfreemap.org/styles/positron"
-            record-url="{record_url}"
-            >
-        </ogm-viewer>
-    </div>
-    
-    <!-- Load the OGM Viewer web component -->
-    <script type="module" src="https://unpkg.com/ogm-viewer@1.6.0"></script>
-</body>
-</html>
-"""
+            html_content = resource_viewer_html(self._public_api_base(), resource_id, embed)
 
             return CallToolResult(
                 content=[
