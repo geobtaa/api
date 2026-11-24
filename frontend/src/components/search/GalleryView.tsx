@@ -1,5 +1,6 @@
+import { MatchGroupHeading } from './MatchGroupHeading';
 import React, { useEffect, useRef, useState } from 'react';
-import type { GeoDocument } from '../../types/api';
+import type { GeoDocument, SearchMatching } from '../../types/api';
 import { Link, useLocation } from 'react-router';
 import { getResourceIcon } from '../../utils/resourceIcons';
 import { getResultPrimaryImageUrl } from '../../utils/resourceAssets';
@@ -14,6 +15,7 @@ import { RestrictedAccessIndicator } from '../RestrictedAccessIndicator';
 
 interface GalleryViewProps {
   results: GeoDocument[];
+  matching?: SearchMatching;
   isLoading: boolean;
   totalResults: number;
   currentPage: number;
@@ -194,6 +196,7 @@ function GalleryThumbnail({
 
 export const GalleryView: React.FC<GalleryViewProps> = ({
   results,
+  matching,
   isLoading,
   totalResults,
   currentPage,
@@ -276,83 +279,87 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
           const isRestricted = isRestrictedAccessResource(r);
 
           return (
-            <div
-              key={r.id}
-              className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer flex flex-col"
-            >
-              <Link
-                to={`/resources/${r.id}`}
-                onClick={(event) =>
-                  handleResultNavigation(
-                    event,
-                    r.id,
-                    typeof title === 'string' ? title : String(title),
-                    absIndex
-                  )
-                }
-                state={{
-                  searchResults: results,
-                  currentIndex: index, // Local index in the current results array
-                  absoluteIndex: absIndex - 1, // 0-based absolute index
-                  totalResults: totalResults,
-                  searchUrl: location.pathname + location.search,
-                  currentPage: currentPage,
-                  perPage: perPage,
-                  searchId: searchId,
-                  view: 'gallery',
-                }}
-                className="flex flex-col flex-1 relative"
-              >
-                <GalleryThumbnail
-                  resourceId={r.id}
-                  imageUrl={imageUrl}
-                  resourceClass={resourceClass}
-                  index={index}
-                />
+            <React.Fragment key={r.id}>
+              <MatchGroupHeading
+                matching={matching}
+                absoluteIndex={absIndex - 1}
+                firstOnPage={index === 0}
+              />
+              <div className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer flex flex-col">
+                <Link
+                  to={`/resources/${r.id}`}
+                  onClick={(event) =>
+                    handleResultNavigation(
+                      event,
+                      r.id,
+                      typeof title === 'string' ? title : String(title),
+                      absIndex
+                    )
+                  }
+                  state={{
+                    searchResults: results,
+                    currentIndex: index, // Local index in the current results array
+                    absoluteIndex: absIndex - 1, // 0-based absolute index
+                    totalResults: totalResults,
+                    searchUrl: location.pathname + location.search,
+                    currentPage: currentPage,
+                    perPage: perPage,
+                    searchId: searchId,
+                    view: 'gallery',
+                  }}
+                  className="flex flex-col flex-1 relative"
+                >
+                  <GalleryThumbnail
+                    resourceId={r.id}
+                    imageUrl={imageUrl}
+                    resourceClass={resourceClass}
+                    index={index}
+                  />
 
-                <div className="sr-only">Result {absIndex}</div>
+                  <div className="sr-only">Result {absIndex}</div>
 
-                <div className="absolute inset-0 pointer-events-none">
-                  {/* Result Number Overlay - Screen Reader Only */}
-                  {/* Bookmark Button */}
-                  {/* Visible if bookmarked, otherwise only on hover */}
-                  <div
-                    className={`absolute top-2 right-2 z-10 pointer-events-auto transition-opacity ${
-                      bookmarked
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100'
-                    }`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="bg-white rounded-full shadow-sm hover:shadow-md">
-                      <BookmarkButton itemId={r.id} />
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* Result Number Overlay - Screen Reader Only */}
+                    {/* Bookmark Button */}
+                    {/* Visible if bookmarked, otherwise only on hover */}
+                    <div
+                      className={`absolute top-2 right-2 z-10 pointer-events-auto transition-opacity ${
+                        bookmarked
+                          ? 'opacity-100'
+                          : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="bg-white rounded-full shadow-sm hover:shadow-md">
+                        <BookmarkButton itemId={r.id} />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="p-3 flex flex-col flex-1">
-                  <h3
-                    className="text-sm font-semibold text-blue-600 hover:text-blue-800 line-clamp-2 mb-2 leading-snug"
-                    title={typeof title === 'string' ? title : String(title)}
-                  >
-                    <span className="text-sm text-slate-600 dark:text-slate-400 font-semibold mr-1">
-                      {absIndex}.
-                    </span>
-                    {isRestricted && (
-                      <RestrictedAccessIndicator className="mr-1 align-[-0.125rem]" />
-                    )}
-                    {title}
-                  </h3>
-                  <div className="mt-auto">
-                    <ResultCardPill
-                      indexYear={ogm?.gbl_indexYear_im?.[0]}
-                      resourceClass={resourceClass}
-                      provider={ogm?.schema_provider_s}
-                    />
+                  <div className="p-3 flex flex-col flex-1">
+                    <h3
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-800 line-clamp-2 mb-2 leading-snug"
+                      title={typeof title === 'string' ? title : String(title)}
+                    >
+                      <span className="text-sm text-slate-600 dark:text-slate-400 font-semibold mr-1">
+                        {absIndex}.
+                      </span>
+                      {isRestricted && (
+                        <RestrictedAccessIndicator className="mr-1 align-[-0.125rem]" />
+                      )}
+                      {title}
+                    </h3>
+                    <div className="mt-auto">
+                      <ResultCardPill
+                        indexYear={ogm?.gbl_indexYear_im?.[0]}
+                        resourceClass={resourceClass}
+                        provider={ogm?.schema_provider_s}
+                      />
+                    </div>
                   </div>
-                </div>
-              </Link>
-            </div>
+                </Link>
+              </div>
+            </React.Fragment>
           );
         })}
       </div>

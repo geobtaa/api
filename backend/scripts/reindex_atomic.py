@@ -25,12 +25,18 @@ from time import perf_counter
 from typing import Any, TypeVar
 
 from dotenv import load_dotenv
+from elasticsearch.helpers import async_scan
 
 # Add backend/ to import path (scripts/ is under backend/scripts/)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import app.elasticsearch.index as index_module  # noqa: E402
 from app.elasticsearch.client import es  # noqa: E402
+from app.elasticsearch.collection_context import (  # noqa: E402
+    advance_search_revision,
+    collection_titles_for_rows,
+    direct_member_ids,
+)
 from app.elasticsearch.mappings import INDEX_MAPPING  # noqa: E402
 from db.database import database  # noqa: E402
 
@@ -267,6 +273,7 @@ async def _prefetch_allmaps_overlay_status_by_id(ids: list[str]) -> dict[str, bo
 
 async def _prepare_documents_for_chunk(ids: list[str]) -> list[tuple[str, dict[str, Any]]]:
     rows_by_id = await _db_rows_for_ids(ids)
+    collection_context = await collection_titles_for_rows(rows_by_id.values())
     summaries_by_id = await _prefetch_summaries_by_id(ids)
     facets_by_id = await _prefetch_spatial_facets_by_id(ids)
     allmaps_overlay_by_id = await _prefetch_allmaps_overlay_status_by_id(ids)
@@ -294,7 +301,9 @@ async def _prepare_documents_for_chunk(ids: list[str]) -> list[tuple[str, dict[s
             row = rows_by_id.get(resource_id)
             if not row:
                 continue
-            processed = await index_module.process_resource(row)
+            processed = await index_module.process_resource(
+                row, collection_titles=collection_context[resource_id]
+            )
             if processed:
                 documents.append((resource_id, processed))
     finally:
@@ -510,6 +519,54 @@ async def _index_all_resources(
     }
 
 
+async def _source_versions() -> dict[str, str]:
+    """Postgres row versions catch updates even when source modification dates are unchanged."""
+    rows = await database.fetch_all("SELECT id, xmin::text AS version FROM resources")
+    return {str(row["id"]): str(row["version"]) for row in rows}
+
+
+async def _reconcile_source_changes(
+    index_name: str,
+    before: dict[str, str],
+    *,
+    published_only: bool,
+    use_b1g_pub_state: bool,
+    chunk_size: int,
+    bulk_size: int,
+    bulk_max_retries: int,
+) -> dict[str, int]:
+    """Caller holds a SHARE lock on resources through reconciliation and alias cutover."""
+    after = await _source_versions()
+    changed = {rid for rid, version in after.items() if before.get(rid) != version}
+    changed.update(set(before) - set(after))
+    changed.update(await direct_member_ids(sorted(changed)))
+    clause = _published_where_clause(published_only, use_b1g_pub_state)
+    eligible_rows = await database.fetch_all(f"SELECT id FROM resources WHERE {clause}")
+    eligible = {str(row["id"]) for row in eligible_rows}
+    errors = 0
+    replayed = 0
+    for ids in _chunked(sorted(changed & eligible), chunk_size):
+        documents = await _prepare_documents_for_chunk(ids)
+        if len(documents) != len(ids):
+            raise RuntimeError("Source replay did not prepare every changed resource")
+        result = await _bulk_index_documents(index_name, documents, bulk_size, bulk_max_retries)
+        errors += result["errors"]
+        replayed += result["indexed"]
+    # Also remove transient inserts deleted during the build, not just IDs in `before`.
+    deleted = 0
+    async for hit in async_scan(
+        es, index=index_name, query={"_source": False, "query": {"match_all": {}}}
+    ):
+        if hit["_id"] not in eligible:
+            await es.options(ignore_status=[404]).delete(index=index_name, id=hit["_id"])
+            deleted += 1
+    await es.indices.refresh(index=index_name)
+    actual = int((await es.count(index=index_name))["count"])
+    if errors or actual != len(eligible):
+        raise RuntimeError("Source reconciliation failed; refusing alias cutover")
+    return {"replayed": replayed, "deleted": deleted, "db_total": len(eligible), "es_count": actual}
+
+
 async def _current_alias_targets(alias_name: str) -> list[str]:
     if not await es.indices.exists_alias(name=alias_name):
         return []
@@ -611,6 +668,7 @@ async def main() -> None:
         await _create_versioned_index(new_index)
         create_seconds = perf_counter() - create_start
 
+        source_versions = await _source_versions()
         index_start = perf_counter()
         stats = await _index_all_resources(
             index_name=new_index,
@@ -625,32 +683,53 @@ async def main() -> None:
         )
         index_seconds = perf_counter() - index_start
 
-        if not allow_partial:
-            if stats["errors"] > 0:
-                raise RuntimeError(
-                    f"New index has indexing errors ({stats['errors']}); refusing alias swap"
+        # Hold source writes only during final replay/cutover. Ordinary catalog reads
+        # continue. Source updates committed during the bulk build are replayed here.
+        async with database.connection() as cutover_connection:
+            async with cutover_connection.transaction():
+                await cutover_connection.execute("LOCK TABLE resources IN SHARE MODE")
+                replay_stats = await _reconcile_source_changes(
+                    new_index,
+                    source_versions,
+                    published_only=published_only,
+                    use_b1g_pub_state=use_b1g_pub_state,
+                    chunk_size=chunk_size,
+                    bulk_size=bulk_size,
+                    bulk_max_retries=bulk_max_retries,
                 )
-            if stats["es_count"] != stats["db_total"]:
-                raise RuntimeError(
-                    "New index count mismatch "
-                    f"(db_total={stats['db_total']} es_count={stats['es_count']}); "
-                    "refusing alias swap"
+                stats.update(replay_stats)
+                if not allow_partial:
+                    if stats["errors"] > 0:
+                        raise RuntimeError(
+                            f"New index has indexing errors ({stats['errors']}); "
+                            "refusing alias swap"
+                        )
+                    if stats["es_count"] != stats["db_total"]:
+                        raise RuntimeError(
+                            "New index count mismatch "
+                            f"(db_total={stats['db_total']} es_count={stats['es_count']}); "
+                            "refusing alias swap"
+                        )
+
+                if not stats["errors"] and stats["es_count"] == stats["db_total"]:
+                    await advance_search_revision(es, new_index, ready=True)
+
+                old_alias_targets = await _current_alias_targets(base_alias)
+                legacy_index_exists = bool(
+                    not old_alias_targets and await es.indices.exists(index=base_alias)
                 )
 
-        old_alias_targets = await _current_alias_targets(base_alias)
-        legacy_index_exists = bool(
-            not old_alias_targets and await es.indices.exists(index=base_alias)
-        )
+                if legacy_index_exists and not remove_legacy_index:
+                    raise RuntimeError(
+                        f"Legacy physical index '{base_alias}' exists and blocks alias creation; "
+                        "set REINDEX_ATOMIC_REMOVE_LEGACY_INDEX=true to migrate."
+                    )
 
-        if legacy_index_exists and not remove_legacy_index:
-            raise RuntimeError(
-                f"Legacy physical index '{base_alias}' exists and blocks alias creation; "
-                "set REINDEX_ATOMIC_REMOVE_LEGACY_INDEX=true to migrate."
-            )
-
-        alias_start = perf_counter()
-        await _atomic_alias_swap(base_alias, new_index, old_alias_targets, legacy_index_exists)
-        alias_seconds = perf_counter() - alias_start
+                alias_start = perf_counter()
+                await _atomic_alias_swap(
+                    base_alias, new_index, old_alias_targets, legacy_index_exists
+                )
+                alias_seconds = perf_counter() - alias_start
 
         deleted_indices: list[str] = []
         prune_seconds = 0.0

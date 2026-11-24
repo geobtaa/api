@@ -7,6 +7,11 @@ from typing import Any, Iterable
 from sqlalchemy import select
 
 from app.elasticsearch.client import es
+from app.elasticsearch.collection_context import (
+    advance_search_revision,
+    collection_titles_for_rows,
+    direct_member_ids,
+)
 from app.elasticsearch.index import process_resource
 from db.database import database
 from db.models import resources
@@ -71,6 +76,7 @@ async def _index_changed_resource_batch(
     rows = await database.fetch_all(select(resources).where(resources.c.id.in_(batch_ids)))
     rows_by_id = {str(row["id"]): dict(row) for row in rows}
 
+    context = await collection_titles_for_rows(rows_by_id.values())
     indexed = 0
     errors = 0
     missing = 0
@@ -91,7 +97,7 @@ async def _index_changed_resource_batch(
             continue
 
         try:
-            document = await process_resource(row)
+            document = await process_resource(row, collection_titles=context[resource_id])
             if not document:
                 errors += 1
                 continue
@@ -117,7 +123,17 @@ async def index_changed_resources(resource_ids: Iterable[str]) -> dict[str, Any]
     if not database.is_connected:
         await database.connect()
 
+    changed_ids.extend(await direct_member_ids(changed_ids))
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+    # Pin before reading source rows: a delayed batch must not write pre-cutover
+    # documents through an alias that has moved to a newly reconciled index.
+    mapping_response = await es.indices.get_mapping(index=index_name)
+    mapping_entries = (
+        mapping_response.body if hasattr(mapping_response, "body") else mapping_response
+    )
+    if len(mapping_entries) != 1:
+        raise RuntimeError("Incremental indexing requires exactly one concrete target")
+    index_name = next(iter(mapping_entries))
     batch_size = _refresh_batch_size()
     batches = 0
     indexed = 0
@@ -133,6 +149,7 @@ async def index_changed_resources(resource_ids: Iterable[str]) -> dict[str, Any]
 
     try:
         await es.indices.refresh(index=index_name)
+        await advance_search_revision(es, index_name)
     except Exception as exc:
         errors += 1
         logger.warning("Failed refreshing Elasticsearch index after bridge delta: %s", exc)

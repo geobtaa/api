@@ -22,7 +22,7 @@
 BASE_URL = "https://geo.btaa.org/api/v1"
 
 # Get OGM Viewer HTML for a resource
-resource_id = "ark28722-s7vs38"
+resource_id = "b1g_2Lx2SCAOw85E"
 response = requests.get(f"{BASE_URL}/resources/{resource_id}/ogm-viewer")
 
 if response.status_code == 200:
@@ -168,7 +168,7 @@ async def example_18(event):
         
         clear_output(output_id)
         show_output(output_id)
-        resource_id = "ark28722-s7vs38"
+        resource_id = "b1g_2Lx2SCAOw85E"
         print_to_output(output_id, f"🔄 Running Example: Fetching OGM Viewer HTML for {resource_id}...")
         print_to_output(output_id, "ℹ️ Note: Browser console warnings about 'unsafe headers' are harmless and can be ignored.")
         

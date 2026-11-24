@@ -139,3 +139,59 @@ async def test_suggest_jsonp(monkeypatch):
     )
     assert hasattr(resp, "body")
     assert captured["include_non_public"] is True
+
+
+@pytest.mark.asyncio
+async def test_matching_metadata_survives_get_and_post(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from starlette.requests import Request
+
+    from app.api.v1.endpoint_modules import search as se
+
+    matching = {"mode": "partial_terms", "broadened": True, "version": "v2"}
+    service = se.SearchService()
+    monkeypatch.setattr(
+        service,
+        "search",
+        AsyncMock(
+            return_value={
+                "data": [],
+                "meta": {"pages": {"total_count": 0, "total_pages": 0}, "matching": matching},
+            }
+        ),
+    )
+    monkeypatch.setattr(se, "SearchService", lambda: service)
+    monkeypatch.setattr(se, "ENDPOINT_CACHE", False)
+    monkeypatch.setenv("SEARCH_RELEVANCE_VERSION", "legacy")
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/v1/search",
+            "query_string": b"q=Minneapolis+streetcar",
+            "headers": [],
+            "scheme": "http",
+            "server": ("test", 80),
+        }
+    )
+    get = await se.search(
+        request,
+        q="Minneapolis streetcar",
+        page=1,
+        per_page=10,
+        sort=None,
+        search_field=None,
+        fields=None,
+        facets=None,
+        meta=True,
+        format=None,
+        callback=None,
+        adv_q=None,
+        include_filter_operator="or",
+        include_non_public=False,
+    )
+    post = await se.search_post(request, {"q": "Minneapolis streetcar"})
+    assert get.status_code == post.status_code == 200
+    assert json.loads(get.body)["meta"]["matching"] == matching
+    assert json.loads(post.body)["meta"]["matching"] == matching

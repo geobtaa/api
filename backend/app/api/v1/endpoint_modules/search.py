@@ -20,6 +20,8 @@ from app.api.v1.utils import (
     process_resource,
     sanitize_for_json,
 )
+from app.elasticsearch.client import es
+from app.elasticsearch.relevance import generation_scope, index_generation, relevance_version
 from app.elasticsearch.search import (
     DEFAULT_INCLUDE_FILTER_OPERATOR,
     generate_facet_apply_template,
@@ -401,6 +403,7 @@ def _attach_search_timing_headers(
     return json_response
 
 
+@generation_scope
 async def _handle_search(request: Request, params: dict) -> JSONResponse:
     """Shared search executor and response builder for GET and POST.
 
@@ -455,6 +458,10 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         adv_q=adv_q,
         include_non_public=include_non_public,
     )
+    if relevance_version() == "v2":
+        semantic_cache_key += ":v2:" + await index_generation(
+            es, os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+        )
     cache_service = CacheService()
     cached_core, semantic_cache_status = await _get_cached_search_response_core(
         cache_service=cache_service,
@@ -724,6 +731,9 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         "queryTime": results.get("queryTime", {}),
         "spellingSuggestions": results.get("meta", {}).get("spellingSuggestions", []),
     }
+
+    if "matching" in results.get("meta", {}):
+        meta_block["matching"] = results["meta"]["matching"]
 
     response_core = {
         "meta": meta_block,
@@ -1118,6 +1128,9 @@ async def get_facet(
             sort=sort,
             q_facet=q_facet,
         )
+
+        if getattr(buckets, "matching", None) is not None:
+            facet_data["meta"]["matching"] = buckets.matching.metadata()
 
         # Create pagination links
         links = create_pagination_links(

@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -eu
+
+if [ "${KAMAL_DESTINATION:-}" != "prd" ]; then
+  exit 0
+fi
+
+error() {
+  echo "ERROR: Deployment completed, but production smoke tests were not queued: $*" >&2
+  exit 1
+}
+
+command -v gh >/dev/null 2>&1 || error "GitHub CLI (gh) is required."
+
+case "${KAMAL_VERSION:-}" in
+  ""|-*) error "KAMAL_VERSION must identify the deployed commit." ;;
+esac
+
+deployed_sha="$(git rev-parse --verify "${KAMAL_VERSION}^{commit}")" \
+  || error "Cannot resolve deployed commit '$KAMAL_VERSION'."
+
+# Use the release branch's workflow, with tests/examples from the deployed commit.
+# This also supports rollback when the checkout differs from the deployed version.
+gh workflow run production-pages-smoke.yml \
+  --repo geobtaa/api \
+  --ref main \
+  --raw-field "deployed_sha=$deployed_sha" \
+  || error "GitHub rejected the workflow dispatch. Check gh authentication and Actions access."
+
+echo "Production smoke tests queued for $deployed_sha."

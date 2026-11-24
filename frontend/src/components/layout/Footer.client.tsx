@@ -89,10 +89,10 @@ function BtaaFooter({ id }: FooterProps) {
                 </li>
                 <li>
                   <a
-                    href="https://gin.btaa.org/policies/collection-development"
+                    href="https://gin.btaa.org/library/collection-policy/"
                     className={footerLinkClass}
                   >
-                    Collection Development
+                    Collection Policy
                   </a>
                 </li>
               </ul>

@@ -1,5 +1,5 @@
 {
-  "version": "0.14.0",
-  "release_date": "2026-11-12",
-  "summary": "Improve Turnstile verification and recovery, resolve API and client reliability issues, and update dependencies and code quality checks."
+  "version": "0.15.0",
+  "release_date": "2026-11-13",
+  "summary": "Improve catalog search with English stemming, collection context, and all-term matches followed by partial matches; update collection policy links and production smoke checks."
 }

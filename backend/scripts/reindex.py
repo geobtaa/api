@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from dotenv import load_dotenv
 
 from app.elasticsearch.client import es
+from app.elasticsearch.collection_context import advance_search_revision, collection_titles_for_rows
 from app.elasticsearch.index import process_resource
 from db.database import database
 
@@ -249,13 +250,14 @@ async def main():
         # Phase 1: stream DB and index
         async for id_batch in _db_id_stream(published_only, use_b1g_pub_state, batch_size):
             rows = await _db_rows_for_ids(id_batch)
+            context = await collection_titles_for_rows(rows.values())
             for rid in id_batch:
                 row = rows.get(rid)
                 if not row:
                     continue
                 total_attempted += 1
                 try:
-                    doc = await process_resource(row)
+                    doc = await process_resource(row, collection_titles=context[rid])
                 except Exception as e:
                     total_errors += 1
                     try:
@@ -309,13 +311,14 @@ async def main():
             logger.info(f"[verify round {round_i}] Found {len(missing):,} missing; repairing...")
             # Index missing synchronously with retries
             rows = await _db_rows_for_ids(missing)
+            context = await collection_titles_for_rows(rows.values())
             fixed = 0
             for rid in sorted(missing):
                 row = rows.get(rid)
                 if not row:
                     continue
                 try:
-                    doc = await process_resource(row)
+                    doc = await process_resource(row, collection_titles=context[rid])
                 except Exception as e:
                     try:
                         flog.info(
@@ -363,6 +366,9 @@ async def main():
         es_count = (await es.count(index=index_name)).get("count", 0)
 
         logger.info("=" * 70)
+        await advance_search_revision(
+            es, index_name, ready=(not total_errors and int(db_count) == int(es_count))
+        )
         logger.info("Resilient reindex complete")
         logger.info(
             json.dumps(

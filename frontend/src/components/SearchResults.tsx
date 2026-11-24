@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { MatchGroupHeading } from './search/MatchGroupHeading';
+import { Fragment, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import type { GeoDocument } from '../types/api';
+import type { GeoDocument, SearchMatching } from '../types/api';
 import { BookOpen } from 'lucide-react';
 import { useDebug } from '../context/DebugContext';
 import { useMap } from '../context/MapContext';
@@ -20,6 +21,7 @@ import { RestrictedAccessIndicator } from './RestrictedAccessIndicator';
 
 interface SearchResultsProps {
   results: GeoDocument[];
+  matching?: SearchMatching;
   isLoading: boolean;
   totalResults: number;
   currentPage: number;
@@ -32,6 +34,7 @@ interface SearchResultsProps {
 
 export function SearchResults({
   results,
+  matching,
   isLoading,
   totalResults,
   currentPage,
@@ -137,287 +140,293 @@ export function SearchResults({
         const hoverGeometry = getHoverGeometryForResult(result);
         const isHighlighted = highlightedResourceId === result.id;
         return (
-          <article
-            key={result.id}
-            className={`min-w-0 bg-white rounded-lg shadow-md hover:shadow-lg transition-all relative group ${
-              isHighlighted
-                ? 'ring-2 ring-blue-500/80 bg-blue-50 shadow-md'
-                : ''
-            }`}
-            data-geom={hoverGeometry ?? ''}
-            data-resource-id={result.id}
-            aria-current={isHighlighted ? 'true' : undefined}
-            onMouseEnter={() => {
-              setHoveredResourceSource('results');
-              setHoveredResourceId?.(result.id);
-              if (hoverGeometry) {
-                setHoveredGeometry(hoverGeometry);
-              } else {
+          <Fragment key={result.id}>
+            <MatchGroupHeading
+              matching={matching}
+              absoluteIndex={getAbsoluteIndex(index) - 1}
+              firstOnPage={index === 0}
+            />
+            <article
+              className={`min-w-0 bg-white rounded-lg shadow-md hover:shadow-lg transition-all relative group ${
+                isHighlighted
+                  ? 'ring-2 ring-blue-500/80 bg-blue-50 shadow-md'
+                  : ''
+              }`}
+              data-geom={hoverGeometry ?? ''}
+              data-resource-id={result.id}
+              aria-current={isHighlighted ? 'true' : undefined}
+              onMouseEnter={() => {
+                setHoveredResourceSource('results');
+                setHoveredResourceId?.(result.id);
+                if (hoverGeometry) {
+                  setHoveredGeometry(hoverGeometry);
+                } else {
+                  setHoveredGeometry(null);
+                  // Fallback: search result may lack meta.ui.viewer.geometry; fetch full resource
+                  fetchResourceDetails(result.id)
+                    .then((full) => {
+                      const geom = getHoverGeometryForResult(full);
+                      if (geom) setGeometryIfHovering(result.id, geom);
+                    })
+                    .catch(() => {});
+                }
+              }}
+              onMouseLeave={() => {
                 setHoveredGeometry(null);
-                // Fallback: search result may lack meta.ui.viewer.geometry; fetch full resource
-                fetchResourceDetails(result.id)
-                  .then((full) => {
-                    const geom = getHoverGeometryForResult(full);
-                    if (geom) setGeometryIfHovering(result.id, geom);
-                  })
-                  .catch(() => {});
-              }
-            }}
-            onMouseLeave={() => {
-              setHoveredGeometry(null);
-              setHoveredResourceId?.(null);
-              setHoveredResourceSource(null);
-            }}
-          >
-            <div className="flex min-w-0">
-              {/* Thumbnail */}
-              <div
-                className={`${thumbnailWrapperClass} flex-shrink-0 relative group/thumb`}
-              >
-                {(() => {
-                  const primaryImageUrl = getResultPrimaryImageUrl(
-                    result,
-                    searchView
-                  );
-                  const hasThumbnail = !imageErrors.has(result.id);
-
-                  return hasThumbnail ? (
-                    <div className={`${thumbnailSizeClass} rounded-l-lg`}>
-                      <ThumbnailImage
-                        resourceId={result.id}
-                        src={primaryImageUrl}
-                        alt=""
-                        loading={index < 2 ? 'eager' : 'lazy'}
-                        decoding="async"
-                        fetchPriority={index < 2 ? 'high' : 'low'}
-                        className={`${thumbnailSizeClass} object-contain bg-gray-50 rounded-l-lg`}
-                        onError={() => {
-                          setImageErrors((prev) =>
-                            new Set(prev).add(result.id)
-                          );
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      className={`${thumbnailSizeClass} flex items-center justify-center bg-gray-50 rounded-l-lg`}
-                    >
-                      {getResourceIcon(resourceClass)}
-                    </div>
-                  );
-                })()}
-
-                {/* Bookmark Button - Absolute Top Left on Image */}
+                setHoveredResourceId?.(null);
+                setHoveredResourceSource(null);
+              }}
+            >
+              <div className="flex min-w-0">
+                {/* Thumbnail */}
                 <div
-                  className={`absolute top-1 left-1 z-20 transition-opacity duration-200 ${
-                    isBookmarked(result.id)
-                      ? 'opacity-100'
-                      : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
-                  }`}
-                  onClick={(e) => e.stopPropagation()}
+                  className={`${thumbnailWrapperClass} flex-shrink-0 relative group/thumb`}
                 >
-                  <div className="bg-white rounded-full shadow-sm hover:shadow-md">
-                    <BookmarkButton itemId={result.id} />
+                  {(() => {
+                    const primaryImageUrl = getResultPrimaryImageUrl(
+                      result,
+                      searchView
+                    );
+                    const hasThumbnail = !imageErrors.has(result.id);
+
+                    return hasThumbnail ? (
+                      <div className={`${thumbnailSizeClass} rounded-l-lg`}>
+                        <ThumbnailImage
+                          resourceId={result.id}
+                          src={primaryImageUrl}
+                          alt=""
+                          loading={index < 2 ? 'eager' : 'lazy'}
+                          decoding="async"
+                          fetchPriority={index < 2 ? 'high' : 'low'}
+                          className={`${thumbnailSizeClass} object-contain bg-gray-50 rounded-l-lg`}
+                          onError={() => {
+                            setImageErrors((prev) =>
+                              new Set(prev).add(result.id)
+                            );
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className={`${thumbnailSizeClass} flex items-center justify-center bg-gray-50 rounded-l-lg`}
+                      >
+                        {getResourceIcon(resourceClass)}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Bookmark Button - Absolute Top Left on Image */}
+                  <div
+                    className={`absolute top-1 left-1 z-20 transition-opacity duration-200 ${
+                      isBookmarked(result.id)
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="bg-white rounded-full shadow-sm hover:shadow-md">
+                      <BookmarkButton itemId={result.id} />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Result Number (Index) - Screen Reader Only */}
-              <div className="sr-only">Result {getAbsoluteIndex(index)}</div>
+                {/* Result Number (Index) - Screen Reader Only */}
+                <div className="sr-only">Result {getAbsoluteIndex(index)}</div>
 
-              {/* Content */}
-              <div
-                className={`min-w-0 flex-1 flex flex-col ${contentPaddingClass}`}
-              >
-                {showDetails && (
-                  <pre className="overflow-auto text-xs">
-                    {JSON.stringify(result, null, 2)}
-                  </pre>
-                )}
-
-                <div className="flex items-start gap-2 mb-2 pr-8">
-                  <span
-                    className={`flex-shrink-0 font-semibold text-slate-600 dark:text-slate-400 ${resultNumberClass}`}
-                    aria-hidden
-                  >
-                    {getAbsoluteIndex(index)}.
-                  </span>
-                  <Link
-                    to={`/resources/${result.id}`}
-                    onClick={() =>
-                      trackResultClick(
-                        result.id,
-                        typeof title === 'string' ? title : String(title),
-                        index
-                      )
-                    }
-                    state={{
-                      searchResults: results,
-                      currentIndex: index, // Local index
-                      absoluteIndex: getAbsoluteIndex(index) - 1, // Absolute index (0-based)
-                      totalResults: totalResults,
-                      searchUrl: location.pathname + location.search,
-                      currentPage: currentPage,
-                      perPage: perPage,
-                      searchId: searchId,
-                      view: searchView,
-                    }}
-                    className="flex-1"
-                  >
-                    <h2
-                      className={`${titleClass} font-semibold text-blue-600 hover:text-blue-800`}
-                    >
-                      {isRestricted && (
-                        <RestrictedAccessIndicator className="mr-1 align-[-0.125rem]" />
-                      )}
-                      {typeof title === 'string' ? title : String(title)}
-                    </h2>
-                  </Link>
-                </div>
-
+                {/* Content */}
                 <div
-                  className={
-                    isCompact
-                      ? 'mt-auto pt-2'
-                      : 'mt-auto pt-2 md:mt-0 md:mb-4 md:flex md:items-start md:pt-0 md:text-gray-600'
-                  }
+                  className={`min-w-0 flex-1 flex flex-col ${contentPaddingClass}`}
                 >
-                  <span
+                  {showDetails && (
+                    <pre className="overflow-auto text-xs">
+                      {JSON.stringify(result, null, 2)}
+                    </pre>
+                  )}
+
+                  <div className="flex items-start gap-2 mb-2 pr-8">
+                    <span
+                      className={`flex-shrink-0 font-semibold text-slate-600 dark:text-slate-400 ${resultNumberClass}`}
+                      aria-hidden
+                    >
+                      {getAbsoluteIndex(index)}.
+                    </span>
+                    <Link
+                      to={`/resources/${result.id}`}
+                      onClick={() =>
+                        trackResultClick(
+                          result.id,
+                          typeof title === 'string' ? title : String(title),
+                          index
+                        )
+                      }
+                      state={{
+                        searchResults: results,
+                        currentIndex: index, // Local index
+                        absoluteIndex: getAbsoluteIndex(index) - 1, // Absolute index (0-based)
+                        totalResults: totalResults,
+                        searchUrl: location.pathname + location.search,
+                        currentPage: currentPage,
+                        perPage: perPage,
+                        searchId: searchId,
+                        view: searchView,
+                      }}
+                      className="flex-1"
+                    >
+                      <h2
+                        className={`${titleClass} font-semibold text-blue-600 hover:text-blue-800`}
+                      >
+                        {isRestricted && (
+                          <RestrictedAccessIndicator className="mr-1 align-[-0.125rem]" />
+                        )}
+                        {typeof title === 'string' ? title : String(title)}
+                      </h2>
+                    </Link>
+                  </div>
+
+                  <div
                     className={
                       isCompact
-                        ? undefined
-                        : 'text-sm font-medium flex-shrink-0'
+                        ? 'mt-auto pt-2'
+                        : 'mt-auto pt-2 md:mt-0 md:mb-4 md:flex md:items-start md:pt-0 md:text-gray-600'
                     }
                   >
-                    <ResultCardPill
-                      indexYear={ogm?.gbl_indexYear_im?.[0]}
-                      resourceClass={resourceClass}
-                      provider={ogm?.schema_provider_s}
-                    />
-                  </span>
-                  {!isCompact && descriptionText ? (
-                    <span className="hidden md:ml-1 md:line-clamp-2">
-                      {descriptionText}
+                    <span
+                      className={
+                        isCompact
+                          ? undefined
+                          : 'text-sm font-medium flex-shrink-0'
+                      }
+                    >
+                      <ResultCardPill
+                        indexYear={ogm?.gbl_indexYear_im?.[0]}
+                        resourceClass={resourceClass}
+                        provider={ogm?.schema_provider_s}
+                      />
                     </span>
-                  ) : null}
+                    {!isCompact && descriptionText ? (
+                      <span className="hidden md:ml-1 md:line-clamp-2">
+                        {descriptionText}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Resource Type and Theme tags */}
+                  {!isCompact && (
+                    <>
+                      <div className="hidden md:flex flex-col gap-4 flex-1">
+                        {(() => {
+                          const resourceTypes =
+                            ogm?.gbl_resourceType_sm &&
+                            Array.isArray(ogm.gbl_resourceType_sm) &&
+                            ogm.gbl_resourceType_sm.length > 0
+                              ? ogm.gbl_resourceType_sm
+                              : null;
+
+                          // Get themes from dcat_theme_sm
+                          const themes =
+                            ogm?.dcat_theme_sm &&
+                            Array.isArray(ogm.dcat_theme_sm) &&
+                            ogm.dcat_theme_sm.length > 0
+                              ? ogm.dcat_theme_sm
+                              : null;
+
+                          // Helper to create search URL for a tag
+                          const createTagSearchUrl = (
+                            field: string,
+                            value: string | number
+                          ) => {
+                            const params = new URLSearchParams();
+                            params.append(
+                              `include_filters[${field}][]`,
+                              value.toString()
+                            );
+                            return `/search?${params.toString()}`;
+                          };
+
+                          return (resourceTypes && resourceTypes.length > 0) ||
+                            (themes && themes.length > 0) ? (
+                            <div className="flex flex-wrap gap-2">
+                              {resourceTypes?.map((resourceType, index) => {
+                                const resourceTypeValue =
+                                  typeof resourceType === 'string'
+                                    ? resourceType
+                                    : String(resourceType);
+                                return (
+                                  <Link
+                                    key={`resource-type-${index}`}
+                                    to={createTagSearchUrl(
+                                      'gbl_resourceType_sm',
+                                      resourceTypeValue
+                                    )}
+                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                                    onClick={(e) => {
+                                      // Prevent navigation if clicking on the result link
+                                      e.stopPropagation();
+                                    }}
+                                  >
+                                    {resourceTypeValue}
+                                  </Link>
+                                );
+                              })}
+                              {themes?.map((theme, index) => {
+                                const themeValue =
+                                  typeof theme === 'string'
+                                    ? theme
+                                    : String(theme);
+                                return (
+                                  <Link
+                                    key={`theme-${index}`}
+                                    to={createTagSearchUrl(
+                                      'dcat_theme_sm',
+                                      themeValue
+                                    )}
+                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors"
+                                    onClick={(e) => {
+                                      // Prevent navigation if clicking on the result link
+                                      e.stopPropagation();
+                                    }}
+                                  >
+                                    {themeValue}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          ) : null;
+                        })()}
+
+                        {/* Metadata Row: Publisher only (year and resource class are inline with description) */}
+                        {ogm?.dc_publisher_sm &&
+                          Array.isArray(ogm.dc_publisher_sm) &&
+                          ogm.dc_publisher_sm.length > 0 && (
+                            <div className="flex items-center text-sm text-gray-500 border-t border-gray-100 pt-3 mt-auto">
+                              <div className="flex items-center gap-1">
+                                <BookOpen size={16} />
+                                <span>
+                                  {ogm.dc_publisher_sm
+                                    .map((item) =>
+                                      typeof item === 'string'
+                                        ? item
+                                        : String(item)
+                                    )
+                                    .join(', ')}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                {/* Resource Type and Theme tags */}
+                {/* Static Map - Hide in compact mode */}
                 {!isCompact && (
-                  <>
-                    <div className="hidden md:flex flex-col gap-4 flex-1">
-                      {(() => {
-                        const resourceTypes =
-                          ogm?.gbl_resourceType_sm &&
-                          Array.isArray(ogm.gbl_resourceType_sm) &&
-                          ogm.gbl_resourceType_sm.length > 0
-                            ? ogm.gbl_resourceType_sm
-                            : null;
-
-                        // Get themes from dcat_theme_sm
-                        const themes =
-                          ogm?.dcat_theme_sm &&
-                          Array.isArray(ogm.dcat_theme_sm) &&
-                          ogm.dcat_theme_sm.length > 0
-                            ? ogm.dcat_theme_sm
-                            : null;
-
-                        // Helper to create search URL for a tag
-                        const createTagSearchUrl = (
-                          field: string,
-                          value: string | number
-                        ) => {
-                          const params = new URLSearchParams();
-                          params.append(
-                            `include_filters[${field}][]`,
-                            value.toString()
-                          );
-                          return `/search?${params.toString()}`;
-                        };
-
-                        return (resourceTypes && resourceTypes.length > 0) ||
-                          (themes && themes.length > 0) ? (
-                          <div className="flex flex-wrap gap-2">
-                            {resourceTypes?.map((resourceType, index) => {
-                              const resourceTypeValue =
-                                typeof resourceType === 'string'
-                                  ? resourceType
-                                  : String(resourceType);
-                              return (
-                                <Link
-                                  key={`resource-type-${index}`}
-                                  to={createTagSearchUrl(
-                                    'gbl_resourceType_sm',
-                                    resourceTypeValue
-                                  )}
-                                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                                  onClick={(e) => {
-                                    // Prevent navigation if clicking on the result link
-                                    e.stopPropagation();
-                                  }}
-                                >
-                                  {resourceTypeValue}
-                                </Link>
-                              );
-                            })}
-                            {themes?.map((theme, index) => {
-                              const themeValue =
-                                typeof theme === 'string'
-                                  ? theme
-                                  : String(theme);
-                              return (
-                                <Link
-                                  key={`theme-${index}`}
-                                  to={createTagSearchUrl(
-                                    'dcat_theme_sm',
-                                    themeValue
-                                  )}
-                                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors"
-                                  onClick={(e) => {
-                                    // Prevent navigation if clicking on the result link
-                                    e.stopPropagation();
-                                  }}
-                                >
-                                  {themeValue}
-                                </Link>
-                              );
-                            })}
-                          </div>
-                        ) : null;
-                      })()}
-
-                      {/* Metadata Row: Publisher only (year and resource class are inline with description) */}
-                      {ogm?.dc_publisher_sm &&
-                        Array.isArray(ogm.dc_publisher_sm) &&
-                        ogm.dc_publisher_sm.length > 0 && (
-                          <div className="flex items-center text-sm text-gray-500 border-t border-gray-100 pt-3 mt-auto">
-                            <div className="flex items-center gap-1">
-                              <BookOpen size={16} />
-                              <span>
-                                {ogm.dc_publisher_sm
-                                  .map((item) =>
-                                    typeof item === 'string'
-                                      ? item
-                                      : String(item)
-                                  )
-                                  .join(', ')}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                    </div>
-                  </>
+                  <div className="hidden w-48 flex-shrink-0 md:block">
+                    <StaticResultMap result={result} />
+                  </div>
                 )}
               </div>
-
-              {/* Static Map - Hide in compact mode */}
-              {!isCompact && (
-                <div className="hidden w-48 flex-shrink-0 md:block">
-                  <StaticResultMap result={result} />
-                </div>
-              )}
-            </div>
-          </article>
+            </article>
+          </Fragment>
         );
       })}
     </div>

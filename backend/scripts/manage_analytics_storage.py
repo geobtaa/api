@@ -71,7 +71,16 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode == "ensure":
+        from app.services.analytics_reporting.storage import install
+        from db.migrations.analytics_storage import analytics_storage_engine
+
         summary = ensure_analytics_storage_schema()
+        engine = analytics_storage_engine()
+        try:
+            with engine.begin() as conn:
+                install(conn)
+        finally:
+            engine.dispose()
         if args.json:
             print(json.dumps(summary, indent=2, sort_keys=True))
         else:
@@ -82,7 +91,6 @@ def main() -> None:
         from app.services.analytics_reporting.pipeline import run
         from db.migrations.analytics_storage import analytics_storage_engine
 
-        ensure_analytics_storage_schema()
         engine = analytics_storage_engine()
         try:
             # Preservation/publication failures produce a failing scheduler run.
@@ -91,8 +99,11 @@ def main() -> None:
         except Exception as exc:
             from app.services.analytics_reporting.storage import health
 
-            with engine.begin() as conn:
-                health(conn, "publication", "failed", type(exc).__name__)
+            try:
+                with engine.begin() as conn:
+                    health(conn, "publication", "failed", type(exc).__name__)
+            except Exception:
+                logger.exception("Could not record analytics publication failure")
             logger.error("Analytics publication failed; previous manifest retained")
             raise
         finally:

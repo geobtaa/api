@@ -56,7 +56,16 @@ class ResourceCollectionResponse(JSONAPIResponse):
     data: list[JSONAPIResource] = Field(default_factory=list)
 
 
+class SearchMatching(PublicAPIModel):
+    mode: Literal["literal", "all_terms", "partial_terms", "all_terms_then_partial"]
+    broadened: bool
+    version: Literal["legacy", "v2"]
+    all_terms_count: int | None = None
+    partial_terms_count: int | None = None
+
+
 class SearchMeta(PublicAPIModel):
+    matching: SearchMatching | None = None
     totalCount: int | None = None
     totalPages: int | None = None
     currentPage: int | None = None
@@ -99,6 +108,7 @@ class FacetValueResource(JSONAPIResource):
 
 
 class FacetMeta(PublicAPIModel):
+    matching: SearchMatching | None = None
     totalCount: int
     totalPages: int
     currentPage: int
@@ -137,6 +147,7 @@ class HomeBlogPostsResponse(PublicAPIModel):
 
 
 class MapH3Response(PublicAPIModel):
+    matching: SearchMatching | None = None
     resolution: int
     hexes: list[tuple[str, int]] = Field(default_factory=list)
     globalCount: int = 0
@@ -237,6 +248,35 @@ class ResourceLink(PublicAPIModel):
 class ResourceLinksResponse(PublicAPIModel):
     id: str
     links: dict[str, list[ResourceLink]] = Field(default_factory=dict)
+
+
+class GeoLibreMapView(PublicAPIModel):
+    center: tuple[float, float]
+    zoom: float
+    pitch: float
+    bearing: float
+
+
+class GeoLibreRasterLayer(PublicAPIModel):
+    id: str
+    type: Literal["wms", "wmts"]
+    name: str
+    visible: bool
+    opacity: float
+    style: dict[str, Any]
+    source: dict[str, Any]
+    metadata: dict[str, Any]
+
+
+class GeoLibreProjectResponse(PublicAPIModel):
+    version: str
+    name: str
+    mapView: GeoLibreMapView
+    basemapStyleUrl: str
+    basemapVisible: bool
+    basemapOpacity: float
+    styles: dict[str, Any]
+    layers: list[GeoLibreRasterLayer]
 
 
 class ResourceRelationship(PublicAPIModel):

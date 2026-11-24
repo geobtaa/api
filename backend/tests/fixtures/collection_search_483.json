@@ -1,0 +1,288 @@
+{
+  "captured": "2026-11-13",
+  "source": "https://geo.btaa.org/api/v1/resources/08d-03/relationships",
+  "collection_member_count": 1162,
+  "pittsburgh_members": [
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_01_base",
+      "resource_title": "Pittsburgh-01-Base; Pittsburgh- 1; base",
+      "link": "/resources/pstems_0052767067_pittsburgh_01_base"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_01_pitt",
+      "resource_title": "Pittsburgh-01-Pitt; Pittsburgh- 1; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_01_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_02_base",
+      "resource_title": "Pittsburgh-02-Base; Pittsburgh- 2; base",
+      "link": "/resources/pstems_0052767067_pittsburgh_02_base"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_02_pitt",
+      "resource_title": "Pittsburgh-02-Pitt; Pittsburgh- 2; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_02_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_03_pitt",
+      "resource_title": "Pittsburgh-03-Pitt; Pittsburgh- 3; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_03_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_03_uf",
+      "resource_title": "Pittsburgh-03-UF; Pittsburgh- 3; Upper Freeport",
+      "link": "/resources/pstems_0052767067_pittsburgh_03_uf"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_03_uf_z",
+      "resource_title": "Pittsburgh-03-UF-z; Pittsburgh- 3; Upper Freeport (2)",
+      "link": "/resources/pstems_0052767067_pittsburgh_03_uf_z"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_04_base",
+      "resource_title": "Pittsburgh-04-Base; Pittsburgh- 4; base",
+      "link": "/resources/pstems_0052767067_pittsburgh_04_base"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_04_pitt",
+      "resource_title": "Pittsburgh-04-Pitt; Pittsburgh- 4; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_04_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_05_pitt",
+      "resource_title": "Pittsburgh-05-Pitt; Pittsburgh- 5; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_05_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_05_red",
+      "resource_title": "Pittsburgh-05-Red; Pittsburgh- 5; Redstone",
+      "link": "/resources/pstems_0052767067_pittsburgh_05_red"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_06_pitt",
+      "resource_title": "Pittsburgh-06-Pitt; Pittsburgh- 6; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_06_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_06_uf",
+      "resource_title": "Pittsburgh-06-UF; Pittsburgh- 6; Upper Freeport",
+      "link": "/resources/pstems_0052767067_pittsburgh_06_uf"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_07_base",
+      "resource_title": "Pittsburgh-07-Base; Pittsburgh- 7; base",
+      "link": "/resources/pstems_0052767067_pittsburgh_07_base"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_07_pitt",
+      "resource_title": "Pittsburgh-07-Pitt; Pittsburgh- 7; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_07_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_07_red",
+      "resource_title": "Pittsburgh-07-Red; Pittsburgh- 7; Redstone",
+      "link": "/resources/pstems_0052767067_pittsburgh_07_red"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_08_base",
+      "resource_title": "Pittsburgh-08-Base; Pittsburgh- 8; base",
+      "link": "/resources/pstems_0052767067_pittsburgh_08_base"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_08_pitt",
+      "resource_title": "Pittsburgh-08-Pitt; Pittsburgh- 8; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_08_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_08_red",
+      "resource_title": "Pittsburgh-08-Red; Pittsburgh- 8; Redstone",
+      "link": "/resources/pstems_0052767067_pittsburgh_08_red"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_08_uf",
+      "resource_title": "Pittsburgh-08-UF; Pittsburgh- 8; Upper Freeport",
+      "link": "/resources/pstems_0052767067_pittsburgh_08_uf"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_09_base",
+      "resource_title": "Pittsburgh-09-Base; Pittsburgh- 9; base",
+      "link": "/resources/pstems_0052767067_pittsburgh_09_base"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_09_pitt",
+      "resource_title": "Pittsburgh-09-Pitt; Pittsburgh- 9; Pittsburgh",
+      "link": "/resources/pstems_0052767067_pittsburgh_09_pitt"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_09_red",
+      "resource_title": "Pittsburgh-09-Red; Pittsburgh- 9; Redstone",
+      "link": "/resources/pstems_0052767067_pittsburgh_09_red"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_09_uf",
+      "resource_title": "Pittsburgh-09-UF; Pittsburgh- 9; Upper Freeport",
+      "link": "/resources/pstems_0052767067_pittsburgh_09_uf"
+    },
+    {
+      "resource_id": "pstems_0052767067_pittsburgh_09_wayn",
+      "resource_title": "Pittsburgh-09-Wayn; Pittsburgh- 9; Waynesburg",
+      "link": "/resources/pstems_0052767067_pittsburgh_09_wayn"
+    }
+  ],
+  "documents": [
+    {
+      "id": "08d-03",
+      "dct_title_s": "Bituminous coal mine maps of Pennsylvania",
+      "dct_description_sm": [
+        "The Bituminous coal mine maps of Pennsylvania were created by the Works Progress Administration from 1934-1938.  Workers transcribed information about the extent of underground bituminous coal mines on to these maps, as well as locations of oil and gas wells. These maps are based on 15-minute topographic quadrangles, divided into nine sections. (For example, \"Altoona 1\" represents the northwestern corner of the Altoona 15-minute quadrangle. \"Altoona 9\" represents the southeastern corner of the quadrangle).",
+        "Although some mine information was never transcribed, this set provides an excellent representation of the extent of mining throughout western and central Pennsylvania.",
+        "The counties covered include Allegheny, Armstrong, Beaver, Bedford, Blair, Bradford, Butler, Cambria, Cameron, Centre, Clarion, Clearfield, Clinton, Elk, Fayette, Forest, Fulton, Greene, Huntingdon, Indiana, Jefferson, Lawrence, Lycoming, Mercer, Somerset, Sullivan, Tioga, Venango, Washington, and Westmoreland. "
+      ],
+      "gbl_resourceClass_sm": [
+        "Collections"
+      ],
+      "gbl_resourceType_sm": [
+        "Digital repositories"
+      ],
+      "dct_subject_sm": [
+        "Map collections"
+      ],
+      "dct_spatial_sm": [
+        "Pennsylvania"
+      ],
+      "dcat_bbox": "-80.52,39.72,-74.69,42.51",
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ]
+    },
+    {
+      "id": "pstems_0052767067_pittsburgh_08_pitt",
+      "dct_title_s": "Pittsburgh-08-Pitt; Pittsburgh- 8; Pittsburgh",
+      "dct_description_sm": [
+        "Statement of responsibility: [Works Progress Administration of Pennsylvania]. Relief on most maps shown by contours and spot heights. WPA Project Numbers: 4483 -- 19666 -- 25734 -- No. 65-23-5001 -- No. 465-23-3-192. Each sheet is named and may have a letter code of A, B, C, or D following the name, corresponding to specific government contracts. These letter codes indicate a particular contract as follows:  A =  Contract No. 4483; B = Contract No. 65-23-5001 + No. 465-23-3-192; C = Contract No. 19666; and D = Contract No. 25734. Contract 19666 was used for mapping the oil and gas wells involved. Maps cover the time period of 1934-1936, project was intended to continue through 1938. There are ca. 1159 possible sheets. The set includes some base maps without any mine information on them. Some maps, including some base maps,  show oil and gas wells and whether they are active or abandoned, in addition to coal seams. Some coal seams are mis-identified, some mines are omitted, and some mine locations are mis-mapped. Some sheets include handprinted notes indicating the source of contours used, whether from actual survey or from an existing base map, for that particular sheet. Sheet numbering is based on a system of subdividing a 15-minute quadrangle base map into 9 equivalent 2.5-minute segments; in some cases not all nine segments were used as part of the mapping done for the project. Sponsored by the Pennsylvania Bureau of Mines. Includes multiple sheets of some quadrangles to display different coal seams and/or oil and gas wells within the same region. Shaded, dotted areas represent retreat mined areas. Specific coal seams are abbreviated as follows: Brookville = Brk. -- Clarion = Clar. -- Lower Bakerstown = LB -- Lower Freeport = LF -- Lower Kittanning = LK -- Middle Kittanning = MK -- Pittsburgh = Pitt. -- Sewickley = Sew. -- Upper Freeport = UF -- Upper Kittanning = UK -- Washington = Wash. -- Waynesburg = Wayn. -- Redstone = Red. Some maps include structural contours. Some sheets/seams were mapped multiple times within the project but at different dates and/or under different projects.Add&#x27;l physical form: Some sheets also issued on mylar. Geographic coverage includes the following counties: Allegheny, Armstrong, Beaver, Bedford, Blair, Bradford, Butler, Cambria, Cameron, Centre, Clarion, Clearfield, Clinton, Elk, Fayette, Forest, Fulton, Greene, Huntingdon, Indiana, Jefferson, Lawrence, Lycoming, Mercer, Somerset, Sullivan, Tioga, Venango, Washington, Westmoreland. The following contract ran from January 1936-April 1937, Contract no. 65-23-5001. The following contract ran from November 1937 - July 1938, Contract no. 465-23-3-193.",
+        "*shows locations of oil and gas wells",
+        "Scale 1:14,400. 1 in. equals 1200 ft.",
+        "maps : blueline prints ; 65 x 50 cm, on sheets 72 x 57 cm or smaller.",
+        "Patterson No. 2; Gospel Mine; Lovedale Mine; United Mine No. 1; Bell Bridge Mine; Linden Mine; Josephine Mine; Rachel Mine; Carothers; McClure Mines; Alice Mine; National Mine",
+        "Hillman Coal &amp; Coke Co.; Pittsburgh Coal Co.; United Coal Co.; Kees Coal Co.; Mon Yoush Coal Co.; Rochez Bros.; Solar Fuel Co.; National Coal Co."
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "gbl_resourceType_sm": [
+        "Geological maps"
+      ],
+      "dct_subject_sm": [
+        "Bituminous coal",
+        "Gas wells",
+        "Oil wells"
+      ],
+      "dcat_keyword_sm": [
+        "Portvue Borough",
+        "Glassport",
+        "Elizabeth",
+        "Coal Valley",
+        "Patterson",
+        "Vankirk",
+        "Clairton",
+        "Monongahela River",
+        "Peters Creek",
+        "Hayden Run",
+        "Wiley Run",
+        "Pittsburgh &amp",
+        "Lake Erie Railroad-Monongahela Division",
+        "Monongahela Southern Railroad-Clairton Branch",
+        "Pennsylvania Railroad-Monongahela Division",
+        "Pittsburgh &amp",
+        "Lake Erie-Youghiogheny Division",
+        "Murrysville Anticline",
+        "Peoples Natural Gas Co. pipeline",
+        "Greensburg Gas Co. pipeline",
+        "Fort Pitt Gas Co. pipeline"
+      ],
+      "dct_spatial_sm": [
+        "Pennsylvania",
+        "Pennsylvania--Allegheny County",
+        "Pennsylvania--Lincoln Township",
+        "Pennsylvania--Elizabeth Township",
+        "Pennsylvania--Jefferson Township",
+        "Pennsylvania--Versailles Township",
+        "Pennsylvania--Forward Township"
+      ],
+      "dcat_bbox": "-79.917,40.250,-79.833,40.333",
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "08d-03"
+      ]
+    },
+    {
+      "id": "pstems_0052767067_pittsburgh_09_pitt",
+      "dct_title_s": "Pittsburgh-09-Pitt; Pittsburgh- 9; Pittsburgh",
+      "dct_description_sm": [
+        "Statement of responsibility: [Works Progress Administration of Pennsylvania]. Relief on most maps shown by contours and spot heights. WPA Project Numbers: 4483 -- 19666 -- 25734 -- No. 65-23-5001 -- No. 465-23-3-192. Each sheet is named and may have a letter code of A, B, C, or D following the name, corresponding to specific government contracts. These letter codes indicate a particular contract as follows:  A =  Contract No. 4483; B = Contract No. 65-23-5001 + No. 465-23-3-192; C = Contract No. 19666; and D = Contract No. 25734. Contract 19666 was used for mapping the oil and gas wells involved. Maps cover the time period of 1934-1936, project was intended to continue through 1938. There are ca. 1159 possible sheets. The set includes some base maps without any mine information on them. Some maps, including some base maps,  show oil and gas wells and whether they are active or abandoned, in addition to coal seams. Some coal seams are mis-identified, some mines are omitted, and some mine locations are mis-mapped. Some sheets include handprinted notes indicating the source of contours used, whether from actual survey or from an existing base map, for that particular sheet. Sheet numbering is based on a system of subdividing a 15-minute quadrangle base map into 9 equivalent 2.5-minute segments; in some cases not all nine segments were used as part of the mapping done for the project. Sponsored by the Pennsylvania Bureau of Mines. Includes multiple sheets of some quadrangles to display different coal seams and/or oil and gas wells within the same region. Shaded, dotted areas represent retreat mined areas. Specific coal seams are abbreviated as follows: Brookville = Brk. -- Clarion = Clar. -- Lower Bakerstown = LB -- Lower Freeport = LF -- Lower Kittanning = LK -- Middle Kittanning = MK -- Pittsburgh = Pitt. -- Sewickley = Sew. -- Upper Freeport = UF -- Upper Kittanning = UK -- Washington = Wash. -- Waynesburg = Wayn. -- Redstone = Red. Some maps include structural contours. Some sheets/seams were mapped multiple times within the project but at different dates and/or under different projects.Add&#x27;l physical form: Some sheets also issued on mylar. Geographic coverage includes the following counties: Allegheny, Armstrong, Beaver, Bedford, Blair, Bradford, Butler, Cambria, Cameron, Centre, Clarion, Clearfield, Clinton, Elk, Fayette, Forest, Fulton, Greene, Huntingdon, Indiana, Jefferson, Lawrence, Lycoming, Mercer, Somerset, Sullivan, Tioga, Venango, Washington, Westmoreland. The following contract ran from January 1936-April 1937, Contract no. 65-23-5001. The following contract ran from November 1937 - July 1938, Contract no. 465-23-3-193.",
+        "*shows locations of oil and gas wells",
+        "Scale 1:14,400. 1 in. equals 1200 ft.",
+        "maps : blueline prints ; 65 x 50 cm, on sheets 72 x 57 cm or smaller.",
+        "Ayres Mine No. 3; Ayres Mine No. 4; Ocean No. 2; Ocean No. 3; Ocean No. 4; Ocean No. 7; Armstrong Mine; Shaner Mine; Yough Mine; Yough Mine No. 2; Dravo Mine;  Guefey Mine; Painter &amp; Cornell Mine; Osceola Mine; Rathgeb Mine; Union Valley No. 2; Central Yough Mine No. 1",
+        "Myers Coal Co.; Dubsik &amp; Kalina; Pittsburgh Coal Co.; John Blyth &amp; Co.; Lake Shore Gas Coal Co.; Central Yough Coal Co.; Penn Gas Coal Co.; Boston Coal Co."
+      ],
+      "gbl_resourceClass_sm": [
+        "Maps"
+      ],
+      "gbl_resourceType_sm": [
+        "Geological maps"
+      ],
+      "dct_subject_sm": [
+        "Bituminous coal",
+        "Gas wells",
+        "Oil wells"
+      ],
+      "dcat_keyword_sm": [
+        "Peoples Natural Gas Co. pipeline",
+        "South Versailles Borough",
+        "Greenock",
+        "Boston",
+        "Coulter",
+        "Scott Haven Cowansburg",
+        "Buenavista",
+        "Yohoghany",
+        "Emblem",
+        "Shaner",
+        "Guffey",
+        "North Buenavista",
+        "Aplsville",
+        "Frank",
+        "Versailles",
+        "Youghiogheny River",
+        "Crawford Run",
+        "Long Run",
+        "Possum Hollow",
+        "Pittsburgh &amp",
+        "Lake Erie Railroad- Youghiogheny Division",
+        "Baltimore &amp",
+        "Ohio Railroad-Pittsburgh Division",
+        "Pennsylvania Railroad",
+        "Robins Station"
+      ],
+      "dct_spatial_sm": [
+        "Pennsylvania",
+        "Pennsylvania--Allegheny County",
+        "Pennsylvania--Westmoreland County",
+        "Pennsylvania--Elizabeth Township",
+        "Pennsylvania--Sewickley Township",
+        "Pennsylvania--Lincoln Township",
+        "Pennsylvania--Versailles Township",
+        "Pennsylvania--North Huntington Township"
+      ],
+      "dcat_bbox": "-79.833,40.250,-79.750,40.333",
+      "pcdm_memberOf_sm": [
+        "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+      ],
+      "dct_isPartOf_sm": [
+        "08d-03"
+      ]
+    }
+  ]
+}

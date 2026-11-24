@@ -95,6 +95,7 @@ env:
     REDIS_DB:              "0"
     RATE_LIMIT_REDIS_DB:   "2"
     ELASTICSEARCH_INDEX:   btaa_geospatial_api
+    SEARCH_RELEVANCE_VERSION: "<%= ENV.fetch('SEARCH_RELEVANCE_VERSION', 'legacy') %>"
     REDIS_TTL:             "604800"
     LOG_LEVEL:             DEBUG
     ENDPOINT_CACHE:        "true"
@@ -230,9 +231,10 @@ accessories:
       clear:
         REDIS_MAXMEMORY: "<%= ENV.fetch('REDIS_MAXMEMORY', '12gb') %>"
         REDIS_MAXMEMORY_POLICY: "<%= ENV.fetch('REDIS_MAXMEMORY_POLICY', 'volatile-lru') %>"
+        REDIS_SAVE: "<%= ENV.fetch('REDIS_SAVE', '3600 1 300 100 60 10000') %>"
       secret:
         - REDIS_PASSWORD
-    cmd: sh -lc 'redis-server --appendonly yes --protected-mode yes --bind 0.0.0.0 --requirepass "$REDIS_PASSWORD" --maxmemory "$REDIS_MAXMEMORY" --maxmemory-policy "$REDIS_MAXMEMORY_POLICY"'
+    cmd: sh -lc 'redis-server --appendonly yes --save "$REDIS_SAVE" --protected-mode yes --bind 0.0.0.0 --requirepass "$REDIS_PASSWORD" --maxmemory "$REDIS_MAXMEMORY" --maxmemory-policy "$REDIS_MAXMEMORY_POLICY"'
     directories:
       - /var/lib/btaa-geospatial-api/redis:/data
 

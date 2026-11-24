@@ -28,6 +28,7 @@ def test_map_h3_returns_resolution_hexes_global_count(mock_agg):
         "resolution": 5,
         "hexes": [["85083e1bfffffff", 12], ["85083e0ffffffff", 3]],
         "globalCount": 7,
+        "matching": {"mode": "partial_terms", "broadened": True, "version": "v2"},
     }
     resp = client.get(
         "/api/v1/map/h3",
@@ -41,6 +42,7 @@ def test_map_h3_returns_resolution_hexes_global_count(mock_agg):
     assert data["hexes"][0][0] == "85083e1bfffffff"
     assert data["hexes"][0][1] == 12
     assert data["globalCount"] == 7
+    assert data["matching"]["mode"] == "partial_terms"
     mock_agg.assert_called_once()
     call_kw = mock_agg.call_args[1]
     assert call_kw["q"] == "maps"

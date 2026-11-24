@@ -1,15 +1,18 @@
 name: Production Pages Smoke Tests
 
 on:
-  push:
-    branches: [develop]
   workflow_dispatch:
+    inputs:
+      deployed_sha:
+        description: "Deployed commit to check (defaults to the selected ref for manual runs)"
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-pages-smoke-${{ github.ref }}
+  group: production-pages-smoke
   cancel-in-progress: true
 
 jobs:
@@ -27,6 +30,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.deployed_sha || github.sha }}
 
       - uses: actions/setup-python@v5
         with:

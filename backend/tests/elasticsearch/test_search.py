@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+from app.api.v1.shared import SORT_MAPPINGS
+from app.elasticsearch.relevance import Matching
 from app.elasticsearch.search import (
     BBOX_SPATIAL_BOOST_WEIGHT,
     MIN_BBOX_IOU_OVERLAP_RATIO,
@@ -76,6 +78,25 @@ class TestElasticsearchSearch:
         assert criteria["filters"] == {"dct_spatial_sm": ["Minnesota"]}
         assert criteria["sort"] == [{"_score": "desc"}]
         assert criteria["include_non_public"] is False
+
+    @pytest.mark.parametrize("sort", [None, "relevance"])
+    @pytest.mark.parametrize("matching", [None, Matching(mode="literal")])
+    def test_relevance_breaks_score_ties_before_pagination(self, sort, matching):
+        params = SearchParams(
+            query="Iberian Peninsula 1:250,000",
+            sort=SORT_MAPPINGS[sort] if sort else None,
+            matching=matching,
+            skip=10,
+            limit=10,
+        )
+
+        plan = SearchQueryBuilder(params, params.criteria(), SearchFacetSelection({}, ())).build()
+        assert plan.search_query["sort"] == [
+            {"_score": "desc"},
+            {"dct_title_s.keyword": "asc"},
+            {"id": "asc"},
+        ]
+        assert plan.search_query["from"] == 10
 
     def test_repeated_include_values_preserve_api_or_default(self):
         clauses = _build_exact_filter_clauses(

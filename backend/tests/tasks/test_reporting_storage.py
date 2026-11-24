@@ -209,3 +209,27 @@ def test_legacy_impression_rollup_requires_baseline_match(conn, expected_impress
     assert document["daily"][0]["metrics"]["count"] == 7
     assert document["receipts"][0]["source_id"] < 0
     assert document["visits"] == []
+
+
+def test_backfill_keyset_batches_preserve_capture_without_duplicates(conn):  # noqa: F811
+    from app.services.analytics_reporting.storage import backfill_batch, require_installed
+
+    conn.execute(text("ALTER TABLE analytics_searches DISABLE TRIGGER reporting_capture"))
+    for identity in (1, 4, 9, 15, 28):
+        insert(conn, identity)
+    with pytest.raises(RuntimeError, match="missing or disabled"):
+        require_installed(conn)
+    conn.execute(text("ALTER TABLE analytics_searches ENABLE TRIGGER reporting_capture"))
+    require_installed(conn)
+    cursor = None
+    counts = []
+    while True:
+        cursor = backfill_batch(conn, "analytics_searches", date(2026, 7, 1), cursor, limit=2)
+        if cursor is None:
+            break
+        counts.append(
+            conn.execute(text("SELECT count(*) FROM analytics_reporting_outbox")).scalar()
+        )
+    assert counts == [2, 4, 5]
+    assert backfill(conn, "analytics_searches", date(2026, 7, 1)) == 0
+    assert drain(conn) == 5

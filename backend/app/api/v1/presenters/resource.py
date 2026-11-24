@@ -203,7 +203,7 @@ class ResourcePresenter:
             )
 
         link_service = LinkService(resource_dict, distribution_context=distribution_context)
-        ui_links = link_service.get_links()
+        ui_links = link_service.get_links(raster_documents=await link_service.raster_documents())
 
         ui_relationships = hydration.ui_relationships
         if ui_relationships is None:

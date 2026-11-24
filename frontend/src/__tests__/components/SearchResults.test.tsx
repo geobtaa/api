@@ -160,6 +160,39 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('SearchResults Component', () => {
+  it.each(['default', 'compact'] as const)(
+    'places the partial heading between groups in %s results',
+    (variant) => {
+      const { container } = render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData}
+            isLoading={false}
+            totalResults={mockFixtureData.length}
+            currentPage={1}
+            variant={variant}
+            matching={{
+              mode: 'all_terms_then_partial',
+              broadened: true,
+              version: 'v2',
+              all_terms_count: 1,
+              partial_terms_count: mockFixtureData.length - 1,
+            }}
+          />
+        </TestWrapper>
+      );
+      const cards = container.querySelectorAll('article');
+      const heading = screen.getByRole('heading', { name: 'Partial matches' });
+      expect(
+        cards[0].compareDocumentPosition(heading) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+      expect(
+        heading.compareDocumentPosition(cards[1]) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    }
+  );
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
   });

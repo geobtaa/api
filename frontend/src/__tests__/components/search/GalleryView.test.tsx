@@ -44,6 +44,37 @@ const mockResults: GeoDocument[] = Array.from({ length: 25 }, (_, i) => ({
 type GalleryViewProps = ComponentProps<typeof GalleryView>;
 
 describe('GalleryView', () => {
+  it('separates strict and partial cards across the gallery grid', () => {
+    render(
+      <BrowserRouter>
+        <GalleryView
+          results={mockResults.slice(0, 3)}
+          isLoading={false}
+          totalResults={3}
+          currentPage={1}
+          matching={{
+            mode: 'all_terms_then_partial',
+            broadened: true,
+            version: 'v2',
+            all_terms_count: 1,
+            partial_terms_count: 2,
+          }}
+        />
+      </BrowserRouter>
+    );
+    const heading = screen.getByRole('heading', { name: 'Partial matches' });
+    expect(heading).toHaveClass('col-span-full');
+    expect(
+      screen
+        .getByRole('link', { name: /Result 1/ })
+        .compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      heading.compareDocumentPosition(
+        screen.getByRole('link', { name: /Result 2/ })
+      ) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
   beforeEach(() => {
     vi.useRealTimers();
     // Happy DOM 21 does not load these fixture URLs. Model a pending image;
