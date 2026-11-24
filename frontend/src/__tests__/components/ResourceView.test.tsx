@@ -4,6 +4,8 @@ import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { ResourceView } from '../../pages/ResourceView';
+import Cookies from 'js-cookie';
+import { BookmarkProvider } from '../../context/BookmarkContext';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { vi } from 'vitest';
@@ -422,7 +424,9 @@ const TestWrapper = ({
   <HelmetProvider>
     <MemoryRouter initialEntries={initialEntries}>
       <ApiProvider>
-        <DebugProvider>{children}</DebugProvider>
+        <BookmarkProvider>
+          <DebugProvider>{children}</DebugProvider>
+        </BookmarkProvider>
       </ApiProvider>
     </MemoryRouter>
   </HelmetProvider>
@@ -566,6 +570,30 @@ describe('ResourceView Component', () => {
   });
 
   describe('Resource Display', () => {
+    it('reads and toggles the displayed resource in the shared bookmarks cookie', async () => {
+      const user = userEvent.setup();
+      const id = mockResourceData.id;
+      const other = realFixtureData[1].id;
+      Cookies.set('bookmarks', JSON.stringify([other, id]));
+      try {
+        render(
+          <TestWrapper>
+            <ResourceView />
+          </TestWrapper>
+        );
+
+        await user.click(
+          await screen.findByRole('button', { name: 'Remove bookmark' })
+        );
+        expect(JSON.parse(Cookies.get('bookmarks')!)).toEqual([other]);
+
+        await user.click(screen.getByRole('button', { name: 'Add bookmark' }));
+        expect(JSON.parse(Cookies.get('bookmarks')!)).toEqual([other, id]);
+      } finally {
+        Cookies.remove('bookmarks');
+      }
+    });
+
     it('displays resource title', async () => {
       render(
         <TestWrapper>

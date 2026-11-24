@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { vi } from 'vitest';
+import { assert, vi } from 'vitest';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
@@ -130,21 +130,6 @@ const mockFixtureData: GeoDocument[] = [
     },
   },
 ]; // End of mockFixtureData
-
-// Mock BookmarkButton to avoid context provider requirement
-vi.mock('../../components/BookmarkButton', () => ({
-  BookmarkButton: () => <button>Bookmark</button>,
-}));
-
-// Mock useBookmarks hook
-vi.mock('../../context/BookmarkContext', () => ({
-  useBookmarks: () => ({
-    isBookmarked: () => false, // Default to false for tests
-  }),
-  BookmarkProvider: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-}));
 
 // Test wrapper component
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -1051,7 +1036,7 @@ describe('SearchResults Component', () => {
   });
 
   describe('Bookmark Integration', () => {
-    it('renders bookmark buttons for each result', () => {
+    it('renders each list bookmark before its static map', () => {
       render(
         <TestWrapper>
           <SearchResults
@@ -1063,9 +1048,18 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      // Should have 4 bookmark buttons (one for each result)
-      const bookmarkButtons = screen.getAllByRole('button');
-      expect(bookmarkButtons).toHaveLength(4);
+      for (const result of mockFixtureData) {
+        const button = screen.getByRole('button', {
+          name: `Bookmark ${result.attributes.ogm?.dct_title_s}`,
+        });
+        expect(button).toHaveAttribute('aria-pressed', 'false');
+        expect(button.closest('a')).toBeNull();
+        const staticMap = button
+          .closest('article')
+          ?.querySelector<HTMLImageElement>('img[src*="/geometry"]');
+        assert.isOk(staticMap);
+        expect(button).toAppearBefore(staticMap);
+      }
     });
   });
 

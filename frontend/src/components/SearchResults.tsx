@@ -6,7 +6,6 @@ import { BookOpen } from 'lucide-react';
 import { useDebug } from '../context/DebugContext';
 import { useMap } from '../context/MapContext';
 import { BookmarkButton } from './BookmarkButton';
-import { useBookmarks } from '../context/BookmarkContext';
 import { getResourceIcon } from '../utils/resourceIcons';
 import { getHoverGeometryForResult } from '../utils/geometryUtils';
 import { getResultPrimaryImageUrl } from '../utils/resourceAssets';
@@ -52,7 +51,6 @@ export function SearchResults({
     setHoveredResourceSource,
     setGeometryIfHovering,
   } = useMap();
-  const { isBookmarked } = useBookmarks();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   const isCompact = variant === 'compact';
@@ -121,7 +119,7 @@ export function SearchResults({
     >
       {results.map((result, index) => {
         const ogm = result?.attributes?.ogm;
-        const title = ogm?.dct_title_s ?? '(Untitled)';
+        const title = ogm?.dct_title_s || '(Untitled)';
         const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
         const isRestricted = isRestrictedAccessResource(result);
         const description =
@@ -147,7 +145,7 @@ export function SearchResults({
               firstOnPage={index === 0}
             />
             <article
-              className={`min-w-0 bg-white rounded-lg shadow-md hover:shadow-lg transition-all relative group ${
+              className={`min-w-0 bg-white rounded-lg shadow-md hover:shadow-lg transition-all ${
                 isHighlighted
                   ? 'ring-2 ring-blue-500/80 bg-blue-50 shadow-md'
                   : ''
@@ -179,9 +177,7 @@ export function SearchResults({
             >
               <div className="flex min-w-0">
                 {/* Thumbnail */}
-                <div
-                  className={`${thumbnailWrapperClass} flex-shrink-0 relative group/thumb`}
-                >
+                <div className={`${thumbnailWrapperClass} flex-shrink-0`}>
                   {(() => {
                     const primaryImageUrl = getResultPrimaryImageUrl(
                       result,
@@ -214,20 +210,6 @@ export function SearchResults({
                       </div>
                     );
                   })()}
-
-                  {/* Bookmark Button - Absolute Top Left on Image */}
-                  <div
-                    className={`absolute top-1 left-1 z-20 transition-opacity duration-200 ${
-                      isBookmarked(result.id)
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
-                    }`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="bg-white rounded-full shadow-sm hover:shadow-md">
-                      <BookmarkButton itemId={result.id} />
-                    </div>
-                  </div>
                 </div>
 
                 {/* Result Number (Index) - Screen Reader Only */}
@@ -243,7 +225,7 @@ export function SearchResults({
                     </pre>
                   )}
 
-                  <div className="flex items-start gap-2 mb-2 pr-8">
+                  <div className="flex items-start gap-2 mb-2">
                     <span
                       className={`flex-shrink-0 font-semibold text-slate-600 dark:text-slate-400 ${resultNumberClass}`}
                       aria-hidden
@@ -416,6 +398,13 @@ export function SearchResults({
                       </div>
                     </>
                   )}
+                </div>
+
+                <div className="shrink-0 self-start p-1">
+                  <BookmarkButton
+                    itemId={result.id}
+                    resourceTitle={String(title)}
+                  />
                 </div>
 
                 {/* Static Map - Hide in compact mode */}

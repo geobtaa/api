@@ -35,6 +35,16 @@ interface LinksTableProps {
   searchId?: string;
 }
 
+function localizeMetadataSectionLinks(frame: HTMLIFrameElement) {
+  const doc = frame.contentDocument;
+  if (doc?.URL !== 'about:srcdoc') return;
+
+  // Fragment-only links in srcdoc otherwise resolve against the resource page.
+  for (const link of doc.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')) {
+    link.href = doc.URL + link.getAttribute('href');
+  }
+}
+
 export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
   const lightboxTitleId = useId();
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -380,6 +390,11 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
                   <iframe
                     title={activeMetadataLink?.label ?? 'Metadata'}
                     srcDoc={metadataHtml}
+                    onLoad={(event) => {
+                      if (activeMetadataLink?.format !== 'html') {
+                        localizeMetadataSectionLinks(event.currentTarget);
+                      }
+                    }}
                     className="w-full min-h-[500px] border border-gray-200 rounded-lg"
                     sandbox="allow-same-origin"
                   />

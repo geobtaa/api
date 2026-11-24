@@ -449,6 +449,11 @@ one eligible distribution. File and feature previews pass the dataset URL in the
 `data` parameter. Raster service previews use the `url` project parameter. Resource pages use distribution rows when present and read
 legacy Aardvark references when rows are unavailable.
 
+PMTiles links follow the same archive order as OGM Viewer tabs. The first
+occurrence of a distinct archive URL sets its number. If an archive is
+ineligible for GeoLibre, later archives retain their tab numbers. Eligible
+PMTiles downloads without a corresponding viewer tab appear after the tabs’ archives.
+
 A GeoJSON, PMTiles or COG distribution type identifies the file format. A
 download can also qualify through an explicit format label of `GeoJSON`,
 `PMTiles`, `GeoParquet`, `COG` or `Cloud Optimized GeoTIFF`.
