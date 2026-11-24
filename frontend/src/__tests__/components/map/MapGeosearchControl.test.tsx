@@ -51,11 +51,12 @@ describe('MapGeosearchControl', () => {
     controlCorner.innerHTML = '';
     controlCorner.className = 'maplibregl-ctrl-top-right';
     zoomControl.className = 'maplibregl-ctrl-group';
-    zoomControl.innerHTML = '<button class="geo-map-zoom-button">+</button>';
+    zoomControl.innerHTML = '<button class="maplibregl-ctrl-zoom-in">+</button>';
     const fullscreenControl = document.createElement('div');
     fullscreenControl.className = 'maplibregl-ctrl-group';
-    controlCorner.appendChild(fullscreenControl);
-    controlCorner.appendChild(zoomControl);
+    const basemapControl = document.createElement('div');
+    basemapControl.className = 'geo-map-basemap';
+    controlCorner.append(zoomControl, fullscreenControl, basemapControl);
     document.body.appendChild(controlCorner);
 
     latLngBoundsMock.mockReturnValue({
@@ -67,7 +68,7 @@ describe('MapGeosearchControl', () => {
     controlCorner.remove();
   });
 
-  it('renders below zoom controls and fits the map to a selected place', async () => {
+  it('renders after the shared controls and fits the map to a selected place', async () => {
     const mapInstance = {
       fitBounds: vi.fn(),
       setView: vi.fn(),
@@ -115,8 +116,8 @@ describe('MapGeosearchControl', () => {
     });
     const controlContainer = toggleButton.closest('.maplibregl-ctrl');
 
-    expect(controlCorner.children[1]).toBe(zoomControl);
-    expect(controlCorner.children[2]).toBe(controlContainer);
+    expect(controlCorner.children[2]).toHaveClass('geo-map-basemap');
+    expect(controlCorner.children[3]).toBe(controlContainer);
 
     fireEvent.click(toggleButton);
 

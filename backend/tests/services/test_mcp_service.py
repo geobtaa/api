@@ -261,7 +261,7 @@ class TestOGMMCPService:
         assert len(result.content) == 1
         assert "stanford-wt473hz7153" in result.content[0].text
         assert "<!DOCTYPE html>" in result.content[0].text
-        assert "ogm-viewer" in result.content[0].text
+        assert "/api/v1/viewer-assets/ogm-viewer.js" in result.content[0].text
 
     @pytest.mark.asyncio
     async def test_validate_aardvark_record_tool(self):

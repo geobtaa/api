@@ -251,7 +251,7 @@ async def test_get_resource_viewer_found(monkeypatch):
     resp = await res.get_resource_viewer("r1", embed=False)
     # HTMLResponse
     assert hasattr(resp, "body")
-    assert b"ogm-viewer" in resp.body
+    assert b'/api/v1/viewer-assets/ogm-viewer.js"' in resp.body
 
 
 @pytest.mark.asyncio

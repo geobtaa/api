@@ -1,12 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Home, Pause, Play, X } from 'lucide-react';
-import {
-  MapContainer,
-  Rectangle,
-  useMap,
-  ZoomControl,
-} from '../../mapping/react';
+import { MapContainer, Rectangle, useMap } from '../../mapping/react';
 import Cookies from 'js-cookie';
 import L from '../../mapping/maplibre';
 import { onUserMapMovement } from '../../mapping/userMovement';
@@ -522,7 +517,6 @@ export function HomePageHexMapBackground() {
           center={HOME_PAGE_MAP_CENTER}
           zoom={DEFAULT_US_ZOOM}
           className="homepage-map h-full w-full"
-          zoomControl={false}
           dragging={true}
           doubleClickZoom={true}
           touchZoom={true}
@@ -530,9 +524,8 @@ export function HomePageHexMapBackground() {
           attributionControl={true}
           {...mapInteractionOptions}
         >
-          <ZoomControl position="topright" />
-          <MapGeosearchControl />
           <BasemapSwitcherControl />
+          <MapGeosearchControl />
           <HexLayerToggleControl
             enabled={hexLayerEnabled}
             hexes={hexDataForTable.hexes}
@@ -542,7 +535,6 @@ export function HomePageHexMapBackground() {
               typeof window !== 'undefined' ? window.location.search : undefined
             }
             loading={hexDataForTable.loading}
-            stackOrder="beforeBasemap"
             onToggle={(enabled) => {
               setHexLayerEnabled(enabled);
             }}

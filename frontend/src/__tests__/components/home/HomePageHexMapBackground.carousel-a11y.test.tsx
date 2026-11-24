@@ -27,7 +27,6 @@ vi.mock('../../../mapping/react', () => ({
     <div data-testid="map-container">{children}</div>
   ),
   TileLayer: () => null,
-  ZoomControl: () => null,
   Rectangle: () => null,
   useMap: () => ({
     getContainer: () => document.createElement('div'),

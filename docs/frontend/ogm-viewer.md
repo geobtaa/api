@@ -3,7 +3,7 @@
 The application consumes a source-built prerelease of
 [geobtaa/ogm-viewer](https://github.com/geobtaa/ogm-viewer/tree/feature/viewer-integration),
 based on upstream v1.7.0. The dependency key remains `ogm-viewer`; the tarball
-contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.3`. `package.json` names an
+contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.4`. `package.json` names an
 exact release asset URL and `package-lock.json` pins its integrity.
 `fork-build.json` inside the installed package identifies its source commit,
 upstream baseline, build Node version, and lockfile hash. No upstream PRs have
@@ -66,6 +66,19 @@ and returns to its embedded height on exit. Browser tests cover map and image
 canvases, native fullscreen, and the viewport fallback.
 
 ## Basemap controls
+
+The top-right controls start with zoom and compass, then fullscreen, then the
+basemap picker. View-specific tools follow. In resource previews these are
+layer opacity and globe projection. Keyboard focus follows the same order.
+
+API and MCP embeds load the browser modules at `/api/v1/viewer-assets/`.
+Docker images include these modules. A local API can use the frontend’s
+`npm ci --legacy-peer-deps` installation or install just the viewer from the
+repository root.
+
+```sh
+python backend/scripts/install_viewer_assets.py frontend/package-lock.json frontend/node_modules/ogm-viewer/dist/components
+```
 
 OpenFreeMap Positron is the default for interactive maps and for newly rendered
 location and bounding-box thumbnails. On resource map previews, the droplet
