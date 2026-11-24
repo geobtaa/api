@@ -1,5 +1,5 @@
 {
-  "version": "0.16.0",
+  "version": "0.16.1",
   "release_date": "2026-11-24",
-  "summary": "Add MapLibre and OGM Viewer previews with the Positron basemap, Open in GeoLibre links in viewer archive order, accessible bookmarks, and title sorting for equal search scores. Fix metadata section links and update Tornado."
+  "summary": "Update OGM Viewer to render band-separate Cloud Optimized GeoTIFFs and IIIF manifests with linked georeference annotations. Map previews now support explicit view bounds and keep feature popups in view."
 }

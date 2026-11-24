@@ -2,8 +2,8 @@
 
 The application consumes a source-built prerelease of
 [geobtaa/ogm-viewer](https://github.com/geobtaa/ogm-viewer/tree/feature/viewer-integration),
-based on upstream v1.7.0. The dependency key remains `ogm-viewer`; the tarball
-contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.5`. `package.json` names an
+based on upstream v1.8.0. The dependency key remains `ogm-viewer`; the tarball
+contains `@geobtaa/ogm-viewer` version `1.8.0-btaa.1`. `package.json` names an
 exact release asset URL and `package-lock.json` pins its integrity.
 `fork-build.json` inside the installed package identifies its source commit,
 upstream baseline, build Node version, and lockfile hash. No upstream PRs have
@@ -20,9 +20,10 @@ requested encoding for image tiles and Downloads links. See
 
 Records with multiple PMTiles archives show one preview tab per archive, in metadata order. See [viewer issue #7](https://github.com/geobtaa/ogm-viewer/issues/7).
 
-Upstream 1.7.0 adds COG index-map mosaics, FGDC-derived legends, layer ordering
-controls, and improved handling of blocked requests. Our selection/navigation
-contracts and embedding options remain available.
+Upstream v1.8.0 adds explicit view bounds, keeps map popups in view, and resolves
+IIIF canvas annotation targets to their images. The fork follows [upstream main through 21cb530](https://github.com/OpenGeoMetadata/ogm-viewer/commit/21cb53080e59bf554726512603e2f3a61d6eb05c). Its Development Seed 0.10.0 renderer supports band-separate Cloud Optimized GeoTIFFs, including the [1893 Purdue campus map](https://geo.btaa.org/resources/b1g_09d_gNo2SklDD7hP).
+A manifest with linked georeference annotations can display multiple maps in
+the **Georeferenced content** tab.
 
 ## Ownership and contracts
 
