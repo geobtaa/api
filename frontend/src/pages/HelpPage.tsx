@@ -273,8 +273,8 @@ export function HelpPage() {
                 <li className="flex gap-3">
                   <span className={listMarkerClass} aria-hidden />
                   <span>
-                    Use bookmarks to keep a temporary list of resources while
-                    you browse.
+                    Select the bookmark icon in search results or beside a
+                    resource title to save it. Select it again to remove it.
                   </span>
                 </li>
                 <li className="flex gap-3">

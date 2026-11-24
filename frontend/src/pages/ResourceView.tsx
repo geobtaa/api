@@ -9,6 +9,7 @@ import {
   ApiError,
 } from '../services/api';
 import type { GeoDocument, GeoDocumentDetails } from '../types/api';
+import { BookmarkButton } from '../components/BookmarkButton';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { GeoportalErrorPage } from './ErrorPage';
 import { isGeoportalErrorStatus } from './errorPageContent';
@@ -620,15 +621,18 @@ export function ResourceView({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Title section */}
                 <div className="lg:col-span-8">
-                  <h1 className="flex items-start gap-2 text-3xl font-bold text-gray-900">
-                    {isRestricted && (
-                      <RestrictedAccessIndicator
-                        className="mt-1 h-7 w-7"
-                        iconClassName="h-4 w-4"
-                      />
-                    )}
-                    <span>{data.attributes.ogm.dct_title_s}</span>
-                  </h1>
+                  <div className="flex items-start gap-2">
+                    <h1 className="flex items-start gap-2 text-3xl font-bold text-gray-900">
+                      {isRestricted && (
+                        <RestrictedAccessIndicator
+                          className="mt-1 h-7 w-7"
+                          iconClassName="h-4 w-4"
+                        />
+                      )}
+                      <span>{data.attributes.ogm.dct_title_s}</span>
+                    </h1>
+                    <BookmarkButton itemId={data.id} />
+                  </div>
                   <ResourceSubtitle item={data} />
                   {/* Display notes from OGM Aardvark (gbl_displayNote_sm) */}
                   {Array.isArray(data.attributes.ogm.gbl_displayNote_sm) &&

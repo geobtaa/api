@@ -152,6 +152,10 @@ scrolling available for the page. Unmodified scrolling briefly displays a center
 MapLibre cooperative-gesture instruction (Command on Mac, Ctrl elsewhere); zoom buttons,
 dragging, and touch interactions remain available.
 
+Resource detail pages and search results use the same bookmark button and
+browser cookie. The button beside the resource title toggles the displayed
+record by its catalog ID.
+
 Resource source links are native anchors, supporting URL previews, copy-link,
 and modifier clicks. Multiple source URLs are displayed individually. Web
 Services, Metadata, and Open in ArcGIS retain their selection dialogs.

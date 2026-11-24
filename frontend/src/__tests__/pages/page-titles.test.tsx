@@ -210,9 +210,11 @@ describe('Page titles', () => {
         element: (
           <HelmetProvider>
             <ApiProvider>
-              <DebugProvider>
-                <ResourceView />
-              </DebugProvider>
+              <BookmarkProvider>
+                <DebugProvider>
+                  <ResourceView />
+                </DebugProvider>
+              </BookmarkProvider>
             </ApiProvider>
           </HelmetProvider>
         ),
