@@ -241,6 +241,10 @@ def test_openapi_documents_public_success_and_error_schemas():
             "/api/v1/resources/{id}/data-dictionaries",
             "get",
         ): "#/components/schemas/DataDictionaryListResponse",
+        (
+            "/api/v1/resources/{id}/geolibre/{key}.geolibre.json",
+            "get",
+        ): "#/components/schemas/GeoLibreProjectResponse",
         ("/api/v1/home/blog-posts", "get"): "#/components/schemas/HomeBlogPostsResponse",
         ("/api/v1/map/h3", "get"): "#/components/schemas/MapH3Response",
         ("/api/v1/ogc/collections", "get"): "#/components/schemas/OGCCollectionsResponse",

@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import HTTPException, Query
 from fastapi.responses import JSONResponse
 
-from app.api.schemas import ResourceLinksResponse
+from app.api.schemas import GeoLibreProjectResponse, ResourceLinksResponse
 from app.api.v1.utils import create_response
 from app.services.link_service import LinkService
 
@@ -30,7 +30,7 @@ async def get_resource_links(
         raise HTTPException(status_code=500, detail="Failed to get links") from None
 
 
-@router.get("/resources/{id}/geolibre/{key}.geolibre.json")
+@router.get("/resources/{id}/geolibre/{key}.geolibre.json", response_model=GeoLibreProjectResponse)
 async def get_geolibre_project(id: str, key: str):
     """Open a public record's named WMS or WMTS layer as a GeoLibre project."""
     service = await LinkService.for_resource_id(id)
