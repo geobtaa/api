@@ -51,7 +51,8 @@ describe('MapGeosearchControl', () => {
     controlCorner.innerHTML = '';
     controlCorner.className = 'maplibregl-ctrl-top-right';
     zoomControl.className = 'maplibregl-ctrl-group';
-    zoomControl.innerHTML = '<button class="maplibregl-ctrl-zoom-in">+</button>';
+    zoomControl.innerHTML =
+      '<button class="maplibregl-ctrl-zoom-in">+</button>';
     const fullscreenControl = document.createElement('div');
     fullscreenControl.className = 'maplibregl-ctrl-group';
     const basemapControl = document.createElement('div');
