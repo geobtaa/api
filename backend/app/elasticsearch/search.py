@@ -14,6 +14,7 @@ from elasticsearch.exceptions import NotFoundError
 from fastapi import HTTPException
 from sqlalchemy.sql import text
 
+from app.api.v1.shared import RELEVANCE_SORT
 from app.services.cache_service import ENDPOINT_CACHE, CacheService
 from app.services.distribution_repository import fetch_distribution_context_map
 from app.services.viewer_service import create_viewer_attributes  # Updated import
@@ -563,7 +564,7 @@ def get_search_criteria(
         "query": query,
         "filters": fq,
         "pagination": {"skip": skip, "limit": limit},
-        "sort": sort or [{"_score": "desc"}],
+        "sort": sort or RELEVANCE_SORT,
         "include_non_public": include_non_public,
     }
 
@@ -1289,8 +1290,10 @@ class SearchParams:
 
     @property
     def sort_clause(self) -> list:
-        sort = self.sort or [{"_score": "desc"}]
-        return [*sort, {"id": "asc"}] if self.matching is not None else sort
+        sort = self.sort or RELEVANCE_SORT
+        if self.matching is not None and sort[-1] != {"id": "asc"}:
+            return [*sort, {"id": "asc"}]
+        return sort
 
     def criteria(self) -> dict:
         return get_search_criteria(
