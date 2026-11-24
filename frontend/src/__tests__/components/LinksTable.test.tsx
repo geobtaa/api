@@ -216,6 +216,35 @@ describe('LinksTable', () => {
   });
 
   describe('Metadata lightbox with transformable formats', () => {
+    it.each(['iso', 'fgdc'] as const)(
+      'targets the embedded %s document when following section links',
+      async (format) => {
+        const id = `${format}-distribution-info`;
+        const source = 'https://example.com/guide#distribution';
+        mockFetch.mockResolvedValueOnce(
+          new Response(
+            `<a href="#${id}">Distribution</a><div id="${id}"><a href="${source}">Guide</a></div>`
+          )
+        );
+        render(
+          <LinksTable
+            links={{
+              Metadata: [{ label: format, url: '/metadata.xml', format }],
+            }}
+            resourceId="test-resource"
+          />
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Metadata' }));
+
+        const frame = (await screen.findByTitle(format)) as HTMLIFrameElement;
+        await waitFor(() => {
+          const links = frame.contentDocument?.links;
+          expect(links?.[0]).toHaveAttribute('href', `about:srcdoc#${id}`);
+          expect(links?.[1]).toHaveAttribute('href', source);
+        });
+      }
+    );
+
     it('opens Metadata lightbox and fetches transformed content when resourceId and format provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
