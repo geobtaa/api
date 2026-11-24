@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { vi } from 'vitest';
+import { assert, vi } from 'vitest';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
@@ -1036,7 +1036,7 @@ describe('SearchResults Component', () => {
   });
 
   describe('Bookmark Integration', () => {
-    it('renders bookmark buttons for each result', () => {
+    it('renders each list bookmark before its static map', () => {
       render(
         <TestWrapper>
           <SearchResults
@@ -1054,6 +1054,11 @@ describe('SearchResults Component', () => {
         });
         expect(button).toHaveAttribute('aria-pressed', 'false');
         expect(button.closest('a')).toBeNull();
+        const staticMap = button
+          .closest('article')
+          ?.querySelector<HTMLImageElement>('img[src*="/geometry"]');
+        assert.isOk(staticMap);
+        expect(button).toAppearBefore(staticMap);
       }
     });
   });

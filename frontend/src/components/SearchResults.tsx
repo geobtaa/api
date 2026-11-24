@@ -400,18 +400,19 @@ export function SearchResults({
                   )}
                 </div>
 
-                {/* Static Map - Hide in compact mode */}
-                {!isCompact && (
-                  <div className="hidden w-48 flex-shrink-0 md:block">
-                    <StaticResultMap result={result} />
-                  </div>
-                )}
                 <div className="shrink-0 self-start p-1">
                   <BookmarkButton
                     itemId={result.id}
                     resourceTitle={String(title)}
                   />
                 </div>
+
+                {/* Static Map - Hide in compact mode */}
+                {!isCompact && (
+                  <div className="hidden w-48 flex-shrink-0 md:block">
+                    <StaticResultMap result={result} />
+                  </div>
+                )}
               </div>
             </article>
           </Fragment>
