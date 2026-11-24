@@ -3,11 +3,15 @@ Tests for LinkService - comprehensive coverage using real fixtures and data.
 """
 
 import json
+from pathlib import Path
+from unittest.mock import AsyncMock
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 from app.services import link_service as link_service_module
 from app.services.link_service import LinkService
+from tests.utils.distribution_helpers import make_distribution_context, make_distribution_record
 
 
 class TestLinkService:
@@ -892,3 +896,115 @@ class TestLinkServiceEdgeCases:
         assert isinstance(links, dict)
         if "Visit Source" in links:
             assert links["Visit Source"][0]["url"] == "http://example.com/source"
+
+
+GEOJSON_URI = "http://geojson.org/geojson-spec.html"
+DOWNLOAD_URI = "http://schema.org/downloadUrl"
+SAMPLE_COLLECTION = "https://data.source.coop/giswqs/opengeos/"
+
+
+def test_geolibre_formats_labels_order_and_encoding():
+    parks = SAMPLE_COLLECTION + "St Paul + Îles.geojson?layer=parks%26water&v=1%232"
+    roads = SAMPLE_COLLECTION + "roads.geojson"
+    items = [{"url": roads, "label": "Roads"}, {"url": parks, "label": "Parks"}, parks]
+    references = {
+        GEOJSON_URI: items,
+        DOWNLOAD_URI: [
+            {"label": "GeoParquet", "url": SAMPLE_COLLECTION + "building_count_h3.parquet"},
+            {"label": "GeoJSON", "url": parks},
+        ],
+        "https://github.com/protomaps/PMTiles": SAMPLE_COLLECTION + "building_count_h3.pmtiles",
+        "https://github.com/cogeotiff/cog-spec": SAMPLE_COLLECTION + "dem.tif",
+        "urn:x-esri:serviceType:ArcGIS#FeatureLayer": "https://example.org/FeatureServer",
+    }
+
+    def get_links():
+        return LinkService(
+            {"dct_accessRights_s": "Public", "dct_references_s": json.dumps(references)}
+        ).get_links()
+
+    links = get_links()
+    assert "Open in ArcGIS" in links
+    launches = links["Open in GeoLibre"]
+    assert [link["label"] for link in launches] == [
+        "COG",
+        "GeoJSON 1 — Parks",
+        "GeoJSON 2 — Roads",
+        "GeoParquet",
+        "PMTiles",
+    ]
+    assert parse_qs(urlsplit(launches[1]["url"]).query) == {"data": [parks]}
+    items.reverse()
+    assert get_links()["Open in GeoLibre"] == launches
+
+
+@pytest.mark.parametrize("rights", ["Restricted", "", None, ["Public"]])
+def test_geolibre_requires_explicit_public_access(rights):
+    resource = {
+        "dct_accessRights_s": rights,
+        "dct_references_s": {GEOJSON_URI: SAMPLE_COLLECTION + "parks.geojson"},
+    }
+    assert "Open in GeoLibre" not in LinkService(resource).get_links()
+
+
+@pytest.mark.parametrize(
+    ("uri", "entry"),
+    [
+        ("http://schema.org/url", SAMPLE_COLLECTION + "parks.geojson"),
+        (DOWNLOAD_URI, {"url": SAMPLE_COLLECTION + "image.tif", "label": "GeoTIFF"}),
+        (DOWNLOAD_URI, {"url": SAMPLE_COLLECTION + "archive.zip", "label": "GeoJSON"}),
+        (DOWNLOAD_URI, {"url": SAMPLE_COLLECTION + "table.parquet", "label": "Parquet"}),
+        (GEOJSON_URI, "https://example.org/parks.geojson"),
+        (GEOJSON_URI, "https://user@assets.geolibre.app/data/parks.geojson"),
+        (GEOJSON_URI, "http://assets.geolibre.app/data/parks.geojson"),
+        (GEOJSON_URI, SAMPLE_COLLECTION + "parks.geojson?X-Amz-Signature=sample"),
+        (GEOJSON_URI, SAMPLE_COLLECTION + "parks.geojson?access_token=sample"),
+        (GEOJSON_URI, SAMPLE_COLLECTION + "%2E%2E/private.geojson"),
+        (GEOJSON_URI, SAMPLE_COLLECTION + "readme.html"),
+        (GEOJSON_URI, "https://[invalid/data.geojson"),
+        (GEOJSON_URI, {"url": None}),
+    ],
+)
+def test_geolibre_skips_unsuitable_distributions(uri, entry):
+    resource = {
+        "dct_accessRights_s": "Public",
+        "dct_format_s": "GeoJSON",
+        "dct_references_s": {uri: entry},
+    }
+    assert "Open in GeoLibre" not in LinkService(resource).get_links()
+
+
+@pytest.mark.asyncio
+async def test_geolibre_resource_links_prefer_current_distributions(monkeypatch):
+    resource = {
+        "id": "example",
+        "dct_accessRights_s": "Public",
+        "dct_references_s": {GEOJSON_URI: SAMPLE_COLLECTION + "stale.geojson"},
+    }
+    record = make_distribution_record("example", GEOJSON_URI, SAMPLE_COLLECTION + "places.geojson")
+    context = make_distribution_context("example", [record])
+    fetch = AsyncMock(return_value=resource)
+    monkeypatch.setattr(link_service_module.database, "fetch_one", fetch)
+    monkeypatch.setattr(
+        link_service_module, "fetch_distribution_context", AsyncMock(return_value=context)
+    )
+    links = await LinkService.get_resource_links("example")
+    assert '"dct_accessRights_s"' in fetch.await_args.args[0]
+    assert links["Open in GeoLibre"] == [
+        {
+            "label": "GeoJSON",
+            "url": "https://web.geolibre.app/?data=https%3A%2F%2Fdata.source.coop%2Fgiswqs%2Fopengeos%2Fplaces.geojson",
+        }
+    ]
+
+
+def test_geolibre_launches_catalog_pmtiles_fixture():
+    fixture = (
+        Path(__file__).resolve().parents[2]
+        / "data/fixtures/btaa_fixtures_data/b1g_PJxxfKgpqpUT.json"
+    )
+    resource = json.loads(fixture.read_text())
+    archive = json.loads(resource["dct_references_s"])["https://github.com/protomaps/PMTiles"]
+    [launch] = LinkService(resource).get_links()["Open in GeoLibre"]
+    assert launch["label"] == "PMTiles"
+    assert parse_qs(urlsplit(launch["url"]).query) == {"data": [archive]}

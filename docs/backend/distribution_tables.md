@@ -440,3 +440,43 @@ WHERE resource_id = 'resource-id' AND id = 123;
    - Advanced indexing strategies
 
 This migration successfully transforms the distribution data from an unstructured JSON format into a robust, queryable relational structure that supports the growing needs of the BTAA OGM API.
+
+## Open in GeoLibre
+
+The resource-links endpoint and the detail page’s link data include an
+`Open in GeoLibre` group when a resource has public access rights and at least
+one eligible file. Each link passes the complete dataset URL as the encoded
+`data` parameter. Resource pages use distribution rows when present and read
+legacy Aardvark references when rows are unavailable.
+
+A GeoJSON, PMTiles or COG distribution type identifies the file format. A
+download can also qualify through an explicit format label of `GeoJSON`,
+`PMTiles`, `GeoParquet`, `COG` or `Cloud Optimized GeoTIFF`.
+The URL path must end in a corresponding file extension. A generic TIFF or
+Parquet download needs explicit COG or GeoParquet metadata. Landing pages,
+archives and generic map services have no launch action.
+
+Eligible URLs use HTTPS and come from a public file collection checked in
+GeoLibre. The initial collections are BTAA public catalog assets, the OpenGeos
+collection on Source Cooperative, and GeoLibre’s sample data. The API admits
+ordinary dataset query parameters (`layer`, `version`, `v`, `bbox`, `limit`)
+and omits URLs with other parameters, embedded credentials or fragments.
+These checks run against catalog metadata. Remote availability can change
+between a catalog update and a visit.
+
+### Checking a collection
+
+Open a representative dataset in the hosted viewer in a signed-out browser.
+Check its entry in **Layers** and inspect the dataset request for cross-origin
+access. A range-based format also needs byte-range support. Add the public
+collection’s host and path prefix to `PUBLIC_COLLECTIONS` after verification.
+
+| Format | Launch example | Expected layer |
+| --- | --- | --- |
+| GeoJSON | [Places](https://web.geolibre.app/?data=https%3A%2F%2Fassets.geolibre.app%2Fdata%2Fplaces.geojson) | `places`, vector |
+| GeoParquet | [Building counts](https://web.geolibre.app/?data=https%3A%2F%2Fdata.source.coop%2Fgiswqs%2Fopengeos%2Fbuilding_count_h3.parquet) | `building_count_h3`, vector |
+| PMTiles | [BTAA catalog fixture b1g_PJxxfKgpqpUT](https://web.geolibre.app/?data=https%3A%2F%2Fgeobtaa-assets-prod.s3.us-east-2.amazonaws.com%2Fstore%2Fasset%2Ffa61a24b-2d07-4411-ace1-f5ccecb8f900%2F5c3cd783914c8ca35748cfe9194936c6.pmtiles) | PMTiles layer with the asset filename stem |
+| COG | [Elevation raster](https://web.geolibre.app/?data=https%3A%2F%2Fdata.source.coop%2Fgiswqs%2Fopengeos%2Fdem.tif) | `dem`, COG |
+
+GeoLibre documents the browser requirements and the direct-data URL parameter
+in its [Embedding & Sharing guide](https://geolibre.app/user-guide/embedding/).
