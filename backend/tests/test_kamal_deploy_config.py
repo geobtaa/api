@@ -79,7 +79,7 @@ def test_prd_frontend_ignores_closed_stream_appsignal_notice():
     ) in config_text
 
 
-def test_prd_postgres_backup_uses_local_mounted_storage():
+def test_prd_postgres_backup_streams_with_local_recovery_storage():
     prd_config = _load_deploy_config("config/deploy.prd.yml")
     config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
 
@@ -87,7 +87,7 @@ def test_prd_postgres_backup_uses_local_mounted_storage():
         "/var/lib/btaa-geospatial-api/backups:/var/backups/btaa-geospatial-api"
         in prd_config["volumes"]
     )
-    assert "ENV.fetch('BACKUP_POSTGRES_TARGET', 'local')" in config_text
+    assert "ENV.fetch('BACKUP_POSTGRES_TARGET', 's3')" in config_text
     assert "ENV.fetch('BACKUP_LOCAL_DIR', '/var/backups/btaa-geospatial-api')" in config_text
     assert "ENV.fetch('BACKUP_RETENTION_COUNT', '1')" in config_text
 
@@ -107,7 +107,7 @@ def test_prd_memory_profile_protects_service_headroom():
 
     redis = prd_config["accessories"]["redis"]
     assert redis["options"]["memory"] == "18g"
-    assert "ENV.fetch('REDIS_MAXMEMORY', '16gb')" in config_text
+    assert "ENV.fetch('REDIS_MAXMEMORY', '12gb')" in config_text
 
 
 def test_appsignal_prd_identity():
@@ -211,3 +211,26 @@ def test_frontend_appsignal_preloads_before_other_node_require_hooks():
 
     assert "--require ./appsignal.cjs --require source-map-support/register" in package_text
     assert "--require source-map-support/register --require ./appsignal.cjs" not in package_text
+
+
+def test_redis_keeps_aof_and_exposes_snapshot_schedule():
+    base = _load_deploy_config("config/deploy.yml")
+    command = base["accessories"]["redis"]["cmd"]
+    assert '--save "$REDIS_SAVE"' in command
+    assert "--appendonly yes" in command
+    production = (REPO_ROOT / "config/deploy.prd.yml").read_text()
+    assert "ENV.fetch('REDIS_SAVE', '')" in production
+
+
+def test_elasticsearch_rebuilds_snapshot_keystore_before_start():
+    config = _load_deploy_config("config/deploy.prd.yml")
+    command = config["accessories"]["elasticsearch"]["cmd"]
+    for setting in ("access_key", "secret_key"):
+        assert f"elasticsearch-keystore add -x -f s3.client.default.{setting}" in command
+    assert command.index("elasticsearch-keystore") < command.index("exec /usr/local/bin/")
+
+
+def test_streaming_backup_default_preserves_encryption():
+    production = (REPO_ROOT / "config/deploy.prd.yml").read_text()
+    assert "ENV.fetch('BACKUP_POSTGRES_STREAM', 'true')" in production
+    assert "ENV.fetch('BACKUP_S3_SSE', 'AES256')" in production

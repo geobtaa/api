@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 try:
     import appsignal
@@ -318,6 +319,16 @@ async def private_analytics_responses(request: Request, call_next):
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response
 
+
+# The combined image and local frontend share the npm installation. API-only
+# images keep the same locked browser distribution outside the source mount.
+viewer_assets = Path("/opt/ogm-viewer")
+if not viewer_assets.is_dir():
+    viewer_assets = (
+        Path(__file__).resolve().parents[2] / "frontend/node_modules/ogm-viewer/dist/components"
+    )
+if viewer_assets.is_dir():
+    app.mount("/api/v1/viewer-assets", StaticFiles(directory=viewer_assets), name="viewer-assets")
 
 app.include_router(public_router, prefix="/api/v1")
 app.include_router(ogc_router, prefix="/api/v1/ogc")

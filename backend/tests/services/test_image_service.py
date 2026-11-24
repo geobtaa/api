@@ -8,10 +8,24 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.image_service import (
-    ImageService,
-)
+from app.services import image_service
 from app.services.thumbnail_policy import source_signature
+
+ImageService = image_service.ImageService
+
+
+@pytest.fixture(autouse=True)
+def isolate_redis_pools(monkeypatch):
+    # Initialization tests mock Redis credentials. Do not retain those pools in
+    # later tests that exercise the real server.
+    names = ("_redis_connection_pool", "_redis_image_connection_pool")
+    for name in names:
+        monkeypatch.setattr(image_service, name, None)
+    yield
+    for name in names:
+        pool = getattr(image_service, name)
+        if pool is not None:
+            pool.disconnect()
 
 
 @pytest.fixture(autouse=True)

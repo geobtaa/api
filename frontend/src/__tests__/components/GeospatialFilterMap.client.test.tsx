@@ -9,7 +9,7 @@ import {
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { GeospatialFilterMap } from '../../components/search/GeospatialFilterMap.client';
 import { fetchMapH3 } from '../../services/api';
-import L from 'leaflet';
+import L from '../../mapping/maplibre';
 
 let intersectionCallbacks: IntersectionObserverCallback[] = [];
 
@@ -35,7 +35,7 @@ const mockMapInstance = {
   }),
 };
 
-vi.mock('leaflet', () => {
+vi.mock('../../mapping/maplibre', () => {
   return {
     default: {
       Handler: {
@@ -474,3 +474,7 @@ describe('GeospatialFilterMap client', () => {
     expect(screen.getByTestId('hex-enabled-state')).toHaveTextContent('true');
   });
 });
+
+vi.mock('../../config/basemaps', () => ({
+  attachBasemapSwitcher: vi.fn(() => vi.fn()),
+}));

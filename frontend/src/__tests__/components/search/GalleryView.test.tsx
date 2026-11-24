@@ -5,23 +5,12 @@ import {
   fireEvent,
   waitFor,
 } from '@testing-library/react';
+import { BookmarkProvider } from '../../../context/BookmarkContext';
 import { GalleryView } from '../../../components/search/GalleryView';
 import { BrowserRouter } from 'react-router';
 import { vi, describe, it, expect } from 'vitest';
 import type { GeoDocument } from '../../../types/api';
 import type { ComponentProps } from 'react';
-
-// Mock BookmarkButton to avoid context provider requirement
-vi.mock('../../../components/BookmarkButton', () => ({
-  BookmarkButton: () => <button data-testid="bookmark-btn">Bookmark</button>,
-}));
-
-// Mock useBookmarks hook because it is now used directly in GalleryView
-vi.mock('../../../context/BookmarkContext', () => ({
-  useBookmarks: () => ({
-    isBookmarked: () => false, // Default to false for tests
-  }),
-}));
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -47,19 +36,21 @@ describe('GalleryView', () => {
   it('separates strict and partial cards across the gallery grid', () => {
     render(
       <BrowserRouter>
-        <GalleryView
-          results={mockResults.slice(0, 3)}
-          isLoading={false}
-          totalResults={3}
-          currentPage={1}
-          matching={{
-            mode: 'all_terms_then_partial',
-            broadened: true,
-            version: 'v2',
-            all_terms_count: 1,
-            partial_terms_count: 2,
-          }}
-        />
+        <BookmarkProvider>
+          <GalleryView
+            results={mockResults.slice(0, 3)}
+            isLoading={false}
+            totalResults={3}
+            currentPage={1}
+            matching={{
+              mode: 'all_terms_then_partial',
+              broadened: true,
+              version: 'v2',
+              all_terms_count: 1,
+              partial_terms_count: 2,
+            }}
+          />
+        </BookmarkProvider>
       </BrowserRouter>
     );
     const heading = screen.getByRole('heading', { name: 'Partial matches' });
@@ -87,13 +78,15 @@ describe('GalleryView', () => {
   const renderGallery = (props: Partial<GalleryViewProps> = {}) => {
     return render(
       <BrowserRouter>
-        <GalleryView
-          results={mockResults.slice(0, 20)}
-          isLoading={false}
-          totalResults={100}
-          currentPage={1}
-          {...props}
-        />
+        <BookmarkProvider>
+          <GalleryView
+            results={mockResults.slice(0, 20)}
+            isLoading={false}
+            totalResults={100}
+            currentPage={1}
+            {...props}
+          />
+        </BookmarkProvider>
       </BrowserRouter>
     );
   };
@@ -101,6 +94,16 @@ describe('GalleryView', () => {
   it('renders list of items', () => {
     renderGallery();
     expect(screen.getAllByRole('link')).toHaveLength(20);
+    const bookmark = screen.getByRole('button', { name: 'Bookmark Result 1' });
+    expect(bookmark.closest('a')).toBeNull();
+    expect(bookmark).toHaveTextContent(/^$/);
+    expect(bookmark).toHaveAttribute('title', 'Add bookmark');
+    expect(bookmark).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(bookmark);
+    expect(bookmark).toHaveAttribute('aria-pressed', 'true');
+    expect(bookmark).toHaveAttribute('title', 'Remove bookmark');
+    fireEvent.click(bookmark);
+
     expect(screen.getAllByText('Result 1').length).toBeGreaterThan(0);
   });
 

@@ -32,8 +32,10 @@ ENV PATH="/root/.local/bin:$PATH"
 # Copy backend pyproject.toml and uv.lock first to leverage Docker cache
 COPY backend/pyproject.toml backend/uv.lock ./
 
-## Frontend assets are served by the dedicated `frontend` container.
-## The API container no longer bundles or serves frontend static files.
+# API-only images also serve the browser module used by the standalone viewer.
+COPY frontend/package-lock.json /tmp/frontend-package-lock.json
+COPY backend/scripts/install_viewer_assets.py /tmp/install_viewer_assets.py
+RUN python /tmp/install_viewer_assets.py /tmp/frontend-package-lock.json /opt/ogm-viewer
 
 # Ensure operational scripts are present in the runtime image (for kamal exec)
 COPY backend/scripts ./scripts

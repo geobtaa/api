@@ -42,11 +42,11 @@ export const FEATURED_ITEMS: FeaturedItemConfig[] = [
   },
   {
     id: 'eee6150b-ce2f-4837-9d17-ce72a0c1c26f', // Imagery
-    camera: { 
+    camera: {
       mode: 'flyTo',
       minZoom: 7,
       maxZoom: 14,
-      duration: 1.5
+      duration: 1.5,
     },
   },
   {

@@ -16,9 +16,6 @@ import { AboutPage } from './pages/AboutPage';
 import { FeedbackPage } from './pages/FeedbackPage';
 import { HelpPage } from './pages/HelpPage';
 
-// Import Leaflet CSS
-import 'leaflet/dist/leaflet.css';
-
 // Ensure Stimulus is available globally
 const application = Application.start();
 (window as typeof window & { Stimulus: Application }).Stimulus = application;

@@ -71,6 +71,32 @@ describe('LinksTable', () => {
     expect(screen.getByText('Metadata')).toBeInTheDocument();
   });
 
+  it('places all Open in actions last while preserving the order within each group', () => {
+    const { container } = render(
+      <LinksTable
+        links={{
+          ...mockLinks,
+          'Open in GeoLibre': [
+            { label: 'PMTiles 1', url: 'https://example.com/one' },
+            { label: 'PMTiles 2', url: 'https://example.com/two' },
+          ],
+          Documentation: [{ label: 'Guide', url: 'https://example.com/guide' }],
+        }}
+      />
+    );
+
+    const actions = Array.from(container.querySelectorAll('a, button'));
+    expect(actions.map((action) => action.textContent)).toEqual([
+      'Visit Source',
+      'Web Services',
+      'Metadata',
+      'Documentation',
+      'Open in ArcGIS',
+      'Open in GeoLibre: PMTiles 1',
+      'Open in GeoLibre: PMTiles 2',
+    ]);
+  });
+
   it('renders with optional resourceId prop', () => {
     render(<LinksTable links={mockLinks} resourceId="test-resource-123" />);
     expect(screen.getByText('Links')).toBeInTheDocument();
@@ -106,6 +132,44 @@ describe('LinksTable', () => {
       'href',
       'https://example.com'
     );
+  });
+
+  it('opens each GeoLibre dataset through a native external link', () => {
+    const url =
+      'https://web.geolibre.app/?data=https%3A%2F%2Fexample.org%2Fparks.geojson';
+    const { rerender } = render(<LinksTable links={mockLinks} />);
+    expect(screen.queryByRole('link', { name: /GeoLibre/ })).toBeNull();
+    rerender(
+      <LinksTable
+        links={{
+          ...mockLinks,
+          'Open in GeoLibre': [{ label: 'GeoJSON', url }],
+        }}
+      />
+    );
+    const parks = screen.getByRole('link', {
+      name: 'Open in GeoLibre: GeoJSON',
+    });
+    expect(parks).toHaveAttribute('href', url);
+    expect(parks).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(parks).toHaveAttribute('target', '_blank');
+    parks.focus();
+    expect(parks).toHaveFocus();
+    parks.addEventListener('click', (event) => event.preventDefault(), {
+      once: true,
+    });
+    fireEvent.click(parks);
+    expect(scheduleAnalyticsBatch).toHaveBeenCalledWith({
+      events: [
+        expect.objectContaining({
+          event_type: 'external_geoportal_click',
+          destination_url: url,
+        }),
+      ],
+    });
+    expect(
+      screen.getByRole('button', { name: 'Open in ArcGIS' })
+    ).toBeInTheDocument();
   });
 
   it('opens lightbox for Web Services category', () => {
@@ -216,6 +280,35 @@ describe('LinksTable', () => {
   });
 
   describe('Metadata lightbox with transformable formats', () => {
+    it.each(['iso', 'fgdc'] as const)(
+      'targets the embedded %s document when following section links',
+      async (format) => {
+        const id = `${format}-distribution-info`;
+        const source = 'https://example.com/guide#distribution';
+        mockFetch.mockResolvedValueOnce(
+          new Response(
+            `<a href="#${id}">Distribution</a><div id="${id}"><a href="${source}">Guide</a></div>`
+          )
+        );
+        render(
+          <LinksTable
+            links={{
+              Metadata: [{ label: format, url: '/metadata.xml', format }],
+            }}
+            resourceId="test-resource"
+          />
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Metadata' }));
+
+        const frame = (await screen.findByTitle(format)) as HTMLIFrameElement;
+        await waitFor(() => {
+          const links = frame.contentDocument?.links;
+          expect(links?.[0]).toHaveAttribute('href', `about:srcdoc#${id}`);
+          expect(links?.[1]).toHaveAttribute('href', source);
+        });
+      }
+    );
+
     it('opens Metadata lightbox and fetches transformed content when resourceId and format provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,

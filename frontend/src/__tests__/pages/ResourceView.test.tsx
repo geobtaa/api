@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router';
 import { ResourceView } from '../../pages/ResourceView';
+import { BookmarkProvider } from '../../context/BookmarkContext';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { vi } from 'vitest';
@@ -25,9 +26,11 @@ describe('Resource View Page', () => {
       <HelmetProvider>
         <BrowserRouter>
           <ApiProvider>
-            <DebugProvider>
-              <ResourceView />
-            </DebugProvider>
+            <BookmarkProvider>
+              <DebugProvider>
+                <ResourceView />
+              </DebugProvider>
+            </BookmarkProvider>
           </ApiProvider>
         </BrowserRouter>
       </HelmetProvider>

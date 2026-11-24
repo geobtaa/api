@@ -1,6 +1,6 @@
 import React, { Suspense, useState, useEffect } from 'react';
 
-// Leaflet/react-leaflet require `window`, so we lazy-load the real implementation.
+// MapLibre requires `window`, so we lazy-load the real implementation.
 const MapPageClient = React.lazy(() => import('./MapPage.client'));
 
 const LoadingFallback = () => (

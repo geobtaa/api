@@ -198,11 +198,15 @@ class DownloadOption(PublicAPIModel):
     generated: bool | None = None
     download_type: str | None = None
     generation_path: str | None = None
+    source: str | None = None
+    canvas_id: str | None = None
+    canvas_label: str | None = None
 
 
 class ResourceDownloadsResponse(PublicAPIModel):
     id: str
     downloads: list[DownloadOption] = Field(default_factory=list)
+    iiif_error: bool = False
 
 
 class GeneratedDownloadResponse(PublicAPIModel):
@@ -244,6 +248,35 @@ class ResourceLink(PublicAPIModel):
 class ResourceLinksResponse(PublicAPIModel):
     id: str
     links: dict[str, list[ResourceLink]] = Field(default_factory=dict)
+
+
+class GeoLibreMapView(PublicAPIModel):
+    center: tuple[float, float]
+    zoom: float
+    pitch: float
+    bearing: float
+
+
+class GeoLibreRasterLayer(PublicAPIModel):
+    id: str
+    type: Literal["wms", "wmts"]
+    name: str
+    visible: bool
+    opacity: float
+    style: dict[str, Any]
+    source: dict[str, Any]
+    metadata: dict[str, Any]
+
+
+class GeoLibreProjectResponse(PublicAPIModel):
+    version: str
+    name: str
+    mapView: GeoLibreMapView
+    basemapStyleUrl: str
+    basemapVisible: bool
+    basemapOpacity: float
+    styles: dict[str, Any]
+    layers: list[GeoLibreRasterLayer]
 
 
 class ResourceRelationship(PublicAPIModel):

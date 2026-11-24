@@ -63,10 +63,9 @@ describe('ResourceBreadcrumbs', () => {
     };
     renderWithRouter(<ResourceBreadcrumbs item={item} />);
 
-    expect(screen.getByRole('link', { name: 'Filter by Web services' })).toHaveAttribute(
-      'href',
-      expect.stringContaining('gbl_resourceClass_sm')
-    );
+    expect(
+      screen.getByRole('link', { name: 'Filter by Web services' })
+    ).toHaveAttribute('href', expect.stringContaining('gbl_resourceClass_sm'));
     expect(
       screen.getByRole('link', { name: 'Filter by ArcGIS Feature Layer' })
     ).toHaveAttribute('href', expect.stringContaining('gbl_resourceType_sm'));

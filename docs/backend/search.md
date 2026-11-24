@@ -78,6 +78,10 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | `fq[geo_region_agg][]`      | string[] | No       | Filter by region/state using spatial facets (maps to `geo_region`)                               | `fq[geo_region_agg][]=12345|0|Minnesota`         |
 | `fq[geo_county_agg][]`      | string[] | No       | Filter by county using spatial facets (maps to `geo_county`)                                     | `fq[geo_county_agg][]=12345|0|MN|Hennepin County` |
 
+Search defaults to `sort=relevance`. Results with the same relevance score are
+sorted by title A–Z, ignoring case. If titles also tie, the resource ID sorts
+ascending. Elasticsearch applies this ordering before pagination.
+
 ## Record group searches
 
 Keyword search includes the source Code (`b1g_code_s`) and administrative Tags

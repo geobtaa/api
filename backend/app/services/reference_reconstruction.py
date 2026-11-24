@@ -201,7 +201,7 @@ def _collapse_grouped_entries(grouped: Dict[str, List[ReferenceEntry]]) -> Dict[
 
 
 def _group_reference_payload(raw_payload: Any) -> Dict[str, List[ReferenceEntry]]:
-    payload = _coerce_reference_mapping(raw_payload)
+    payload = coerce_reference_mapping(raw_payload)
     grouped: Dict[str, List[ReferenceEntry]] = {}
 
     for uri, raw_value in payload.items():
@@ -301,7 +301,7 @@ def resolve_asset_reference_key(asset: Mapping[str, Any]) -> Optional[str]:
     return None
 
 
-def _coerce_reference_mapping(raw_payload: Any) -> Dict[str, Any]:
+def coerce_reference_mapping(raw_payload: Any) -> Dict[str, Any]:
     if raw_payload is None:
         return {}
     if isinstance(raw_payload, str):

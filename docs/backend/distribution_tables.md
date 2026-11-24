@@ -440,3 +440,70 @@ WHERE resource_id = 'resource-id' AND id = 123;
    - Advanced indexing strategies
 
 This migration successfully transforms the distribution data from an unstructured JSON format into a robust, queryable relational structure that supports the growing needs of the BTAA OGM API.
+
+## Open in GeoLibre
+
+The resource-links endpoint and the detail page’s link data include an
+`Open in GeoLibre` group when a resource has public access rights and at least
+one eligible distribution. File and feature previews pass the dataset URL in the encoded
+`data` parameter. Raster service previews use the `url` project parameter. Resource pages use distribution rows when present and read
+legacy Aardvark references when rows are unavailable.
+
+PMTiles links follow the same archive order as OGM Viewer tabs. The first
+occurrence of a distinct archive URL sets its number. If an archive is
+ineligible for GeoLibre, later archives retain their tab numbers. Eligible
+PMTiles downloads without a corresponding viewer tab appear after the tabs’ archives.
+
+A GeoJSON, PMTiles or COG distribution type identifies the file format. A
+download can also qualify through an explicit format label of `GeoJSON`,
+`PMTiles`, `GeoParquet`, `COG` or `Cloud Optimized GeoTIFF`.
+The URL path must end in a corresponding file extension. A generic TIFF or
+Parquet download needs explicit COG or GeoParquet metadata. Landing pages,
+archives and generic map services have no launch action.
+
+Eligible URLs use HTTPS and come from a public file collection checked in
+GeoLibre. The initial collections are BTAA public catalog assets, the OpenGeos
+collection on Source Cooperative, and GeoLibre’s sample data. The API admits
+ordinary dataset query parameters (`layer`, `version`, `v`, `bbox`, `limit`)
+and omits URLs with other parameters, embedded credentials or fragments.
+These checks run against catalog metadata. Remote availability can change
+between a catalog update and a visit.
+
+### Feature services
+
+WFS previews request a maximum of 100 features from a named layer on a verified public WFS 2.0 endpoint. The layer comes from a cataloged type name or the record’s `gbl_wxsIdentifier_s`. Open in GeoLibre requests the server’s GeoJSON format. GeoServer requests use longitude–latitude order.
+
+OGC API Features previews use a named collection or its `/items` distribution on a verified service. The link requests GeoJSON, preserves a cataloged bounding box and caps the first page at 100 features. Service roots, credential-bearing URLs and unrecognized query parameters are skipped. These links preview the first page of the dataset.
+
+### Raster services
+
+The resource detail and links endpoints discover raster layers from a public HTTPS
+GetCapabilities endpoint or a cataloged capabilities XML document. Shared service
+documents are cached. Search results can reuse discovery without waiting on providers.
+The document determines the service type, including when a WMS reference points
+to a WMTS document. The catalog layer identifier must match unambiguously.
+A service advertising one named layer can be opened without a catalog identifier.
+
+WMS projects use the advertised GetMap URL, image format, protocol version and
+Web Mercator CRS. WMTS projects use the advertised style, a Web Mercator tile
+matrix set aligned with the global XYZ grid, and either its tile URL template
+or GetTile endpoint. The project takes its initial extent from the record or
+the layer’s geographic bounding box. GeoLibre requests images directly from
+the publisher, so browser access to the tiles is required.
+
+### Checking a collection
+
+Open a representative dataset in the hosted viewer in a signed-out browser.
+Check its entry in **Layers** and inspect the dataset request for cross-origin
+access. A range-based format also needs byte-range support. Add the public
+collection’s host and path prefix to `PUBLIC_COLLECTIONS` after verification.
+
+| Format | Launch example | Expected layer |
+| --- | --- | --- |
+| GeoJSON | [Places](https://web.geolibre.app/?data=https%3A%2F%2Fassets.geolibre.app%2Fdata%2Fplaces.geojson) | `places`, vector |
+| GeoParquet | [Building counts](https://web.geolibre.app/?data=https%3A%2F%2Fdata.source.coop%2Fgiswqs%2Fopengeos%2Fbuilding_count_h3.parquet) | `building_count_h3`, vector |
+| PMTiles | [BTAA catalog fixture b1g_PJxxfKgpqpUT](https://web.geolibre.app/?data=https%3A%2F%2Fgeobtaa-assets-prod.s3.us-east-2.amazonaws.com%2Fstore%2Fasset%2Ffa61a24b-2d07-4411-ace1-f5ccecb8f900%2F5c3cd783914c8ca35748cfe9194936c6.pmtiles) | PMTiles layer with the asset filename stem |
+| COG | [Elevation raster](https://web.geolibre.app/?data=https%3A%2F%2Fdata.source.coop%2Fgiswqs%2Fopengeos%2Fdem.tif) | `dem`, COG |
+
+GeoLibre documents the browser requirements and the direct-data URL parameter
+in its [Embedding & Sharing guide](https://geolibre.app/user-guide/embedding/).

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
-import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import L from '../../mapping/maplibre';
+import type * as MapTypes from '../../mapping/maplibre';
+import { GeoJSON, useMap, useMapEvents } from '../../mapping/react';
 import { cellToBoundary } from 'h3-js';
 import {
   h3CellGeometry,
@@ -80,7 +81,7 @@ function getColor(intensity: number): string {
 }
 
 export type HexHoverData = { h3: string; count: number; resolution: number };
-export function MapUpdaterHex({
+export const MapUpdaterHex = memo(function MapUpdaterHex({
   searchQuery,
   onFeatureClick,
   onHexClick,
@@ -110,16 +111,30 @@ export function MapUpdaterHex({
   queryString?: string;
 }) {
   const map = useMap();
-  const [bbox, setBbox] = useState<string | null>(null);
+  const [{ bbox, zoom }, setViewport] = useState(() => ({
+    bbox: null as string | null,
+    zoom: map.getZoom(),
+  }));
   const hoveredRef = useRef<{
-    layer: L.Path;
-    defaultStyle: L.PathOptions;
+    layer: MapTypes.Path;
+    defaultStyle: MapTypes.PathOptions;
   } | null>(null);
   const prevHoveredHexRef = useRef<HexHoverData | null | undefined>(undefined);
 
   const updateBbox = useCallback(() => {
     const b = map.getBounds();
-    setBbox(clampBbox(b.getWest(), b.getSouth(), b.getEast(), b.getNorth()));
+    const bbox = clampBbox(
+      b.getWest(),
+      b.getSouth(),
+      b.getEast(),
+      b.getNorth()
+    );
+    const zoom = map.getZoom();
+    setViewport((previous) =>
+      previous.bbox === bbox && previous.zoom === zoom
+        ? previous
+        : { bbox, zoom }
+    );
   }, [map]);
 
   useMapEvents({
@@ -131,19 +146,22 @@ export function MapUpdaterHex({
     map.whenReady(() => updateBbox());
   }, [map, updateBbox]);
 
-  const zoom = map.getZoom();
-  const resolution = zoomToResolution(zoom);
-  // Skip global (null bbox) request at low zoom: it can be cached empty. Wait for moveend to set bbox.
+  const requestedResolution = zoomToResolution(zoom);
+  // Wait for the initial viewport at every zoom; remounting a local map must
+  // not issue a global high-resolution request before whenReady supplies bounds.
   const useGlobalRequest = zoom <= ZOOM_GLOBAL_THRESHOLD && bbox === null;
   const bboxForApi = useGlobalRequest ? null : bbox;
-  const fetchEnabled = !useGlobalRequest;
-  const { hexes, hexCount, totalInView, loading, error } = useMapH3(
-    searchQuery,
-    bboxForApi,
-    resolution,
-    queryString,
-    { enabled: fetchEnabled }
-  );
+  const fetchEnabled = bbox !== null;
+  const {
+    hexes,
+    hexCount,
+    totalInView,
+    loading,
+    error,
+    resolution = requestedResolution,
+  } = useMapH3(searchQuery, bboxForApi, requestedResolution, queryString, {
+    enabled: fetchEnabled,
+  });
 
   useEffect(() => {
     if (onHexData)
@@ -188,135 +206,142 @@ export function MapUpdaterHex({
     prevHoveredHexRef.current = hoveredHex;
   }, [onHexHover, hoveredHex]);
 
-  if (error) return null;
-  // Show empty layer while loading instead of hiding (so hexes appear as soon as data arrives)
-  let hexesToRender = loading && hexes.length === 0 ? [] : hexes;
-  // When we requested global (no bbox), filter to current viewport so we only draw visible hexes.
-  if (useGlobalRequest && hexesToRender.length > 0) {
-    const bounds = map.getBounds();
-    const isValid = typeof bounds.isValid === 'function' && bounds.isValid();
-    const hasExtent =
-      bounds.getNorth() - bounds.getSouth() > 0.1 &&
-      bounds.getEast() - bounds.getWest() > 0.1;
-    if (isValid && hasExtent) {
-      hexesToRender = hexesToRender.filter((h) =>
-        hexIntersectsBounds(h.h3, bounds)
-      );
+  return useMemo(() => {
+    let hexesToRender = hexes;
+    // When we requested global (no bbox), filter to current viewport so we only draw visible hexes.
+    if (useGlobalRequest && hexesToRender.length > 0) {
+      const bounds = map.getBounds();
+      const isValid = typeof bounds.isValid === 'function' && bounds.isValid();
+      const hasExtent =
+        bounds.getNorth() - bounds.getSouth() > 0.1 &&
+        bounds.getEast() - bounds.getWest() > 0.1;
+      if (isValid && hasExtent) {
+        hexesToRender = hexesToRender.filter((h) =>
+          hexIntersectsBounds(h.h3, bounds)
+        );
+      }
     }
-  }
 
-  const maxCount = Math.max(...hexesToRender.map((h) => h.count), 1);
-  const features = hexesToRender.map((h) => {
-    return {
-      type: 'Feature' as const,
-      properties: { h3: h.h3, count: h.count },
-      geometry: h3CellGeometry(h.h3),
-    };
-  });
+    const maxCount = Math.max(...hexesToRender.map((h) => h.count), 1);
+    const features = hexesToRender.map((h) => {
+      return {
+        type: 'Feature' as const,
+        properties: { h3: h.h3, count: h.count },
+        geometry: h3CellGeometry(h.h3),
+      };
+    });
 
-  const fc = { type: 'FeatureCollection' as const, features };
+    const fc = { type: 'FeatureCollection' as const, features };
 
-  // react-leaflet GeoJSON does not update when data changes; key forces remount so hexes redraw
-  const geoKey = `${bbox ?? ''}-${resolution}-${features.length}`;
-
-  return (
-    <GeoJSON
-      key={geoKey}
-      data={fc}
-      style={(feature) => {
-        const c = feature?.properties?.count ?? 0;
-        const h3 = feature?.properties?.h3 ?? '';
-        const intensity =
-          maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
-        const base = {
-          fillColor: getColor(intensity),
-          weight: 1,
-          opacity: 1,
-          color: 'white',
-          fillOpacity: 0.7,
-          className: '' as string,
-        };
-        if (hoveredHex && h3 === hoveredHex.h3) {
-          return {
-            ...base,
+    return (
+      <GeoJSON
+        data={fc}
+        style={(feature) => {
+          const c = feature?.properties?.count ?? 0;
+          const h3 = feature?.properties?.h3 ?? '';
+          const intensity =
+            maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
+          const base = {
+            fillColor: getColor(intensity),
+            weight: 1,
+            opacity: 1,
+            color: 'white',
+            fillOpacity: 0.7,
+            className: '' as string,
+          };
+          if (hoveredHex && h3 === hoveredHex.h3) {
+            return {
+              ...base,
+              color: '#3B82F6',
+              weight: 3,
+              className: 'hex-hover-glow',
+            };
+          }
+          return base;
+        }}
+        onEachFeature={(feature, layer) => {
+          const count = feature?.properties?.count ?? 0;
+          const h3 = feature?.properties?.h3 ?? '';
+          const c = feature?.properties?.count ?? 0;
+          const intensity =
+            maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
+          const defaultStyle = {
+            fillColor: getColor(intensity),
+            weight: 1,
+            opacity: 1,
+            color: 'white',
+            fillOpacity: 0.7,
+            className: '',
+          };
+          const hoverStyle = {
+            ...defaultStyle,
             color: '#3B82F6',
             weight: 3,
             className: 'hex-hover-glow',
           };
-        }
-        return base;
-      }}
-      onEachFeature={(feature, layer) => {
-        const count = feature?.properties?.count ?? 0;
-        const h3 = feature?.properties?.h3 ?? '';
-        const c = feature?.properties?.count ?? 0;
-        const intensity =
-          maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
-        const defaultStyle = {
-          fillColor: getColor(intensity),
-          weight: 1,
-          opacity: 1,
-          color: 'white',
-          fillOpacity: 0.7,
-          className: '',
-        };
-        const hoverStyle = {
-          ...defaultStyle,
-          color: '#3B82F6',
-          weight: 3,
-          className: 'hex-hover-glow',
-        };
 
-        if (!onHexHover) {
-          const searchUrl = buildSearchUrl(
-            h3,
-            resolution,
-            searchQuery,
-            queryString
-          );
-          layer.bindPopup(
-            `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`
-          );
-        }
-
-        layer.on('mouseover', () => {
-          const prev = hoveredRef.current;
-          if (prev && prev.layer !== layer) {
-            prev.layer.setStyle(prev.defaultStyle);
-          }
-          const pathLayer = layer as L.Path;
-          pathLayer.setStyle(hoverStyle);
-          pathLayer.bringToFront();
-          hoveredRef.current = { layer: pathLayer, defaultStyle };
-          onHexHover?.({ h3, count, resolution });
-        });
-        layer.on('mouseout', () => {
-          const current = hoveredRef.current;
-          if (current && current.layer === layer) {
-            current.layer.setStyle(current.defaultStyle);
-            hoveredRef.current = null;
-            onHexHover?.(null);
-          }
-        });
-        layer.on('click', (event: L.LeafletMouseEvent) => {
-          if (event.originalEvent.ctrlKey || event.originalEvent.metaKey) {
-            return;
-          }
-          if (onHexClick) {
-            L.DomEvent.stopPropagation(event);
-            onHexClick({
+          if (!onHexHover) {
+            const searchUrl = buildSearchUrl(
               h3,
-              count,
               resolution,
-              bbox: getHexBoundingBox(h3),
-            });
-            return;
+              searchQuery,
+              queryString
+            );
+            layer.bindPopup(
+              `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`
+            );
           }
-          onFeatureClick({
-            properties: { name: `Hex ${h3.slice(-6)}`, hits: count },
+
+          layer.on('mouseover', () => {
+            const prev = hoveredRef.current;
+            if (prev && prev.layer !== layer) {
+              prev.layer.setStyle(prev.defaultStyle);
+            }
+            const pathLayer = layer as MapTypes.Path;
+            pathLayer.setStyle(hoverStyle);
+            pathLayer.bringToFront();
+            hoveredRef.current = { layer: pathLayer, defaultStyle };
+            onHexHover?.({ h3, count, resolution });
           });
-        });
-      }}
-    />
-  );
-}
+          layer.on('mouseout', () => {
+            const current = hoveredRef.current;
+            if (current && current.layer === layer) {
+              current.layer.setStyle(current.defaultStyle);
+              hoveredRef.current = null;
+              onHexHover?.(null);
+            }
+          });
+          layer.on('click', (event: MapTypes.LeafletMouseEvent) => {
+            if (event.originalEvent.ctrlKey || event.originalEvent.metaKey) {
+              return;
+            }
+            if (onHexClick) {
+              L.DomEvent.stopPropagation(event);
+              onHexClick({
+                h3,
+                count,
+                resolution,
+                bbox: getHexBoundingBox(h3),
+              });
+              return;
+            }
+            onFeatureClick({
+              properties: { name: `Hex ${h3.slice(-6)}`, hits: count },
+            });
+          });
+        }}
+      />
+    );
+  }, [
+    hexes,
+    useGlobalRequest,
+    map,
+    resolution,
+    hoveredHex,
+    onHexHover,
+    onHexClick,
+    onFeatureClick,
+    searchQuery,
+    queryString,
+  ]);
+});

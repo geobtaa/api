@@ -176,11 +176,9 @@ describe('Embedded Allmaps viewer', () => {
 describe('Allmaps viewer toolbar', () => {
   const content = () => (
     <AllmapsViewerFrame
-      tabs={
-        <div role="tablist" aria-label="Viewers">
-          <button role="tab">Map Overlay</button>
-        </div>
-      }
+      hasItem={false}
+      overlayActive
+      onShowOverlay={() => {}}
       viewerUrl="https://viewer.allmaps.org/"
     >
       <div data-testid="viewer-content" />

@@ -102,7 +102,7 @@ describe('SortControl', () => {
     it('returns null when options is null', () => {
       const { container } = render(
         <SortControl
-          options={null as any}
+          options={null as never}
           currentSort="relevance"
           onSortChange={mockOnSortChange}
         />
@@ -114,7 +114,7 @@ describe('SortControl', () => {
     it('returns null when options is undefined', () => {
       const { container } = render(
         <SortControl
-          options={undefined as any}
+          options={undefined as never}
           currentSort="relevance"
           onSortChange={mockOnSortChange}
         />
