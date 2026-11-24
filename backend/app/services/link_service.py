@@ -8,6 +8,8 @@ from app.services.distribution_repository import (
     build_distribution_context,
     fetch_distribution_context,
 )
+from app.services.geolibre import geolibre_links
+from app.services.reference_reconstruction import coerce_reference_mapping
 from db.database import database
 
 logger = logging.getLogger(__name__)
@@ -66,6 +68,16 @@ class LinkService:
         arcgis_links = self._get_arcgis_links()
         if arcgis_links:
             links["Open in ArcGIS"] = arcgis_links
+
+        rights = self.resource_dict.get(
+            "dct_accessRights_s", self.resource_dict.get("dct_accessrights_s")
+        )
+        if isinstance(rights, str) and rights.strip().casefold() == "public":
+            references = self.distribution_context.reference_payload or coerce_reference_mapping(
+                self.resource_dict.get("dct_references_s")
+            )
+            if launch_links := geolibre_links(references):
+                links["Open in GeoLibre"] = launch_links
 
         # Add "Documentation" links
         documentation_links = self._get_documentation_links()
@@ -266,7 +278,8 @@ class LinkService:
         try:
             # Fetch the resource from the database
             resource_query = """
-                SELECT id, dct_title_s, dct_references_s, "gbl_wxsIdentifier_s", dcat_bbox
+                SELECT id, dct_title_s, dct_references_s, "dct_accessRights_s",
+                       "gbl_wxsIdentifier_s", dcat_bbox
                 FROM resources
                 WHERE id = :resource_id
             """
@@ -440,25 +453,14 @@ class LinkService:
 
         # Fallback to the legacy field if we didn't find anything
         if not references:
-            raw_refs = self.resource_dict.get("dct_references_s")
-            if isinstance(raw_refs, str):
-                try:
-                    import json
-
-                    raw_refs = json.loads(raw_refs)
-                except Exception:
-                    raw_refs = None
-            if isinstance(raw_refs, dict):
-                # Coerce mixed values to simple URLs where possible
-                coerced: Dict[str, Any] = {}
-                for uri, value in raw_refs.items():
-                    if isinstance(value, str):
-                        coerced[uri] = value
-                    elif isinstance(value, dict):
-                        url = value.get("url") or value.get("@id") or value.get("id")
-                        if url:
-                            coerced[uri] = url
-                references = coerced
+            raw_refs = coerce_reference_mapping(self.resource_dict.get("dct_references_s"))
+            for uri, value in raw_refs.items():
+                if isinstance(value, str):
+                    references[uri] = value
+                elif isinstance(value, dict):
+                    url = value.get("url") or value.get("@id") or value.get("id")
+                    if url:
+                        references[uri] = url
 
         self._legacy_refs_cache = references
         return references

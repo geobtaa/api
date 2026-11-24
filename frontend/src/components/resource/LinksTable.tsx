@@ -144,7 +144,9 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
     if (categoryLower.includes('source') || categoryLower.includes('visit')) {
       return 'visit_source_click';
     }
-    if (categoryLower.includes('arcgis')) return 'external_geoportal_click';
+    if (categoryLower.includes('arcgis') || category === 'Open in GeoLibre') {
+      return 'external_geoportal_click';
+    }
     if (
       categoryLower.includes('documentation') ||
       categoryLower.includes('document')
@@ -258,7 +260,8 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
       );
     } else if (
       categoryLower.includes('map') ||
-      categoryLower.includes('location')
+      categoryLower.includes('location') ||
+      category === 'Open in GeoLibre'
     ) {
       return (
         <MapPin className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
@@ -511,7 +514,7 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
                       className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline group"
                     >
                       {getCategoryIcon(category)}
-                      {linkItems.length === 1
+                      {linkItems.length === 1 && category !== 'Open in GeoLibre'
                         ? category
                         : `${category}: ${link.label || link.url}`}
                       <ExternalLink

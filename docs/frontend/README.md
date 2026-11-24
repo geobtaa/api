@@ -156,6 +156,13 @@ Resource source links are native anchors, supporting URL previews, copy-link,
 and modifier clicks. Multiple source URLs are displayed individually. Web
 Services, Metadata, and Open in ArcGIS retain their selection dialogs.
 
+**Open in GeoLibre** appears in the Links section of a public resource with an
+eligible distribution. Each native link names the format and opens the dataset
+in a new tab. When the API supplies multiple files of one format, the labels
+include a number and any available layer name.
+
+See the [distribution eligibility rules and example datasets](../backend/distribution_tables.md#open-in-geolibre).
+
 ### OGM Viewer basemaps
 
 The resource viewer uses a pinned source build of the [BTAA OGM Viewer fork](ogm-viewer.md), based on upstream 1.7.0, with OpenFreeMap Positron as the default style. Version 1.x bundles its theme and icons; the application no longer
