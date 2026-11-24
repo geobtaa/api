@@ -96,9 +96,12 @@ describe('GalleryView', () => {
     expect(screen.getAllByRole('link')).toHaveLength(20);
     const bookmark = screen.getByRole('button', { name: 'Bookmark Result 1' });
     expect(bookmark.closest('a')).toBeNull();
+    expect(bookmark).toHaveTextContent(/^$/);
+    expect(bookmark).toHaveAttribute('title', 'Add bookmark');
     expect(bookmark).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(bookmark);
     expect(bookmark).toHaveAttribute('aria-pressed', 'true');
+    expect(bookmark).toHaveAttribute('title', 'Remove bookmark');
     fireEvent.click(bookmark);
 
     expect(screen.getAllByText('Result 1').length).toBeGreaterThan(0);

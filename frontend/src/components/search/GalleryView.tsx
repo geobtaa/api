@@ -282,7 +282,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                 absoluteIndex={absIndex - 1}
                 firstOnPage={index === 0}
               />
-              <div className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow flex flex-col [container-type:inline-size]">
+              <div className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow flex flex-col">
                 <Link
                   to={`/resources/${r.id}`}
                   onClick={(event) =>

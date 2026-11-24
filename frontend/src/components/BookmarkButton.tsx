@@ -26,7 +26,7 @@ export function BookmarkButton({ itemId, resourceTitle }: BookmarkButtonProps) {
       onClick={handleClick}
       className={`p-2 rounded-full hover:bg-gray-100 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 ${
         resourceTitle
-          ? 'relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 text-sm font-medium text-blue-700'
+          ? 'relative inline-flex h-11 w-11 shrink-0 items-center justify-center text-blue-700'
           : bookmarked
             ? 'text-blue-500'
             : 'text-gray-400'
@@ -38,6 +38,7 @@ export function BookmarkButton({ itemId, resourceTitle }: BookmarkButtonProps) {
             ? 'Remove bookmark'
             : 'Add bookmark'
       }
+      title={bookmarked ? 'Remove bookmark' : 'Add bookmark'}
       aria-pressed={resourceTitle ? bookmarked : undefined}
     >
       <Bookmark
@@ -45,11 +46,6 @@ export function BookmarkButton({ itemId, resourceTitle }: BookmarkButtonProps) {
         className="w-5 h-5"
         fill={bookmarked ? 'currentColor' : 'none'}
       />
-      {resourceTitle && (
-        <span className="hidden [@container(min-width:28rem)]:inline">
-          Bookmark
-        </span>
-      )}
     </button>
   );
 }

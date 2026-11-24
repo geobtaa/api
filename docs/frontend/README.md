@@ -153,7 +153,7 @@ MapLibre cooperative-gesture instruction (Command on Mac, Ctrl elsewhere); zoom 
 dragging, and touch interactions remain available.
 
 Resource detail pages and search results use the same bookmark button and
-browser cookie. Each list or map result has a persistent bookmark on its right
+browser cookie. Each list or map result has a persistent bookmark icon on its right
 edge. Gallery cards show it beside the resource class below the image. The
 toggle announces the resource title and its pressed state. The button beside the resource title toggles the displayed
 record by its catalog ID.

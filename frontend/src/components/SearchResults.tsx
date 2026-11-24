@@ -145,7 +145,7 @@ export function SearchResults({
               firstOnPage={index === 0}
             />
             <article
-              className={`min-w-0 bg-white rounded-lg shadow-md hover:shadow-lg transition-all [container-type:inline-size] ${
+              className={`min-w-0 bg-white rounded-lg shadow-md hover:shadow-lg transition-all ${
                 isHighlighted
                   ? 'ring-2 ring-blue-500/80 bg-blue-50 shadow-md'
                   : ''
