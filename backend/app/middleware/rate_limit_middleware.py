@@ -32,6 +32,7 @@ IMMUTABLE_STATIC_MAP_PATH_RE = re.compile(
     r"^/api/v1/static-map-assets/[0-9a-f]{64}$",
     re.IGNORECASE,
 )
+VIEWER_MODULE_PATH_RE = re.compile(r"/api/v1/viewer-assets/[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.js")
 DOCUMENTATION_PATHS = {
     "/api/docs",
     "/api/docs/oauth2-redirect",
@@ -70,6 +71,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         """Process request, optionally enforce rate limiting, and log usage."""
+
+        # Loading the static ES module graph is a single viewer bootstrap. Its
+        # metadata and data requests still use the normal API quota.
+        if request.method in {"GET", "HEAD"} and VIEWER_MODULE_PATH_RE.fullmatch(request.url.path):
+            return await call_next(request)
 
         # Skip rate limiting when test bypass flag is set, unless explicitly forced
         if _bypass_rate_limit_for_tests() and not request.headers.get("X-Force-RateLimit"):
