@@ -21,6 +21,11 @@ async def _run_inline(**kwargs) -> dict:
 
 
 def main() -> None:
+    if os.getenv("GEOMG_CATALOG_ENABLED") == "true":
+        from app.services.bridge_sync.geomg import run
+
+        print(json.dumps(run()))
+        return
     bridge_trigger = os.getenv("BRIDGE_TRIGGER", "incremental_cron")
     changed_since = (os.getenv("CHANGED_SINCE") or "").strip() or None
     resume_from_last_success = changed_since is None

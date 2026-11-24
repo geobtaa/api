@@ -2,7 +2,6 @@ from typing import Optional
 
 from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.sql import select
 
 from app.api.schemas import ResourceResponse
 from app.api.v1.utils import (
@@ -17,7 +16,14 @@ from app.services.cache_service import cached_endpoint
 from app.services.resource_representation_cache import get_or_build_resource_representation
 from db.models import resources
 
-from . import RESOURCE_CACHE_TTL, filter_resource_fields, get_async_session, logger, router
+from . import (
+    RESOURCE_CACHE_TTL,
+    filter_resource_fields,
+    get_async_session,
+    logger,
+    public_catalog_query,
+    router,
+)
 
 
 @router.get("/resources/{id}", response_model=ResourceResponse)
@@ -38,7 +44,7 @@ async def get_resource(
         # Get resource data directly from database (not Elasticsearch)
         # to ensure clean Aardvark fields
         async with get_async_session() as session:
-            query = select(resources).where(resources.c.id == id)
+            query = public_catalog_query(resources).where(resources.c.id == id)
             result = await session.execute(query)
             row = result.fetchone()
 

@@ -1,0 +1,114 @@
+name: GEOMG Admin
+
+on:
+  push:
+    branches: [develop]
+    paths: ["admin/**", ".github/workflows/geomg-admin.yml"]
+  pull_request:
+    branches: [develop]
+    paths: ["admin/**", ".github/workflows/geomg-admin.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geomg-admin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    defaults:
+      run:
+        working-directory: admin
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: paradedb/paradedb:0.25.5
+        env:
+          POSTGRES_USER: geomg_test
+          POSTGRES_PASSWORD: geomg_test
+          POSTGRES_DB: geomg_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U geomg_test -d geomg_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://geomg_test:geomg_test@127.0.0.1:5432/geomg_test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        run: python -m pip install uv==0.12.6
+
+      - name: Install backend dependencies
+        working-directory: admin/backend
+        run: uv sync --frozen --extra dev
+
+      - name: Lint backend
+        run: make backend-lint
+
+      - name: Check backend formatting
+        run: make backend-format-check
+
+      - name: Test backend with coverage
+        run: make backend-coverage
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: |
+            admin/backend/coverage.xml
+            admin/backend/coverage_html_report
+          if-no-files-found: ignore
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: admin/frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: admin/frontend/package-lock.json
+
+      - name: Install npm
+        run: npm install --global npm@12.0.2
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Check frontend formatting
+        run: npm run format:check
+
+      - name: Test frontend with coverage
+        run: npm run test:coverage
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: admin/frontend/coverage
+          if-no-files-found: ignore

@@ -1,0 +1,16 @@
+.git
+.github
+.kamal
+.env
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.venv
+**/*.egg-info
+**/*.tsbuildinfo
+**/coverage
+**/coverage_html_report
+**/node_modules
+**/dist
+deliverables
+tmp

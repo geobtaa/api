@@ -1,0 +1,785 @@
+{
+  "source_project": "geoportal",
+  "source_commit": "2d38e99f265fc8ce06865e2fa8f1b875f19e815c",
+  "source_directory": "test/fixtures/files",
+  "snapshot_date": "2026-09-08",
+  "entries": [
+    {
+      "path": "btaa_documents/b1g_access_rights_html_link.json",
+      "sha256": "60c0a398574ec6181597c5a7b7909a639d73646ff36490ef8ad3586d05da1399",
+      "resource_id": "99-0011-minnesota",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_access_rights_html_link0.json",
+      "sha256": "60c0a398574ec6181597c5a7b7909a639d73646ff36490ef8ad3586d05da1399",
+      "resource_id": "99-0011-minnesota",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_all_relationships.json",
+      "sha256": "249ce957f2cbc125a98d5c8422286dab831ff116cf2cbb73914cae1be1b09c31",
+      "resource_id": "all-relationships",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_all_relationships_the_related_record.json",
+      "sha256": "322b5661bded622f30ac4f374604419cbcea65797920698c88ac2b661781dea6",
+      "resource_id": "the-related-record",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_child_false.json",
+      "sha256": "3730f272d26507e8f0b0ee84b5fdec5f479f23ab05f1799d485a52829d933657",
+      "resource_id": "f397d257-3587-4b8a-ab40-fdd06f865862",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_child_false0.json",
+      "sha256": "3730f272d26507e8f0b0ee84b5fdec5f479f23ab05f1799d485a52829d933657",
+      "resource_id": "f397d257-3587-4b8a-ab40-fdd06f865862",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_child_true.json",
+      "sha256": "a4adf538175fd418bf1d3a9c42bdfc454f17c11822b38bff24fa8482a53999ab",
+      "resource_id": "12580_auto_accessibility_data_2018_geopackage",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_child_true0.json",
+      "sha256": "a4adf538175fd418bf1d3a9c42bdfc454f17c11822b38bff24fa8482a53999ab",
+      "resource_id": "12580_auto_accessibility_data_2018_geopackage",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_citation_dates.json",
+      "sha256": "a4bd2374a256823cefb022a0f811c940bdfd794bce7560f1ef1a298a15698b04",
+      "resource_id": "b06d96e4-c917-4afc-a3df-adbbc9a2273c",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_description_html_link.json",
+      "sha256": "584484f4119319c270d42e3af61666a6875c9e7346eeacedbb8501ce13f01de5",
+      "resource_id": "99-0011",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_description_html_link0.json",
+      "sha256": "584484f4119319c270d42e3af61666a6875c9e7346eeacedbb8501ce13f01de5",
+      "resource_id": "99-0011",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_description_multiple.json",
+      "sha256": "885dae0d828b7bdc3d13650ee5a8ac3fb8859b96d9f3350c96199977409c8721",
+      "resource_id": "18bed919-fc86-4e02-a909-15f8bb9899bb",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_403_error.json",
+      "sha256": "fb4fb50963c0e06e7b3dba1d6b6416c4b955fad2c6d0976f6a21ef9aaad8799f",
+      "resource_id": "d6efb1e4d0ca491db8c79e5b18c4dee9_3",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_403_error0.json",
+      "sha256": "fb4fb50963c0e06e7b3dba1d6b6416c4b955fad2c6d0976f6a21ef9aaad8799f",
+      "resource_id": "d6efb1e4d0ca491db8c79e5b18c4dee9_3",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_cors_error.json",
+      "sha256": "a4bd2374a256823cefb022a0f811c940bdfd794bce7560f1ef1a298a15698b04",
+      "resource_id": "b06d96e4-c917-4afc-a3df-adbbc9a2273c",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_deleted.json",
+      "sha256": "498c5286d8bd32244311740c515821a78dd3f8bb5f5d6e2fb14b2508d4831780",
+      "resource_id": "4d2053c593cc4f7685f2823f9e2061b8_1",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_extremely_large.json",
+      "sha256": "198f6c31b84fdf5595cf2927937dcea0e1ee32a5ac625ecc0b5e857e3e6e5210",
+      "resource_id": "ab0f0408fcb5479e97df5a13d9a3c648_0",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_feature_layer_debug_1.json",
+      "sha256": "0d4d4a248a7697a07b84067695ca5d11866bf9cde3bfeb47cdbe3f54a0c106fa",
+      "resource_id": "c759946b9de848fbba0f508d431e04bc_0",
+      "starter": true,
+      "purpose": "ArcGIS feature layer"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_feature_layer_debug_2.json",
+      "sha256": "f9e585ae61d8cbb9b1ff2f16f0c66b0e52e9bec97ea5585428721e257ca3b4aa",
+      "resource_id": "019f5e3f77da4c89bf6d00b376389a0c_1",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_feature_layer_debug_20.json",
+      "sha256": "f9e585ae61d8cbb9b1ff2f16f0c66b0e52e9bec97ea5585428721e257ca3b4aa",
+      "resource_id": "019f5e3f77da4c89bf6d00b376389a0c_1",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_feature_layer_debug_3.json",
+      "sha256": "9c064769fecff47549080e4390b914cb44f5a414447110a3a8ccf23d560a63a2",
+      "resource_id": "714589fbf99d4045bc57bf298be2578e_0",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_feature_layer_debug_30.json",
+      "sha256": "9c064769fecff47549080e4390b914cb44f5a414447110a3a8ccf23d560a63a2",
+      "resource_id": "714589fbf99d4045bc57bf298be2578e_0",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_nonsecure.json",
+      "sha256": "8d8221568526132a87752487a3098c50c403aa11d91fe7b4039cccdb5d840c38",
+      "resource_id": "2ba463d1c6114f74ac4c785fe19e8d1e_10",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_slow_image_map.json",
+      "sha256": "db5cd38e993e72579b8841a352fa4f2a096b05cbfa882f3d21e50f897010656d",
+      "resource_id": "457dc8bbff9b46848843c8b1bf0ae689",
+      "starter": true,
+      "purpose": "Imagery service; upstream may be slow"
+    },
+    {
+      "path": "btaa_documents/b1g_esri_visibility_extent.json",
+      "sha256": "634506274147454cd5cb5fc123f52b5a0879028f217ff6859547206628e86b7b",
+      "resource_id": "458cf4b7d44543d2a3bee3bd92914af9_3",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_feature_layer_errors_iowa.json",
+      "sha256": "f4ab1d9f80906ed00bead3047493f713d819ef49a4c9f420cc819c7e157feac3",
+      "resource_id": "c7074054e2324e5cbd5688766789b4eb_0",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_fullscreen_map.json",
+      "sha256": "77279486a8c5b087f5b294fcda4baa96f4b46f47911e6fec18b67fe4058c2f04",
+      "resource_id": "87adb12a-30b5-4bc3-866c-97adcd7e3d2e",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_iiif_manifest_book.json",
+      "sha256": "dc6118c8a80566bf4280b16c81baf34d711aa6453e029e5c470e230fcfe73aea",
+      "resource_id": "62aac6a8-d31e-4364-8946-ff9bebbf4a25",
+      "starter": true,
+      "purpose": "Multi-page atlas"
+    },
+    {
+      "path": "btaa_documents/b1g_iiif_manifest_cdm_psu.json",
+      "sha256": "041553d06f56cf4d322539ffcb77fe3ba844fc31baf71a64ae1ec089b520895b",
+      "resource_id": "0ea01ec7-a838-4911-bf87-6478514b2e51",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_iiif_manifest_map.json",
+      "sha256": "2f60d13c7de86fcc7bc77b254e8e04fa53fd44f8438f8713bd279bfc1b466bd5",
+      "resource_id": "e1ec54e6-8bb4-496a-93f9-43ac901bea74",
+      "starter": true,
+      "purpose": "Scanned map with IIIF manifest"
+    },
+    {
+      "path": "btaa_documents/b1g_iowa_map_show.json",
+      "sha256": "06ec7629896c02e9861fb4ff38929539f395dea436d56a9dfe2d6919a33c55ce",
+      "resource_id": "f1b57f24-d474-4493-90e1-d3c25f39b65b",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_iu_sidebar_map.json",
+      "sha256": "4d9657a4e51922c94a4ba74cdb1ac67de00873b9d9dd8279f5612ccf735bc6d9",
+      "resource_id": "VAC9619-001735",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_iu_sidebar_map0.json",
+      "sha256": "4d9657a4e51922c94a4ba74cdb1ac67de00873b9d9dd8279f5612ccf735bc6d9",
+      "resource_id": "VAC9619-001735",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_iu_static_map.json",
+      "sha256": "48818d87b833efc441a1ebfda229ff9b04b4bf99cea2f10799a79dc4f0d6a845",
+      "resource_id": "VAC9619-001727",
+      "starter": true,
+      "purpose": "Unicode title"
+    },
+    {
+      "path": "btaa_documents/b1g_iu_static_map0.json",
+      "sha256": "48818d87b833efc441a1ebfda229ff9b04b4bf99cea2f10799a79dc4f0d6a845",
+      "resource_id": "VAC9619-001727",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_license_link.json",
+      "sha256": "3add02e51466755a1a8e2056e5dd6d00fac224a9de0a0675b529629eb3e4e5ce",
+      "resource_id": "ark-85335-m5gq6sd72",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_licensed_data.json",
+      "sha256": "1bb21ce2407e2afd92a29c194c1cb07f99239d2dd5a5a3d85f3c74ecf7adc573",
+      "resource_id": "99-0001-test",
+      "starter": true,
+      "purpose": "Licensed access example"
+    },
+    {
+      "path": "btaa_documents/b1g_minnesota_shapefile_show.json",
+      "sha256": "4d7a99d6a3ee3424a955fe0cc1ffb36d5ad0ca852db71b7f12eb020bdc9a615d",
+      "resource_id": "b98a7b39-830a-48ca-84c2-06332aaebbb8",
+      "starter": true,
+      "purpose": "Shapefile dataset and download references"
+    },
+    {
+      "path": "btaa_documents/b1g_nebraska_provenance_dash.json",
+      "sha256": "0223f400b885e085c74c4be8c41e2174e57998e93dd8e2d3b7963a6857c8a179",
+      "resource_id": "0cb3c38fcab148afb42c96d7b7b761b3_15",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_nebraska_provenance_dash0.json",
+      "sha256": "0223f400b885e085c74c4be8c41e2174e57998e93dd8e2d3b7963a6857c8a179",
+      "resource_id": "0cb3c38fcab148afb42c96d7b7b761b3_15",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_relations_ancestor.json",
+      "sha256": "7c02cc9ec475500f7c5eac81f18dc4fa7972941887f0a430fdf62951618ae952",
+      "resource_id": "05d-01",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_relations_ancestor_child.json",
+      "sha256": "7a184ff83769a037d831027045aae82418f8235eab74b84a3cbf5146bf6018e2",
+      "resource_id": "e84a24f0-1c00-4235-a584-db5d7551cbe6",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_relations_child_record.json",
+      "sha256": "a2f102d20fb654a6644dc1bd3ec73f0c973c215ceb73ac0b8e0a51ebb6183b84",
+      "resource_id": "02999877-0ee9-4cc0-b67f-f2f48107f517",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_relations_parent_record.json",
+      "sha256": "fa62369f7f980bd0731e6f9fee3ccf3f306df5265a2946f5bb2c3180492cacb8",
+      "resource_id": "09d-01",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_relations_related_records.json",
+      "sha256": "7839f7235cb604de497ab770036167274519afdb60da6fe8ad6f81d35318bc82",
+      "resource_id": "88cc9b19-3294-4da9-9edd-775c81fb1c59",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_relationship_child_unpublished.json",
+      "sha256": "a457d97691dbc49b08b898d0ce5fdcfbd0501aadc6a6f73cb3c1d9ce93d07792",
+      "resource_id": "b2bf452d-e2a2-47b7-aabd-28cde81f2f9a",
+      "starter": true,
+      "purpose": "Unpublished relationship child"
+    },
+    {
+      "path": "btaa_documents/b1g_relationship_parent.json",
+      "sha256": "0e2111b0e53e037fb7606566642ef344ba7d10ce0c626725b13754639bc30a2a",
+      "resource_id": "27001-road-centerlines",
+      "starter": true,
+      "purpose": "Collection relationship parent"
+    },
+    {
+      "path": "btaa_documents/b1g_show_index_map.json",
+      "sha256": "0ce486c10244d2d423e24df98f11811ae3c57458ca1c7c346903d1279ee1d1fc",
+      "resource_id": "9702bb22-4305-4cc2-a8f4-fc10e4ef05df",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_show_sidebar_map.json",
+      "sha256": "b43adff954e6cf04d49fa7aa15dbad21266f84c1a93d9e292501c338deb5946a",
+      "resource_id": "f9eb8493-32ab-4ede-8330-9286846eee0d",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_static_image_map.json",
+      "sha256": "b53cd4ac7f7f0711d3f06d1cf5d0c58f8b3d58aa65cdf3cc1ae0a4a8745894b6",
+      "resource_id": "828a9dd7-1178-4775-8fb4-ef7c7d3161c9",
+      "starter": true,
+      "purpose": "Static map image"
+    },
+    {
+      "path": "btaa_documents/b1g_suppressed.json",
+      "sha256": "95ccf4850289db51363138acdaea3590100573409424ab86d41aa3d65cd08f2f",
+      "resource_id": "b45275a9-61bd-4d5a-aa1e-ba8d6d1e26aa",
+      "starter": true,
+      "purpose": "Suppressed imagery example"
+    },
+    {
+      "path": "btaa_documents/b1g_thumbnail.json",
+      "sha256": "308810fee12ea89c406d7794dd84bf5a7f9f050fc807cf39df7fe9c7f2cf05df",
+      "resource_id": "02a-02",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_wabash_child_15.json",
+      "sha256": "2729268baa6cfc0855b381064193cb2423fcaf5a2350e197c021d720579c533c",
+      "resource_id": "b5857bb0-2819-49cf-a6da-fdb39d50c529",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_wabash_child_16.json",
+      "sha256": "1ca39327d7a0fd36a5db141fe051b321ea298e36d1f2e4267845d76a53ecdffc",
+      "resource_id": "d8906fc8-92bb-4ced-bcd5-9ce9a4701c25",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_wabash_child_17.json",
+      "sha256": "a5e332b2f418f06bd83cdf94ad34a60e5d93f694511cbc9012f360cce225ed65",
+      "resource_id": "55d9f193-9f29-4cbf-860d-23c1cff11691",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_wabash_child_18.json",
+      "sha256": "cb67ebb3897ac7e5a2db0345a882ddd4863ed479e1a4bb2a5fd4dcbb16fde7fd",
+      "resource_id": "b835efbd-ca27-41af-bae2-c22210e58a89",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_wabash_parent.json",
+      "sha256": "e3384c5325e5eb3fb043f31de53682a7f034284f4ee02e1740720c896256b5ea",
+      "resource_id": "88cc9b19-3294-4da9-9edd-775c81fb1c59",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "btaa_documents/b1g_web_services.json",
+      "sha256": "b17f88080442f20dcde6841c17c44164b12d64ee923dc36a3b87a77fbc06347a",
+      "resource_id": "71f15b25-64cd-40cc-8f0c-64529293398c",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/actual-papermap1.json",
+      "sha256": "b17e102cd947178d650d2239fc651b981f32447366dc431ee9d7635948c6d7cb",
+      "resource_id": "mit-001145244",
+      "starter": true,
+      "purpose": "Nondigitized map"
+    },
+    {
+      "path": "gbl_documents/actual-point1.json",
+      "sha256": "44ad7be52a9590de2d7171a5a0526fa2005a97c6bc80237ecaf113267033c560",
+      "resource_id": "nyu-2451-34564",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/actual-polygon1.json",
+      "sha256": "1a3bf5fd6ee47e17e58701a96d6a71cc93cdc00f3a91f11167770b089fb4caaf",
+      "resource_id": "tufts-cambridgegrid100-04",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/actual-raster1.json",
+      "sha256": "59266e92a1b0d08de21ffd545bdd249e12afc071fdbc8711b53cce75ee773832",
+      "resource_id": "stanford-dp018hs9766",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/all-relationships.json",
+      "sha256": "a93a83e421d5bf9e29e68411bd597b22b669ea0859d09a408909270a13c1b557",
+      "resource_id": "all-relationships",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/baruch_ancestor1.json",
+      "sha256": "279380ae3fed65c1526b94c713ac12e58a9a0dad0d728fcd2cf755d6f7086220",
+      "resource_id": "nyu_2451_34635",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/baruch_ancestor2.json",
+      "sha256": "83920c47a519a91bb60d4739699649c5baffc9b60e93c4f060be234cf7c4d767",
+      "resource_id": "nyu_2451_34636",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/baruch_documentation_download.json",
+      "sha256": "eb0fe5f5abe63403ca548db6bd8c0eab8db09d6545d9049e168906c648e063c0",
+      "resource_id": "nyu_2451_34502",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/bbox-spans-180.json",
+      "sha256": "fe64e3ff4013a0565b92e19777d349374bf25bd6b8037d7c0ad1d4ecbc5526cc",
+      "resource_id": "princeton-sx61dn82p",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/cornell_html_metadata.json",
+      "sha256": "eabf62ff79538fd0b93cdf1b43c8b03832ae9508744b210f637136f37dca25c9",
+      "resource_id": "cugir-007741",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/display-note.json",
+      "sha256": "d3604927426bd999a8cdf8a7b7eb6ac87a9845d5322deb8cf618ab3a4c94c4a8",
+      "resource_id": "frobozz-111",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/esri-dynamic-layer-all-layers.json",
+      "sha256": "01748d890fdbc3491b77f3676e9d657f309e3a0185230b5f752c799ab0d836de",
+      "resource_id": "90f14ff4-1359-4beb-b931-5cb41d20ab90",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/esri-dynamic-layer-single-layer.json",
+      "sha256": "3e5b9a995628b22b667839b9293c5f98d66d8fba5550ffc85c83de73c8efcf40",
+      "resource_id": "4669301e-b4b2-4c8b-bf40-01b968a2865b",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/esri-feature-layer.json",
+      "sha256": "f9e55dd790a326130a913678d2b00d22f8f7aa6ed8cdac1a6991c8e4d86d7466",
+      "resource_id": "f406332e63eb4478a9560ad86ae90327_18",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/esri-image-map-layer.json",
+      "sha256": "3c2fe0bc29ef20eba986344d07e58ccd349ed96309e81a0443eb72f685469849",
+      "resource_id": "32653ed6-8d83-4692-8a06-bf13ffe2c018",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/esri-tiled_map_layer.json",
+      "sha256": "4e6737b6011b7d7caa2057efc59bc8fbb2e462ec7a4667bc84a16548ee86c84c",
+      "resource_id": "nyu-test-soil-survey-map",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/esri-wms-layer.json",
+      "sha256": "49132c77f818ffb4ce2777137f23ea5d2c711e0c7dc36f8c4ada9da1ef8b5b44",
+      "resource_id": "purdue-urn-f082acb1-b01e-4a08-9126-fd62a23fd9aa",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/harvard_raster.json",
+      "sha256": "977a2856c6c2f17dcfebb065b1b3678e365b77a679a2edd36ce0fb52921f568c",
+      "resource_id": "harvard-g7064-s2-1834-k3",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/iiif-eastern-hemisphere.json",
+      "sha256": "4fee301a4fc889d934846b1643f6fe74691100de117ddff3fb64933b54baee5b",
+      "resource_id": "57f0f116-b64e-4773-8684-96ba09afb549",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/index-map-polygon-no-downloadurl.json",
+      "sha256": "c5e4449a35e1a112e65f3184ec07d1a06febe6486f9577728348eba774653d34",
+      "resource_id": "cugir-008186",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/index-map-polygon.json",
+      "sha256": "bed90f50ec9e60938b2fae65f60620cd7e36890200c2b5326407ab73680aa49a",
+      "resource_id": "cugir-008186-no-downloadurl",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/index-map-stanford.json",
+      "sha256": "d715305bc7b8154c7bd9d20c3136dad881e07d758516c44d9e6f248953549579",
+      "resource_id": "stanford-fb897vt9938",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/index_map_point.json",
+      "sha256": "7b321ae7174fe50f34dbf8827f690fc54c1fcd31ad30bacf6b9c1d35f3639c66",
+      "resource_id": "cornell-ny-aerial-photos-1960s",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/metadata_no_dct_provenance_s.json",
+      "sha256": "ee1147fc1928717f46d2f5402ef6c6a4d5213f0c19fedc789e6b4f6a5a12f1c7",
+      "resource_id": "99-0001-noProvenance",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/metadata_no_geom.json",
+      "sha256": "0407926152633701ed322fe27a2e7a8e3d44d5d9831b2fa737e1f934bb4a9d5e",
+      "resource_id": "05d-p16022coll246-noGeo",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/metadata_no_layer_geom_type_s.json",
+      "sha256": "9b2225c0b40d09d888b1cb7123e91a52dee3e21c9f341405cc023bd73990c30c",
+      "resource_id": "05d-03-noGeomType",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/metadata_no_provider.json",
+      "sha256": "ef85b7453b28b5c449a30f9c61cbde842da46cfb9a0f476ed95dd8865174a1a9",
+      "resource_id": "99-0001-noprovider",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/metadata_no_solr_geom.json",
+      "sha256": "5b9d48f0ca99b70eefc27994faf6001393dfebd6d5009cdc78aae060a34e3e13",
+      "resource_id": "05d-p16022coll246-noGeo",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/multiple-downloads.json",
+      "sha256": "3ebb2a2ab9b65f472f9915e3bfdebec23675e2ea1413916e06dd38bc03b0d558",
+      "resource_id": "cugir-007950",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/no_locn_geometry.json",
+      "sha256": "9eb48bb03e60417875d75e2d780a6b3799bd7a545171ceb35748b97b44bd31de",
+      "resource_id": "05d-03-noGeomType",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/no_spatial.json",
+      "sha256": "8b54f8c80c3fc11e3aef44ad7c28ed0a31516591ee1097faab7cf509637ea7a8",
+      "resource_id": "aster-global-emissivity-dataset-1-kilometer-v003-ag1kmcad20",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/oembed.json",
+      "sha256": "c1e7e527e0669e87e6f7274191c4997cb89eedcec47f820e972dc566507619c4",
+      "resource_id": "stanford-dc482zx1528",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/princeton-child1.json",
+      "sha256": "606c5296375248c3eaacc1d1a869df4b91dce115a5e5b100fb8e53128a4caf33",
+      "resource_id": "princeton-n009w382v",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/princeton-child2.json",
+      "sha256": "42fed41590b3f4df7c4c234a3e687b83ba3c99910feb46e6e09722da352f7380",
+      "resource_id": "princeton-jq085m62x",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/princeton-child3.json",
+      "sha256": "4c58473665240b4d3fee83b5f7f2de7cae2d72e30f97e8842b896fb3f53ef6bf",
+      "resource_id": "princeton-n009w382v-fake1",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/princeton-child4.json",
+      "sha256": "a246af678b59eef45faa6ffb87af0f47c6f37c9b1069dcb5a9d263ba1616f0a7",
+      "resource_id": "princeton-n009w382v-fake2",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/princeton-parent.json",
+      "sha256": "0c41993be529bda2a4412425e88f8a229d60189f519427d1335650e66f4dcac2",
+      "resource_id": "princeton-1r66j405w",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/public_cog_princeton.json",
+      "sha256": "4dbbb029fb9a9882285425cd15c5dea6c9ecdf47a0d831ece71d90e05e479c51",
+      "resource_id": "princeton-dc7h14b252v",
+      "starter": true,
+      "purpose": "Cloud optimized GeoTIFF"
+    },
+    {
+      "path": "gbl_documents/public_direct_download.json",
+      "sha256": "f847b890e0405c7a8523ca50c4fb389fcb5f33c81c95e2dec24bd6d5a9432fc8",
+      "resource_id": "stanford-cz128vq0535",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/public_iiif_princeton.json",
+      "sha256": "323405b5c4bf2ab0ab01446676b1e0bb7e9ff2c703036456fa8cdc429eb2c871",
+      "resource_id": "princeton-02870w62c",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/public_pmtiles_princeton.json",
+      "sha256": "3f1c40adb6515518f9ea73b3b028e87f802d3ebcef481ac6fc12c388b1a34cb2",
+      "resource_id": "princeton-t722hd30j",
+      "starter": true,
+      "purpose": "PMTiles reference"
+    },
+    {
+      "path": "gbl_documents/public_polygon_mit.json",
+      "sha256": "9bac0d2808e72ee88d08cda25af0b8cde5deed72e52424ff48d8bfcc64ae38ea",
+      "resource_id": "mit-f6rqs4ucovjk2",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/restricted-line.json",
+      "sha256": "1dc04157e34ad4155e98b387afe622667b4024596bf20da737cb78734db14805",
+      "resource_id": "stanford-cg357zz0321",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/the-related-record.json",
+      "sha256": "576990c779f225381183dc229d7083ce73d1d5778f0782fa37b00c491f7aa740",
+      "resource_id": "the-related-record",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/tilejson.json",
+      "sha256": "84feb006595eb511e51f1b2d30e4b7b83eaf8b3729b497c0a0bb917679605926",
+      "resource_id": "princeton-fk4544658v-tilejson",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/tms.json",
+      "sha256": "a1246ee5849325a87d0d06834c52fdd4fc9c4b7008ed922fe342caf69cf610b9",
+      "resource_id": "cugir-007957",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/umn_metro_result1.json",
+      "sha256": "fa46330c09236e3decd26cde80b1060a3430b7df81bcbaac314fa7239f5c0fa2",
+      "resource_id": "02236876-9c21-42f6-9870-d2562da8e44f",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/umn_state_result1.json",
+      "sha256": "a614619f227bccc634eb11feb87a366a53636274efd15e6b63e71da29c95acfb",
+      "resource_id": "2eddde2f-c222-41ca-bd07-2fd74a21f4de",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/umn_state_result2.json",
+      "sha256": "be0723fc0365121bce68095dc1329b64be2fc860bdfe388ac45f20e520686374",
+      "resource_id": "e9c71086-6b25-4950-8e1c-84c2794e3382",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/uva_slug_colon.json",
+      "sha256": "67f50badc3ab3e5b83778916f28aae49fce64a850fb21a3d984a23a100cadb58",
+      "resource_id": "uva-Norfolk:police_point",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/wmts-multiple.json",
+      "sha256": "e9081c4988dd9fe4f5b2ed7fc912bdbdc42ad8bf5f910f88c240961e7fe7438a",
+      "resource_id": "princeton-fk4db9hn29",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/wmts-single-layer.json",
+      "sha256": "69152835591835282f95ec6b453849559180023c9a40036127b88a121917bbfd",
+      "resource_id": "princeton-fk4544658v-wmts",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    },
+    {
+      "path": "gbl_documents/xyz.json",
+      "sha256": "d26cf56bea31b6dcb26b7ef936143bfec559c15debb0e28e3d927bfa243ade22",
+      "resource_id": "6f47b103-9955-4bbe-a364-387039623106-xyz",
+      "starter": false,
+      "purpose": "Geoportal regression fixture; may intentionally contain incomplete or problematic metadata"
+    }
+  ]
+}
