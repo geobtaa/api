@@ -9,7 +9,7 @@ from app.services.distribution_repository import (
     fetch_distribution_context,
 )
 from app.services.geolibre import geolibre_links
-from app.services.geolibre_raster import raster_links, raster_projects
+from app.services.geolibre_raster import capabilities_for, raster_links, raster_projects
 from app.services.reference_reconstruction import coerce_reference_mapping
 from db.database import database
 
@@ -41,7 +41,7 @@ class LinkService:
         self.by_uri = distribution_context.by_uri
         self._legacy_refs_cache: Optional[Dict[str, Any]] = None
 
-    def get_links(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_links(self, *, raster_documents=None) -> Dict[str, List[Dict[str, Any]]]:
         """
         Get all links for a resource organized by category.
 
@@ -74,7 +74,9 @@ class LinkService:
             references = self._references()
             launch_links = geolibre_links(references, self._wxs_identifier())
             if resource_id := self.resource_dict.get("id"):
-                launch_links.extend(raster_links(resource_id, self.get_raster_projects()))
+                launch_links.extend(
+                    raster_links(resource_id, self.get_raster_projects(raster_documents))
+                )
             if launch_links:
                 links["Open in GeoLibre"] = launch_links
 
@@ -274,7 +276,12 @@ class LinkService:
             self.resource_dict.get("dct_references_s")
         )
 
-    def get_raster_projects(self):
+    async def raster_documents(self):
+        if not self._is_public() or self.resource_dict.get("gbl_suppressed_b"):
+            return {}
+        return await capabilities_for(self._references(), self._wxs_identifier())
+
+    def get_raster_projects(self, documents=None):
         if not self._is_public() or self.resource_dict.get("gbl_suppressed_b"):
             return {}
         return raster_projects(
@@ -282,6 +289,7 @@ class LinkService:
             self._wxs_identifier(),
             self._wms_bbox(),
             self.resource_dict.get("dct_title_s"),
+            documents,
         )
 
     @staticmethod
@@ -300,7 +308,11 @@ class LinkService:
     async def get_resource_links(resource_id: str) -> Dict[str, List[Dict[str, Any]]]:
         try:
             service = await LinkService.for_resource_id(resource_id)
-            return service.get_links() if service else {}
+            return (
+                service.get_links(raster_documents=await service.raster_documents())
+                if service
+                else {}
+            )
         except Exception as e:
             logger.error(f"Error getting resource links for {resource_id}: {e}", exc_info=True)
             return {}

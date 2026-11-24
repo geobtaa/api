@@ -472,13 +472,19 @@ OGC API Features previews use a named collection or its `/items` distribution on
 
 ### Raster services
 
-For a named WMS layer from Cornell CUGIR or Berkeley, the API builds a GeoLibre
-project that requests transparent Web Mercator PNG tiles with WMS GetMap.
-A Cornell GeoWebCache WMTS distribution uses GetTile and the matrix identifiers
-advertised for its Web Mercator grid. Both use the record’s bounding box to
-position the map. Each eligible layer has a stable project URL under
-`/api/v1/resources/{id}/geolibre/{key}.geolibre.json`. The project reads the
-current public distribution and the browser requests tiles from the publisher.
+The resource detail and links endpoints discover raster layers from a public HTTPS
+GetCapabilities endpoint or a cataloged capabilities XML document. Shared service
+documents are cached. Search results can reuse discovery without waiting on providers.
+The document determines the service type, including when a WMS reference points
+to a WMTS document. The catalog layer identifier must match unambiguously.
+A service advertising one named layer can be opened without a catalog identifier.
+
+WMS projects use the advertised GetMap URL, image format, protocol version and
+Web Mercator CRS. WMTS projects use the advertised style, a Web Mercator tile
+matrix set aligned with the global XYZ grid, and either its tile URL template
+or GetTile endpoint. The project takes its initial extent from the record or
+the layer’s geographic bounding box. GeoLibre requests images directly from
+the publisher, so browser access to the tiles is required.
 
 ### Checking a collection
 
