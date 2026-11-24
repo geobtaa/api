@@ -3,7 +3,7 @@
 import re
 from collections import Counter
 from pathlib import PurePosixPath
-from urllib.parse import parse_qsl, quote, unquote, urlsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit
 
 # Public file collections checked in the hosted viewer. Keep these scoped to
 # dataset paths on providers that serve other kinds of content on the same host.
@@ -57,13 +57,98 @@ def _eligible_file(url: str, format_name: str) -> bool:
     return PurePosixPath(parts.path).suffix.lower() in FILE_SUFFIXES[format_name]
 
 
-def geolibre_links(references: dict) -> list[dict[str, str]]:
+# These public services returned GeoJSON with browser CORS enabled. GeoServer
+# and ArcGIS WFS advertise different output-format names.
+WFS_ENDPOINTS = {
+    "https://cugir.library.cornell.edu/geoserver/cugir/wfs": "application/json",
+    "https://geoservices.lib.berkeley.edu/geoserver/wfs": "application/json",
+    "https://maps-public.geo.nyu.edu/geoserver/sdr/wfs": "application/json",
+    (
+        "https://data.isgs.illinois.edu/arcgis/services/Geology/"
+        "Bedrock_Geology_500K_2005/MapServer/WFSServer"
+    ): "GEOJSON",
+}
+FEATURE_API_ROOTS = (
+    "https://demo.pygeoapi.io/stable",
+    "https://demo.pygeoapi.io/master",
+    "https://demo.ldproxy.net/daraa",
+)
+PREVIEW_LIMIT = 100
+WFS_URI = "http://www.opengis.net/def/serviceType/ogc/wfs"
+FEATURE_REFERENCE_URIS = {
+    "http://www.opengis.net/def/serviceType/ogcapi-features",
+    "http://www.opengis.net/spec/ogcapi-features-1/1.0",
+    "http://schema.org/url",
+    "http://schema.org/downloadUrl",
+    "http://geojson.org/geojson-spec.html",
+}
+
+
+def _service_preview(uri: str, url: str, identifier: str | None) -> tuple[str, str] | None:
+    if not url.startswith("https://") or not url.isprintable() or url != url.strip():
+        return None
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    if parts.fragment or "\\" in url:
+        return None
+    endpoint = parts._replace(query="").geturl().rstrip("/")
+    pairs = parse_qsl(parts.query, keep_blank_values=True)
+    query = {key.lower(): value for key, value in pairs}
+    if len(query) != len(pairs):
+        return None
+
+    if uri == WFS_URI and endpoint in WFS_ENDPOINTS:
+        if query.keys() - {"service", "version", "request", "typename", "typenames"}:
+            return None
+        layer = query.get("typenames") or query.get("typename") or identifier
+        if not layer or not re.fullmatch(r"[\w.:-]+", layer):
+            return None
+        params = {
+            "service": "WFS",
+            "version": "2.0.0",
+            "request": "GetFeature",
+            "typeNames": layer,
+            "outputFormat": WFS_ENDPOINTS[endpoint],
+            "count": PREVIEW_LIMIT,
+        }
+        if params["outputFormat"] == "application/json":
+            params["srsName"] = "CRS:84"
+        return "WFS", endpoint + "?" + urlencode(params)
+
+    if uri not in FEATURE_REFERENCE_URIS or query.keys() - {"bbox", "limit", "f"}:
+        return None
+    for root in FEATURE_API_ROOTS:
+        prefix = root + "/collections/"
+        if not endpoint.startswith(prefix):
+            continue
+        collection = endpoint.removeprefix(prefix).removesuffix("/items")
+        if not re.fullmatch(r"[\w.:-]+", collection) or collection in {".", ".."}:
+            return None
+        limit = query.get("limit", str(PREVIEW_LIMIT))
+        if not re.fullmatch(r"[1-9][0-9]{0,8}", limit):
+            return None
+        params = {"f": "json", "limit": min(PREVIEW_LIMIT, int(limit))}
+        if "bbox" in query:
+            if not re.fullmatch(r"-?\d+(?:\.\d+)?(?:,-?\d+(?:\.\d+)?){3}", query["bbox"]):
+                return None
+            params["bbox"] = query["bbox"]
+        return "OGC API Features", prefix + collection + "/items?" + urlencode(params)
+    return None
+
+
+def geolibre_links(references: dict, identifier: str | None = None) -> list[dict[str, str]]:
     candidates = set()
     for uri, value in references.items():
         for entry in value if isinstance(value, list) else [value]:
             url = entry.get("url") if isinstance(entry, dict) else entry
             label = entry.get("label") if isinstance(entry, dict) else None
             label = label.strip() if isinstance(label, str) else ""
+            if isinstance(url, str) and (service := _service_preview(uri, url, identifier)):
+                name, target = service
+                candidates.add((name, label if label.casefold() != name.casefold() else "", target))
+                continue
             format_name = FORMAT_BY_URI.get(uri)
             if uri == "http://schema.org/downloadUrl":
                 format_name = DOWNLOAD_FORMATS.get(label.casefold())
