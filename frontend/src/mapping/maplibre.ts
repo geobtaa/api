@@ -1,6 +1,6 @@
 import { collapseInitialAttribution } from './attribution';
 import { addPaneLayer } from './panes';
-import { BASEMAP_STYLES } from '../config/mapStyles';
+import { BASEMAP_STYLES, getSavedBasemapKey } from '../config/mapStyles';
 /* eslint-disable @typescript-eslint/no-explicit-any -- Adapter for existing GeoJSON and map event contracts. */
 /** Application map primitives backed entirely by MapLibre GL. Coordinates at this
  * boundary remain latitude/longitude for existing search/camera contracts. */
@@ -129,7 +129,7 @@ export class Map {
   constructor(container: HTMLElement, options: MapOptions = {}) {
     this.native = new ml.Map({
       container,
-      style: BASEMAP_STYLES.liberty,
+      style: BASEMAP_STYLES[getSavedBasemapKey()],
       center: options.center ? ll(options.center) : [0, 20],
       zoom: Math.max(0, (options.zoom ?? 2) - 1),
       minZoom: Math.max(0, (options.minZoom ?? 1) - 1),

@@ -3,7 +3,7 @@
 The application consumes a source-built prerelease of
 [geobtaa/ogm-viewer](https://github.com/geobtaa/ogm-viewer/tree/feature/viewer-integration),
 based on upstream v1.7.0. The dependency key remains `ogm-viewer`; the tarball
-contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.2`. `package.json` names an
+contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.3`. `package.json` names an
 exact release asset URL and `package-lock.json` pins its integrity.
 `fork-build.json` inside the installed package identifies its source commit,
 upstream baseline, build Node version, and lockfile hash. No upstream PRs have
@@ -64,6 +64,15 @@ The application fullscreen toolbar shares its expanded state with `ResourceViewe
 through React context. The viewer fills the frame below the toolbar while expanded,
 and returns to its embedded height on exit. Browser tests cover map and image
 canvases, native fullscreen, and the viewport fallback.
+
+## Basemap controls
+
+OpenFreeMap Positron is the default for interactive maps and for newly rendered
+location and bounding-box thumbnails. On resource map previews, the droplet
+opens layer controls, including opacity. The stacked-layers button opens the
+same basemap picker as the sidebar map. A selected style is remembered on this
+site. Static thumbnails use the configured renderer style regardless of that
+browser preference. The externally hosted Allmaps iframe controls its own basemap.
 
 ## Verification and upgrades
 

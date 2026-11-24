@@ -56,7 +56,7 @@ async def get_resource_viewer(
 </head>
 <body>
     <div class="viewer-container">
-        <ogm-viewer light-basemap="https://tiles.openfreemap.org/styles/liberty" dark-basemap="https://tiles.openfreemap.org/styles/dark"
+        <ogm-viewer light-basemap="https://tiles.openfreemap.org/styles/positron" dark-basemap="https://tiles.openfreemap.org/styles/positron"
             record-url="{escaped_record_url}"
             >
         </ogm-viewer>

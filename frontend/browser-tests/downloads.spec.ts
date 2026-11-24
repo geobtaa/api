@@ -227,6 +227,59 @@ test('map selection clears image downloads; ArcGIS owns feature inspection', asy
   await expect(full(page)).toBeVisible();
 });
 
+test('switching basemaps keeps the ArcGIS layer and its selected opacity', async ({
+  page,
+}) => {
+  const positron = page.waitForRequest(
+    'https://tiles.openfreemap.org/styles/positron'
+  );
+  await page
+    .getByRole('combobox', { name: 'Fixture', exact: true })
+    .selectOption('arcgis');
+  await positron;
+  const layers = page.getByRole('button', { name: 'Show layers' });
+  await layers.click();
+  const opacity = page.getByRole('slider', { name: /Opacity of/ });
+  await opacity.focus();
+  await opacity.press('Home');
+  await opacity.press('ArrowRight');
+  const value = await opacity.inputValue();
+
+  // The button is replaced by the radio panel as soon as the pointer enters.
+  await page.locator('.geo-map-basemap').hover();
+  const choices = page.getByRole('radiogroup', { name: 'Basemap style' });
+  await expect(choices.getByLabel('OpenFreeMap Positron')).toBeChecked();
+  const bright = page.waitForResponse(
+    'https://tiles.openfreemap.org/styles/bright'
+  );
+  await choices.getByLabel('OpenFreeMap Bright').check();
+  await bright;
+  await expect
+    .poll(
+      async () =>
+        (await page.context().cookies()).find(
+          (c) => c.name === 'preferred_basemap'
+        )?.value
+    )
+    .toBe('bright');
+
+  await layers.click();
+  await expect(opacity).toHaveValue(value);
+  await page.getByRole('button', { name: 'Hide layers' }).click();
+  await expect(async () => {
+    await page.locator('ogm-map canvas.maplibregl-canvas').click();
+    await expect(page.locator('ogm-attributes')).toContainText(
+      'Fixture region'
+    );
+  }).toPass();
+  // A fresh viewer reads the same preference as the sidebar.
+  const restored = page.waitForRequest(
+    'https://tiles.openfreemap.org/styles/bright'
+  );
+  await page.goto('/?fixture=arcgis');
+  await restored;
+});
+
 test('location-only records unmount the viewer and clear image downloads', async ({
   page,
 }) => {

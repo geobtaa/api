@@ -3,7 +3,7 @@ import {
   toAardvarkRecord,
   hasOgmContentPreview,
 } from '../../utils/ogmViewerRecord';
-import { BASEMAP_STYLES } from '../../config/mapStyles';
+import { BASEMAP_STYLES, getSavedBasemapKey } from '../../config/mapStyles';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { ViewerExpandedContext, ViewerTabsContext } from './viewerFrameContext';
 import type {
@@ -147,8 +147,9 @@ function ContentViewer({
             handlePreviewsLoaded
           );
         };
-        viewerElement.setAttribute('light-basemap', BASEMAP_STYLES.liberty);
-        viewerElement.setAttribute('dark-basemap', BASEMAP_STYLES.dark);
+        const basemap = BASEMAP_STYLES[getSavedBasemapKey()];
+        viewerElement.setAttribute('light-basemap', basemap);
+        viewerElement.setAttribute('dark-basemap', basemap);
         const record = new OgmRecord(toAardvarkRecord(data));
         const framed = await frameViewerRecord(record, resourcesFor(record));
         if (cancelled) return;

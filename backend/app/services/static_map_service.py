@@ -348,9 +348,8 @@ class StaticMapService:
         source_signature: str | None = None,
     ) -> str:
         """Build Redis key for a map variant."""
-        if source_signature:
-            return f"{variant}:{source_signature}:{resource_id}"
-        return f"{variant}:{resource_id}"
+        signature = source_signature or self.current_render_signature()
+        return f"{variant}:{signature}:{resource_id}"
 
     def _asset_key(self, map_hash: str) -> str:
         return f"{self._ASSET_KEY_PREFIX}:{map_hash}"
@@ -362,9 +361,13 @@ class StaticMapService:
         variant: str,
         source_signature: str | None = None,
     ) -> str:
-        if source_signature:
-            return f"{self._ALIAS_KEY_PREFIX}:{variant}:{source_signature}:{resource_id}"
-        return f"{self._ALIAS_KEY_PREFIX}:{variant}:{resource_id}"
+        signature = source_signature or self.current_render_signature()
+        return f"{self._ALIAS_KEY_PREFIX}:{variant}:{signature}:{resource_id}"
+
+    @staticmethod
+    def current_render_signature() -> str:
+        # Resource-only redirects must also expire when the basemap style changes.
+        return native_static_maps.signature("current-resource-render")
 
     def _is_asset_hash(self, value: str | None) -> bool:
         return bool(value and self._HASH_RE.fullmatch(value))
@@ -472,7 +475,7 @@ class StaticMapService:
         value = get_durable_visual_asset_hash_for_resource(
             resource_id,
             asset_kind=variant,
-            source_signature=source_signature,
+            source_signature=source_signature or self.current_render_signature(),
         )
         if value and self._is_asset_hash(value):
             if not hydrate_asset:
@@ -717,14 +720,14 @@ class StaticMapService:
                 resource_id,
                 asset_hash=map_hash,
                 asset_kind=variant,
-                source_signature=source_signature,
+                source_signature=source_signature or self.current_render_signature(),
             ):
                 return None
             if source_signature and not store_durable_visual_asset_link(
                 resource_id,
                 asset_hash=map_hash,
                 asset_kind=variant,
-                source_signature=None,
+                source_signature=self.current_render_signature(),
             ):
                 return None
         if hydrate_asset:

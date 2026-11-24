@@ -18,9 +18,10 @@ describe('OpenFreeMap basemap selection', () => {
     for (const url of Object.values(BASEMAP_STYLES))
       expect(new URL(url).hostname).toBe('tiles.openfreemap.org');
   });
-  it('defaults obsolete provider cookies to Liberty', () => {
+  it('defaults missing and obsolete provider cookies to Positron', () => {
+    expect(getSavedBasemapKey()).toBe('positron');
     Cookies.set('preferred_basemap', 'esriWorldImagery');
-    expect(getSavedBasemapKey()).toBe('liberty');
+    expect(getSavedBasemapKey()).toBe('positron');
   });
   it('restores a supported style preference', () => {
     Cookies.set('preferred_basemap', 'dark');
