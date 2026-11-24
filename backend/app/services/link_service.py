@@ -9,6 +9,7 @@ from app.services.distribution_repository import (
     fetch_distribution_context,
 )
 from app.services.geolibre import geolibre_links
+from app.services.geolibre_raster import raster_links, raster_projects
 from app.services.reference_reconstruction import coerce_reference_mapping
 from db.database import database
 
@@ -69,14 +70,12 @@ class LinkService:
         if arcgis_links:
             links["Open in ArcGIS"] = arcgis_links
 
-        rights = self.resource_dict.get(
-            "dct_accessRights_s", self.resource_dict.get("dct_accessrights_s")
-        )
-        if isinstance(rights, str) and rights.strip().casefold() == "public":
-            references = self.distribution_context.reference_payload or coerce_reference_mapping(
-                self.resource_dict.get("dct_references_s")
-            )
-            if launch_links := geolibre_links(references, self._wxs_identifier()):
+        if self._is_public():
+            references = self._references()
+            launch_links = geolibre_links(references, self._wxs_identifier())
+            if resource_id := self.resource_dict.get("id"):
+                launch_links.extend(raster_links(resource_id, self.get_raster_projects()))
+            if launch_links:
                 links["Open in GeoLibre"] = launch_links
 
         # Add "Documentation" links
@@ -264,36 +263,44 @@ class LinkService:
 
         return links
 
+    def _is_public(self):
+        rights = self.resource_dict.get(
+            "dct_accessRights_s", self.resource_dict.get("dct_accessrights_s")
+        )
+        return isinstance(rights, str) and rights.strip().casefold() == "public"
+
+    def _references(self):
+        return self.distribution_context.reference_payload or coerce_reference_mapping(
+            self.resource_dict.get("dct_references_s")
+        )
+
+    def get_raster_projects(self):
+        if not self._is_public() or self.resource_dict.get("gbl_suppressed_b"):
+            return {}
+        return raster_projects(
+            self._references(),
+            self._wxs_identifier(),
+            self._wms_bbox(),
+            self.resource_dict.get("dct_title_s"),
+        )
+
+    @staticmethod
+    async def for_resource_id(resource_id: str):
+        resource = await database.fetch_one(
+            """SELECT id, dct_title_s, dct_references_s, "dct_accessRights_s",
+                      "gbl_wxsIdentifier_s", dcat_bbox, gbl_suppressed_b
+               FROM resources WHERE id = :resource_id""",
+            {"resource_id": resource_id},
+        )
+        if resource:
+            return LinkService(dict(resource), await fetch_distribution_context(resource_id))
+        return None
+
     @staticmethod
     async def get_resource_links(resource_id: str) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Get all links for a resource by its ID organized by category.
-
-        Args:
-            resource_id: The ID of the resource
-
-        Returns:
-            Dictionary with category names as keys and arrays of link objects as values
-        """
         try:
-            # Fetch the resource from the database
-            resource_query = """
-                SELECT id, dct_title_s, dct_references_s, "dct_accessRights_s",
-                       "gbl_wxsIdentifier_s", dcat_bbox
-                FROM resources
-                WHERE id = :resource_id
-            """
-            resource = await database.fetch_one(resource_query, {"resource_id": resource_id})
-
-            if not resource:
-                logger.warning(f"Resource {resource_id} not found")
-                return {}
-
-            # Create LinkService instance and get links
-            distribution_context = await fetch_distribution_context(resource_id)
-            link_service = LinkService(dict(resource), distribution_context=distribution_context)
-            return link_service.get_links()
-
+            service = await LinkService.for_resource_id(resource_id)
+            return service.get_links() if service else {}
         except Exception as e:
             logger.error(f"Error getting resource links for {resource_id}: {e}", exc_info=True)
             return {}
