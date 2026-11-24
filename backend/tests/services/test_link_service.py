@@ -998,6 +998,48 @@ async def test_geolibre_resource_links_prefer_current_distributions(monkeypatch)
     ]
 
 
+@pytest.mark.parametrize("normalized", [False, True])
+def test_geolibre_pmtiles_numbers_follow_viewer_archive_order(normalized):
+    uri = "https://github.com/protomaps/PMTiles"
+    units = SAMPLE_COLLECTION + "z-units.pmtiles"
+    faults = SAMPLE_COLLECTION + "a-faults.pmtiles"
+    extra = SAMPLE_COLLECTION + "0-download.pmtiles"
+    resource = {"id": "bedrock", "dct_accessRights_s": "Public"}
+    entries = [
+        (DOWNLOAD_URI, extra, "PMTiles"),
+        (DOWNLOAD_URI, faults, "PMTiles"),
+        (uri, units, "Units"),
+        (uri, faults, "Faults"),
+        (uri, units, "Units"),
+    ]
+    if normalized:
+        records = [
+            make_distribution_record("bedrock", ref, url, label=label)
+            for ref, url, label in entries
+        ]
+        service = LinkService(resource, make_distribution_context("bedrock", records))
+    else:
+        refs = {}
+        for ref, url, label in entries:
+            refs.setdefault(ref, []).append({"url": url, "label": label})
+        service = LinkService({**resource, "dct_references_s": json.dumps(refs)})
+    links = service.get_links()["Open in GeoLibre"]
+    assert [
+        (link["label"], parse_qs(urlsplit(link["url"]).query)["data"][0]) for link in links
+    ] == [("PMTiles 1 — Units", units), ("PMTiles 2 — Faults", faults), ("PMTiles 3", extra)]
+
+
+def test_geolibre_pmtiles_keeps_viewer_number_when_first_archive_is_ineligible():
+    refs = {
+        "https://github.com/protomaps/PMTiles": [
+            "https://unverified.example/first.pmtiles",
+            SAMPLE_COLLECTION + "second.pmtiles",
+        ]
+    }
+    links = LinkService({"dct_accessRights_s": "Public", "dct_references_s": refs}).get_links()
+    assert [link["label"] for link in links["Open in GeoLibre"]] == ["PMTiles 2"]
+
+
 def test_geolibre_launches_catalog_pmtiles_fixture():
     fixture = (
         Path(__file__).resolve().parents[2]

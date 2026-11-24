@@ -12,9 +12,10 @@ PUBLIC_COLLECTIONS = {
     "data.source.coop": "/giswqs/opengeos/",
     "geobtaa-assets-prod.s3.us-east-2.amazonaws.com": "/store/asset/",
 }
+PMTILES_URI = "https://github.com/protomaps/PMTiles"
 FORMAT_BY_URI = {
     "http://geojson.org/geojson-spec.html": "GeoJSON",
-    "https://github.com/protomaps/PMTiles": "PMTiles",
+    PMTILES_URI: "PMTiles",
     "https://github.com/cogeotiff/cog-spec": "COG",
 }
 FILE_SUFFIXES = {
@@ -139,6 +140,15 @@ def _service_preview(uri: str, url: str, identifier: str | None) -> tuple[str, s
 
 
 def geolibre_links(references: dict, identifier: str | None = None) -> list[dict[str, str]]:
+    # OGM Viewer assigns each distinct typed archive a tab in reference order.
+    # Reserve those positions even when GeoLibre cannot open one of the archives.
+    archives = references.get(PMTILES_URI, [])
+    archive_numbers = {}
+    for entry in archives if isinstance(archives, list) else [archives]:
+        url = entry.get("url") if isinstance(entry, dict) else entry
+        if isinstance(url, str) and url.strip():
+            archive_numbers.setdefault(url.strip(), len(archive_numbers) + 1)
+
     candidates = set()
     for uri, value in references.items():
         for entry in value if isinstance(value, list) else [value]:
@@ -156,6 +166,9 @@ def geolibre_links(references: dict, identifier: str | None = None) -> list[dict
                 # Prefer a layer label over a generic format label for the same URL.
                 layer = "" if label.casefold() in DOWNLOAD_FORMATS else label
                 candidates.add((format_name, layer, url))
+                if format_name == "PMTiles":
+                    # Eligible download-only archives follow the viewer tabs.
+                    archive_numbers.setdefault(url, len(archive_numbers) + 1)
 
     unique = {}
     for fmt, layer, url in sorted(candidates, key=lambda item: (not item[1], *item)):
@@ -164,9 +177,16 @@ def geolibre_links(references: dict, identifier: str | None = None) -> list[dict
     counts = Counter(fmt for fmt, _ in unique.values())
     numbers = Counter()
     links = []
-    for url, (fmt, layer) in sorted(unique.items(), key=lambda item: (*item[1], item[0])):
+
+    def link_order(item):
+        url, (fmt, layer) = item
+        return fmt, archive_numbers[url] if fmt == "PMTiles" else 0, layer, url
+
+    for url, (fmt, layer) in sorted(unique.items(), key=link_order):
         numbers[fmt] += 1
         label = f"{fmt} {numbers[fmt]}" if counts[fmt] > 1 else fmt
+        if fmt == "PMTiles" and len(archive_numbers) > 1:
+            label = f"PMTiles {archive_numbers[url]}"
         if layer:
             label += f" — {layer}"
         links.append(
