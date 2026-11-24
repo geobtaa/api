@@ -1008,3 +1008,119 @@ def test_geolibre_launches_catalog_pmtiles_fixture():
     [launch] = LinkService(resource).get_links()["Open in GeoLibre"]
     assert launch["label"] == "PMTiles"
     assert parse_qs(urlsplit(launch["url"]).query) == {"data": [archive]}
+
+
+def test_geolibre_wfs_uses_record_layer_and_bounded_geojson():
+    base = "https://cugir.library.cornell.edu/geoserver/cugir/wfs"
+    record = {
+        "dct_accessRights_s": "Public",
+        "gbl_wxsIdentifier_s": "cugir000051",
+        "dct_references_s": {"http://www.opengis.net/def/serviceType/ogc/wfs": base},
+    }
+    [link] = LinkService(record).get_links()["Open in GeoLibre"]
+    assert link["label"] == "WFS"
+    [url] = parse_qs(urlsplit(link["url"]).query)["data"]
+    assert url.startswith(base + "?")
+    assert parse_qs(urlsplit(url).query) == {
+        "service": ["WFS"],
+        "version": ["2.0.0"],
+        "request": ["GetFeature"],
+        "typeNames": ["cugir000051"],
+        "outputFormat": ["application/json"],
+        "count": ["100"],
+        "srsName": ["CRS:84"],
+    }
+
+
+@pytest.mark.parametrize("suffix", ["", "/items", "/items/"])
+def test_geolibre_feature_collection_preserves_spatial_selection(suffix):
+    base = "https://demo.pygeoapi.io/stable/collections/lakes"
+    record = {
+        "dct_accessRights_s": "Public",
+        "dct_references_s": {
+            "http://schema.org/downloadUrl": {
+                "url": base + suffix + "?bbox=-89,47,-88,48&limit=500",
+                "label": "OGC API Features",
+            }
+        },
+    }
+    [link] = LinkService(record).get_links()["Open in GeoLibre"]
+    assert link["label"] == "OGC API Features"
+    [target] = parse_qs(urlsplit(link["url"]).query)["data"]
+    assert target.startswith(base + "/items?")
+    assert parse_qs(urlsplit(target).query) == {
+        "bbox": ["-89,47,-88,48"],
+        "limit": ["100"],
+        "f": ["json"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("uri", "url"),
+    [
+        (
+            "http://www.opengis.net/def/serviceType/ogc/wfs",
+            "https://cugir.library.cornell.edu/geoserver/cugir/wfs",
+        ),
+        ("http://schema.org/url", "https://demo.pygeoapi.io/stable/collections"),
+        (
+            "http://schema.org/url",
+            "https://demo.pygeoapi.io/stable/collections/lakes/items?token=secret",
+        ),
+        (
+            "http://schema.org/url",
+            "https://demo.pygeoapi.io/stable/collections/lakes/items?limit=1&limit=9",
+        ),
+        ("http://schema.org/url", "https://demo.pygeoapi.io/stable/collections/%2e%2e/items"),
+        ("http://schema.org/url", "https://user@demo.pygeoapi.io/stable/collections/lakes"),
+    ],
+)
+def test_geolibre_skips_unusable_service_links(uri, url):
+    record = {"dct_accessRights_s": "Public", "dct_references_s": {uri: url}}
+    assert "Open in GeoLibre" not in LinkService(record).get_links()
+
+
+@pytest.mark.parametrize(
+    "kind, query, operation, placeholder",
+    [
+        ("wms", "", "GetMap", "{bbox-epsg-3857}"),
+        ("wmts", "?LAYER=cugir%3Acugir000051", "GetTile", "TILEROW={y}&TILECOL={x}"),
+    ],
+)
+def test_geolibre_raster_project(monkeypatch, kind, query, operation, placeholder):
+    from urllib.parse import parse_qs, urlsplit
+
+    from app.services.geolibre_raster import CORNELL_WMTS, WMS, WMTS
+
+    monkeypatch.setenv("APPLICATION_URL", "https://catalog.example/api/v1/")
+    url = "https://cugir.library.cornell.edu/geoserver/cugir/wms" if kind == "wms" else CORNELL_WMTS
+    record = {
+        "id": "map 01",
+        "dct_title_s": "Districts",
+        "dct_accessRights_s": "Public",
+        "dcat_bbox": "ENVELOPE(-77,-76,43,42)",
+        "gbl_wxsIdentifier_s": "districts",
+        "dct_references_s": {WMS if kind == "wms" else WMTS: url + query},
+    }
+    service = LinkService(record)
+    (link,) = service.get_links()["Open in GeoLibre"]
+    (key,) = service.get_raster_projects()
+    assert parse_qs(urlsplit(link["url"]).query)["url"] == [
+        f"https://catalog.example/api/v1/resources/map%2001/geolibre/{key}.geolibre.json"
+    ]
+    assert link["label"] == kind.upper()
+    project = service.get_raster_projects()[key]
+    assert project["mapView"]["center"] == [-76.5, 42.5]
+    (layer,) = project["layers"]
+    assert layer["source"]["bounds"] == [-77, 42, -76, 43]
+    (tile,) = layer["source"]["tiles"]
+    assert operation in tile and placeholder in tile
+    if kind == "wmts":
+        assert "TILEMATRIX=EPSG%3A900913%3A{z}" in tile
+        assert "LAYER=cugir%3Acugir000051" in tile
+    assert not LinkService({**record, "gbl_suppressed_b": True}).get_raster_projects()
+    assert not LinkService({**record, "dct_accessRights_s": "Restricted"}).get_raster_projects()
+    assert not LinkService({**record, "dcat_bbox": "invalid"}).get_raster_projects()
+    assert not LinkService(
+        {**record, "dct_references_s": {WMS: url + "?token=secret"}}
+    ).get_raster_projects()
