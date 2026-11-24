@@ -1,7 +1,7 @@
 import { reactRouter } from '@react-router/dev/vite';
+import { existsSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import path from 'node:path';
-import { existsSync } from 'node:fs';
 
 // https://vitejs.dev/config/
 // Force restart: 1
@@ -35,37 +35,12 @@ export default defineConfig({
     port: 3000,
     allowedHosts: ['btaa-geoportal.ngrok.io'],
   },
+  worker: {
+    // The GeoTIFF worker used by ogm-viewer imports decoder chunks.
+    format: 'es',
+  },
   resolve: {
-    // GeoBlacklight's source files import internal modules via `geoblacklight/...`.
-    // Map that prefix to the package's source directory so Vite can resolve them.
     alias: {
-      // Local override: GeoBlacklight 5.1.0 still renders legacy OpenIndexMap
-      // property names. Normalize the v1 schema's links and thumbnails locally.
-      'geoblacklight/leaflet/layer_index_map': path.resolve(
-        __dirname,
-        'src/geoblacklight/layer_index_map.ts'
-      ),
-      // Keep the upstream Leaflet viewer's basemap catalog OSM-only.
-      'geoblacklight/leaflet/basemaps': path.resolve(
-        __dirname,
-        'src/geoblacklight/basemaps.ts'
-      ),
-      // The registered legacy OpenLayers controller is not used by the React
-      // viewer, but keep its fallback provider on OSM as well.
-      'geoblacklight/openlayers/basemaps': path.resolve(
-        __dirname,
-        'src/geoblacklight/openlayers_basemaps.ts'
-      ),
-      // Local override: GeoBlacklight 5.1.0 does not pass its MAP options to L.map.
-      // This keeps the upstream controller intact except for map creation.
-      'geoblacklight/controllers/leaflet_viewer_controller': path.resolve(
-        __dirname,
-        'src/geoblacklight/leaflet_viewer_controller.js'
-      ),
-      geoblacklight: path.resolve(
-        __dirname,
-        'node_modules/@geoblacklight/frontend/app/javascript/geoblacklight'
-      ),
       // Some dependencies (e.g. html-parse-stringify) expect `void-elements` to have a default export.
       // The upstream package is CommonJS; this shim provides a stable ESM default export for Vite.
       'void-elements': path.resolve(__dirname, 'src/shims/void-elements.ts'),
@@ -86,17 +61,12 @@ export default defineConfig({
     // Let Vite handle them without esbuild pre-bundling to avoid "Invalid hook call".
     exclude: [
       'lucide-react',
-      '@geoblacklight/frontend',
-      // These are resolved via our `geoblacklight` alias and can be sensitive to pre-bundling.
-      'geoblacklight/controllers/leaflet_viewer_controller',
-      'geoblacklight/controllers/openlayers_viewer_controller',
-      'geoblacklight/controllers/oembed_viewer_controller',
-      'geoblacklight/controllers/search_results_controller',
-      'geoblacklight/controllers/downloads_controller',
-      'geoblacklight/controllers/clipboard_controller',
+      'maplibre-gl',
+      // OGM Viewer resolves its theme and icon assets relative to its module.
+      // Keep it out of Vite's dev prebundle so those URLs retain the package path.
+      'ogm-viewer',
+      'ogm-viewer/lib',
     ],
-    // Route discovery can encounter these only after the browser starts loading.
-    // Pre-bundle them up front to avoid invalidating in-flight dependency URLs.
     include: [
       'react-helmet-async',
       'h3-js',
@@ -104,8 +74,6 @@ export default defineConfig({
       'js-cookie',
       '@marsidev/react-turnstile',
       'recharts',
-      'leaflet',
-      '@hotwired/stimulus',
     ],
   },
   ssr: {

@@ -96,7 +96,10 @@ function CollectionsIcon({ className }: { className: string }) {
   return (
     <IconBase className={className}>
       <g transform="translate(16 16) scale(0.1)" fill={BRAND}>
-        <path opacity=".4" d="M240 112L240 464L496 464L496 256L352 256L352 112L240 112z" />
+        <path
+          opacity=".4"
+          d="M240 112L240 464L496 464L496 256L352 256L352 112L240 112z"
+        />
         <path d="M352 112L352 256L496 256L496 464L240 464L240 112L352 112zM400 115.9L492.1 208L400 208L400 115.9zM416 64L192 64L192 512L544 512L544 192L416 64zM144 160L96 160L96 608L448 608L448 560L144 560L144 160z" />
       </g>
     </IconBase>

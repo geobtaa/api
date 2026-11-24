@@ -15,6 +15,8 @@ import { isGeoportalErrorStatus } from './errorPageContent';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useApi } from '../context/ApiContext';
+import type { ImageSelection, ImageNavigation } from '../utils/iiifSelection';
+import { hasOgmContentPreview } from '../utils/ogmViewerRecord';
 import { ResourceViewer } from '../components/resource/ResourceViewer';
 import { ResourceBreadcrumbs } from '../components/resource/ResourceBreadcrumbs';
 import { ResourceSubtitle } from '../components/resource/ResourceSubtitle';
@@ -134,39 +136,6 @@ function IndexMap() {
   return <div className="viewer-information" aria-live="polite"></div>;
 }
 
-// New component for the attribute table
-function AttributeTable() {
-  return (
-    <div id="table-container" className="w-full">
-      <table id="attribute-table" className="w-full table-auto border-collapse">
-        <thead className="bg-gray-50">
-          <tr>
-            <th
-              scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Attribute
-            </th>
-            <th
-              scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Value
-            </th>
-          </tr>
-        </thead>
-        <tbody className="attribute-table-body bg-white divide-y divide-gray-200">
-          <tr className="hover:bg-gray-50">
-            <td className="border px-4 py-2" colSpan={2}>
-              <em>Click on map to inspect values</em>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 export function ResourceView({
   prefetchedResource,
   currentUrl,
@@ -199,6 +168,9 @@ export function ResourceView({
   const [visitedOverlayResource, setVisitedOverlayResource] = useState<
     string | null
   >(null);
+  const [imageNavigation, setImageNavigation] =
+    useState<ImageNavigation | null>(null);
+  const [viewerImage, setViewerImage] = useState<ImageSelection | null>(null);
   const [activeViewerTab, setActiveViewerTab] = useState<'item' | 'allmaps'>(
     'item'
   );
@@ -535,7 +507,9 @@ export function ResourceView({
   // const geometry = data?.data?.meta?.ui?.viewer?.geometry;
 
   // Extract data from the new structure
-  const viewerProtocol = data?.meta?.ui?.viewer?.protocol;
+  const viewerProtocol = hasOgmContentPreview(data)
+    ? data?.meta?.ui?.viewer?.protocol
+    : undefined;
   const dataDictionaries = data?.attributes?.b1g?.data_dictionaries || [];
   const hasAllmapsViewer = Boolean(getAllmapsViewerUrl(allmapsAttributes));
   const resourceGeometry =
@@ -673,98 +647,43 @@ export function ResourceView({
                       viewerUrl={
                         showAllmapsViewer
                           ? getAllmapsViewerUrl(allmapsAttributes)
-                          : viewerProtocol === 'iiif_manifest' &&
-                              data.meta?.ui?.viewer?.endpoint
-                            ? `/mirador?manifest=${encodeURIComponent(data.meta.ui.viewer.endpoint)}`
+                          : viewerProtocol
+                            ? `/ogm-viewer?resource=${encodeURIComponent(data.id)}`
                             : null
                       }
-                      tabs={
-                        showViewerTabs && (
-                          <div
-                            role="tablist"
-                            aria-label="Resource viewer modes"
-                            className="flex"
-                          >
-                            <button
-                              type="button"
-                              role="tab"
-                              id="resource-viewer-item-tab"
-                              title="Browse original pages"
-                              aria-controls="resource-viewer-item-panel"
-                              aria-selected={activeViewerTab === 'item'}
-                              onClick={() => setActiveViewerTab('item')}
-                              className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                                activeViewerTab === 'item'
-                                  ? 'border-blue-600 text-blue-700'
-                                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-                              }`}
-                            >
-                              Item Viewer
-                            </button>
-                            <button
-                              type="button"
-                              role="tab"
-                              id="resource-viewer-allmaps-tab"
-                              title="Explore georeferenced maps"
-                              aria-controls="resource-viewer-allmaps-panel"
-                              aria-selected={activeViewerTab === 'allmaps'}
-                              onClick={() => {
-                                setVisitedOverlayResource(data.id);
-                                setActiveViewerTab('allmaps');
-                              }}
-                              className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                                activeViewerTab === 'allmaps'
-                                  ? 'border-blue-600 text-blue-700'
-                                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-                              }`}
-                            >
-                              Map Overlay
-                            </button>
-                          </div>
-                        )
+                      hasItem={Boolean(viewerProtocol)}
+                      overlayActive={showAllmapsViewer}
+                      onShowItem={() => setActiveViewerTab('item')}
+                      onShowOverlay={
+                        hasAllmapsViewer
+                          ? () => {
+                              setVisitedOverlayResource(data.id);
+                              setActiveViewerTab('allmaps');
+                            }
+                          : undefined
                       }
                     >
-                      {(showItemViewer ||
-                        viewerProtocol === 'iiif_manifest') && (
-                        <div
-                          hidden={!showItemViewer}
-                          role={showViewerTabs ? 'tabpanel' : undefined}
-                          id="resource-viewer-item-panel"
-                          aria-labelledby={
-                            showViewerTabs
-                              ? 'resource-viewer-item-tab'
-                              : undefined
-                          }
-                        >
-                          <ResourceViewer data={data} pageValue="SHOW" />
+                      {viewerProtocol && (
+                        <div hidden={!showItemViewer}>
+                          <ResourceViewer
+                            key={data.id}
+                            data={data}
+                            onImageSelectionChange={setViewerImage}
+                            imageNavigation={imageNavigation}
+                          />
                         </div>
                       )}
 
                       {hasAllmapsViewer &&
                         (showAllmapsViewer ||
                           visitedOverlayResource === data.id) && (
-                          <div
-                            hidden={!showAllmapsViewer}
-                            role={showViewerTabs ? 'tabpanel' : undefined}
-                            id="resource-viewer-allmaps-panel"
-                            aria-labelledby={
-                              showViewerTabs
-                                ? 'resource-viewer-allmaps-tab'
-                                : undefined
-                            }
-                          >
+                          <div hidden={!showAllmapsViewer}>
                             <AllmapsOverlayViewer allmaps={allmapsAttributes} />
                           </div>
                         )}
                     </AllmapsViewerFrame>
                   )}
 
-                  {/* Conditionally render the attribute table if the protocol is 'wms' or 'arcgis_feature_layer' */}
-                  {showItemViewer &&
-                    (viewerProtocol === 'wms' ||
-                      viewerProtocol === 'arcgis_feature_layer') && (
-                      <AttributeTable />
-                    )}
                   {showItemViewer && viewerProtocol === 'open_index_map' && (
                     <IndexMap />
                   )}
@@ -794,14 +713,21 @@ export function ResourceView({
                     )}
 
                     {/* Downloads section */}
-                    {data?.meta?.ui?.downloads &&
-                      data.meta.ui.downloads.length > 0 && (
-                        <DownloadsTable
-                          downloads={data.meta.ui.downloads}
-                          resourceId={data.id}
-                          searchId={searchState?.searchId}
-                        />
-                      )}
+                    <DownloadsTable
+                      key={data.id}
+                      downloads={data.meta?.ui?.downloads ?? []}
+                      resourceId={data.id}
+                      searchId={searchState?.searchId}
+                      followViewer
+                      onImageNavigate={setImageNavigation}
+                      activeImage={
+                        showItemViewer &&
+                        viewerImage?.resourceId ===
+                          String(data.attributes.ogm?.id ?? data.id)
+                          ? viewerImage
+                          : null
+                      }
+                    />
 
                     {/* Licensed access section */}
                     {data?.meta?.ui?.licensed_accesses &&
@@ -849,8 +775,7 @@ export function ResourceView({
                         citation={data.meta?.ui?.citation ?? ''}
                         citations={data.meta?.ui?.citations}
                         permalink={
-                          currentUrl ||
-                          (isMounted ? window.location.href : '')
+                          currentUrl || (isMounted ? window.location.href : '')
                         }
                         resourceId={data.id}
                         resourceTitle={data.attributes.ogm.dct_title_s}

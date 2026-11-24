@@ -2,7 +2,7 @@
 Celery tasks for generating static maps from resource bounding boxes.
 
 This module contains background tasks for generating static map images
-from dcat_bbox values using py-staticmaps.
+from resource geometries using MapLibre Native.
 """
 
 import asyncio

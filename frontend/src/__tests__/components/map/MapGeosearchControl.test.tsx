@@ -12,14 +12,14 @@ vi.mock('../../../services/api', () => ({
     fetchNominatimSearchMock(...args),
 }));
 
-vi.mock('leaflet', () => ({
+vi.mock('../../../mapping/maplibre', () => ({
   default: {
     Control: {
       extend: (props: { onAdd: () => HTMLDivElement }) =>
         class {
           private container: HTMLDivElement | null = null;
 
-          constructor(_options?: unknown) {}
+          constructor() {}
 
           addTo() {
             this.container = props.onAdd();
@@ -49,9 +49,14 @@ describe('MapGeosearchControl', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     controlCorner.innerHTML = '';
-    controlCorner.className = 'leaflet-top leaflet-left';
-    zoomControl.className = 'leaflet-control-zoom';
-    controlCorner.appendChild(zoomControl);
+    controlCorner.className = 'maplibregl-ctrl-top-right';
+    zoomControl.className = 'maplibregl-ctrl-group';
+    zoomControl.innerHTML = '<button class="maplibregl-ctrl-zoom-in">+</button>';
+    const fullscreenControl = document.createElement('div');
+    fullscreenControl.className = 'maplibregl-ctrl-group';
+    const basemapControl = document.createElement('div');
+    basemapControl.className = 'geo-map-basemap';
+    controlCorner.append(zoomControl, fullscreenControl, basemapControl);
     document.body.appendChild(controlCorner);
 
     latLngBoundsMock.mockReturnValue({
@@ -63,7 +68,7 @@ describe('MapGeosearchControl', () => {
     controlCorner.remove();
   });
 
-  it('renders below zoom controls and fits the map to a selected place', async () => {
+  it('renders after the shared controls and fits the map to a selected place', async () => {
     const mapInstance = {
       fitBounds: vi.fn(),
       setView: vi.fn(),
@@ -104,15 +109,15 @@ describe('MapGeosearchControl', () => {
       ],
     });
 
-    render(<MapGeosearchControl mapInstance={mapInstance as any} />);
+    render(<MapGeosearchControl mapInstance={mapInstance as never} />);
 
     const toggleButton = screen.getByRole('button', {
       name: 'Search places on map',
     });
-    const controlContainer = toggleButton.closest('.leaflet-control');
+    const controlContainer = toggleButton.closest('.maplibregl-ctrl');
 
-    expect(controlCorner.children[0]).toBe(zoomControl);
-    expect(controlCorner.children[1]).toBe(controlContainer);
+    expect(controlCorner.children[2]).toHaveClass('geo-map-basemap');
+    expect(controlCorner.children[3]).toBe(controlContainer);
 
     fireEvent.click(toggleButton);
 

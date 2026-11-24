@@ -1,0 +1,136 @@
+{
+  "@context": "http://iiif.io/api/presentation/2/context.json",
+  "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13073/manifest.json",
+  "sequences": [
+    {
+      "canvases": [
+        {
+          "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13006/canvas/c0",
+          "@type": "sc:Canvas",
+          "label": "Page 1",
+          "images": [
+            {
+              "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13006/annotation/a0",
+              "@type": "oa:Annotation",
+              "motivation": "sc:painting",
+              "resource": {
+                "@id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll231:13006/full/full/0/default.jpg",
+                "@type": "dctypes:Image",
+                "service": {
+                  "@context": "http://iiif.io/api/image/2/context.json",
+                  "@id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll231:13006",
+                  "width": 3542,
+                  "height": 3971,
+                  "tiles": [
+                    {
+                      "width": 3542,
+                      "scaleFactors": [
+                        1,
+                        2,
+                        4,
+                        8,
+                        16
+                      ]
+                    }
+                  ],
+                  "profile": "http://iiif.io/api/image/2/level1.json",
+                  "protocol": "http://iiif.io/api/image"
+                },
+                "format": "image/jpeg",
+                "width": 3542,
+                "height": 3971
+              },
+              "on": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13006/canvas/c0"
+            }
+          ],
+          "width": 3542,
+          "height": 3971
+        },
+        {
+          "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13007/canvas/c1",
+          "@type": "sc:Canvas",
+          "label": "Page 2",
+          "images": [
+            {
+              "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13007/annotation/a1",
+              "@type": "oa:Annotation",
+              "motivation": "sc:painting",
+              "resource": {
+                "@id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll231:13007/full/full/0/default.jpg",
+                "@type": "dctypes:Image",
+                "service": {
+                  "@context": "http://iiif.io/api/image/2/context.json",
+                  "@id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll231:13007",
+                  "width": 2833,
+                  "height": 3966,
+                  "tiles": [
+                    {
+                      "width": 2833,
+                      "scaleFactors": [
+                        1,
+                        2,
+                        4,
+                        8,
+                        16
+                      ]
+                    }
+                  ],
+                  "profile": "http://iiif.io/api/image/2/level1.json",
+                  "protocol": "http://iiif.io/api/image"
+                },
+                "format": "image/jpeg",
+                "width": 2833,
+                "height": 3966
+              },
+              "on": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13007/canvas/c1"
+            }
+          ],
+          "width": 2833,
+          "height": 3966
+        },
+        {
+          "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13072/canvas/c66",
+          "@type": "sc:Canvas",
+          "label": "Page 67",
+          "images": [
+            {
+              "@id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13072/annotation/a66",
+              "@type": "oa:Annotation",
+              "motivation": "sc:painting",
+              "resource": {
+                "@id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll231:13072/full/full/0/default.jpg",
+                "@type": "dctypes:Image",
+                "service": {
+                  "@context": "http://iiif.io/api/image/2/context.json",
+                  "@id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll231:13072",
+                  "width": 2836,
+                  "height": 3966,
+                  "tiles": [
+                    {
+                      "width": 2836,
+                      "scaleFactors": [
+                        1,
+                        2,
+                        4,
+                        8,
+                        16
+                      ]
+                    }
+                  ],
+                  "profile": "http://iiif.io/api/image/2/level1.json",
+                  "protocol": "http://iiif.io/api/image"
+                },
+                "format": "image/jpeg",
+                "width": 2836,
+                "height": 3966
+              },
+              "on": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll231:13072/canvas/c66"
+            }
+          ],
+          "width": 2836,
+          "height": 3966
+        }
+      ]
+    }
+  ]
+}

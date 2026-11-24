@@ -1,0 +1,16 @@
+FROM node:22-bookworm-slim AS node
+FROM ubuntu:24.04
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+ ca-certificates fonts-dejavu-core libegl1 libgles2 libopengl0 libgl1-mesa-dri libglx-mesa0 libcurl4t64 \
+ libjpeg-turbo8 libuv1t64 libicu74 libpng16-16t64 libwebp7 xvfb xauth mesa-utils \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+WORKDIR /opt/map-prototype
+COPY backend/tools/maplibre-static-prototype/package*.json ./
+RUN npm ci
+COPY backend/tools/maplibre-static-prototype/*.mjs backend/tools/maplibre-static-prototype/*.json ./
+ENV LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe DISPLAY=:99
+# Explicit display startup avoids xvfb-run's signal wait in this container runtime.
+CMD ["sh", "-c", "rm -f /tmp/.X99-lock /tmp/.X11-unix/X99; Xvfb :99 -screen 0 1280x1024x24 -ac -nolisten tcp & sleep 2; glxinfo -B && mkdir -p output && npm run demo"]

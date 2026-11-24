@@ -7,14 +7,7 @@ import { axe } from 'vitest-axe';
 
 const WCAG_22_RUN_ONLY = {
   type: 'tag' as const,
-  values: [
-    'wcag2a',
-    'wcag2aa',
-    'wcag21a',
-    'wcag21aa',
-    'wcag22a',
-    'wcag22aa',
-  ],
+  values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'],
 };
 
 /**
@@ -29,6 +22,10 @@ export async function axeWithWCAG22(
 ) {
   return axe(element, {
     runOnly: WCAG_22_RUN_ONLY,
+    // Evaluate every rule/node, but avoid generating selectors for thousands of
+    // passing table cells. Keep full violation and manual-review diagnostics.
+    // https://github.com/dequelabs/axe-core/blob/develop/doc/API.md#use-resulttypes
+    resultTypes: ['violations', 'incomplete'],
     ...options,
   });
 }

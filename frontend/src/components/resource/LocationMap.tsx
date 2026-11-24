@@ -2,11 +2,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 
 interface LocationMapProps {
   geometry:
-    | string
-    | GeoJSON.Polygon
-    | GeoJSON.MultiPolygon
-    | { wkt: string }
-    | null;
+    string | GeoJSON.Polygon | GeoJSON.MultiPolygon | { wkt: string } | null;
 }
 
 const LocationMapClient = React.lazy(() => import('./LocationMap.client'));

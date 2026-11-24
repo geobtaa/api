@@ -1,0 +1,43 @@
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+.maplibregl-map {
+  isolation: isolate;
+}
+.maplibregl-ctrl-group button.geo-map-control-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid #ccc;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+}
+.geo-map-control-button:last-child {
+  border-bottom: 0;
+}
+.geo-map-control-button:hover {
+  background: #f4f4f4;
+}
+.geo-map-control-button svg {
+  display: block;
+}
+@media (pointer: coarse) {
+  .maplibregl-ctrl-group button.geo-map-control-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+.maplibregl-popup-content {
+  color: #1f2937;
+}
+.maplibregl-ctrl-attrib {
+  color: #1f2937;
+  background: rgb(255 255 255 / 95%);
+}
+.maplibregl-ctrl-attrib a {
+  color: #1d4ed8;
+}
