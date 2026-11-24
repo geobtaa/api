@@ -7,7 +7,6 @@ import { getResultPrimaryImageUrl } from '../../utils/resourceAssets';
 import { ThumbnailImage } from './ThumbnailImage';
 import { ResultCardPill } from './ResultCardPill';
 import { BookmarkButton } from '../BookmarkButton';
-import { useBookmarks } from '../../context/BookmarkContext';
 import { scheduleAnalyticsBatch } from '../../services/analytics';
 import { SEARCH_RESULTS_PER_PAGE } from '../../constants/search';
 import { isRestrictedAccessResource } from '../../utils/accessRights';
@@ -204,7 +203,6 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   perPage = SEARCH_RESULTS_PER_PAGE,
   searchId,
 }) => {
-  const { isBookmarked } = useBookmarks();
   const location = useLocation();
 
   // Calculate absolute index in full result set (1-based)
@@ -275,7 +273,6 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
           const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
           const imageUrl = getResultPrimaryImageUrl(r, 'gallery');
           const absIndex = getAbsoluteIndex(index);
-          const bookmarked = isBookmarked(r.id);
           const isRestricted = isRestrictedAccessResource(r);
 
           return (
@@ -285,7 +282,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                 absoluteIndex={absIndex - 1}
                 firstOnPage={index === 0}
               />
-              <div className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer flex flex-col">
+              <div className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow flex flex-col [container-type:inline-size]">
                 <Link
                   to={`/resources/${r.id}`}
                   onClick={(event) =>
@@ -307,7 +304,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     searchId: searchId,
                     view: 'gallery',
                   }}
-                  className="flex flex-col flex-1 relative"
+                  className="flex flex-col flex-1 after:absolute after:inset-0"
                 >
                   <GalleryThumbnail
                     resourceId={r.id}
@@ -318,27 +315,9 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
 
                   <div className="sr-only">Result {absIndex}</div>
 
-                  <div className="absolute inset-0 pointer-events-none">
-                    {/* Result Number Overlay - Screen Reader Only */}
-                    {/* Bookmark Button */}
-                    {/* Visible if bookmarked, otherwise only on hover */}
-                    <div
-                      className={`absolute top-2 right-2 z-10 pointer-events-auto transition-opacity ${
-                        bookmarked
-                          ? 'opacity-100'
-                          : 'opacity-0 group-hover:opacity-100'
-                      }`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="bg-white rounded-full shadow-sm hover:shadow-md">
-                        <BookmarkButton itemId={r.id} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 flex flex-col flex-1">
+                  <div className="px-3 pt-3">
                     <h3
-                      className="text-sm font-semibold text-blue-600 hover:text-blue-800 line-clamp-2 mb-2 leading-snug"
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-800 line-clamp-2 leading-snug"
                       title={typeof title === 'string' ? title : String(title)}
                     >
                       <span className="text-sm text-slate-600 dark:text-slate-400 font-semibold mr-1">
@@ -349,15 +328,16 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                       )}
                       {title}
                     </h3>
-                    <div className="mt-auto">
-                      <ResultCardPill
-                        indexYear={ogm?.gbl_indexYear_im?.[0]}
-                        resourceClass={resourceClass}
-                        provider={ogm?.schema_provider_s}
-                      />
-                    </div>
                   </div>
                 </Link>
+                <div className="flex items-center justify-between gap-1 pl-3 pr-1 pb-1">
+                  <ResultCardPill
+                    indexYear={ogm?.gbl_indexYear_im?.[0]}
+                    resourceClass={resourceClass}
+                    provider={ogm?.schema_provider_s}
+                  />
+                  <BookmarkButton itemId={r.id} resourceTitle={String(title)} />
+                </div>
               </div>
             </React.Fragment>
           );

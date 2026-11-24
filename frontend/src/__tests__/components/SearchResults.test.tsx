@@ -131,21 +131,6 @@ const mockFixtureData: GeoDocument[] = [
   },
 ]; // End of mockFixtureData
 
-// Mock BookmarkButton to avoid context provider requirement
-vi.mock('../../components/BookmarkButton', () => ({
-  BookmarkButton: () => <button>Bookmark</button>,
-}));
-
-// Mock useBookmarks hook
-vi.mock('../../context/BookmarkContext', () => ({
-  useBookmarks: () => ({
-    isBookmarked: () => false, // Default to false for tests
-  }),
-  BookmarkProvider: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-}));
-
 // Test wrapper component
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <BrowserRouter>
@@ -1063,9 +1048,13 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      // Should have 4 bookmark buttons (one for each result)
-      const bookmarkButtons = screen.getAllByRole('button');
-      expect(bookmarkButtons).toHaveLength(4);
+      for (const result of mockFixtureData) {
+        const button = screen.getByRole('button', {
+          name: `Bookmark ${result.attributes.ogm?.dct_title_s}`,
+        });
+        expect(button).toHaveAttribute('aria-pressed', 'false');
+        expect(button.closest('a')).toBeNull();
+      }
     });
   });
 
