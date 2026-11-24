@@ -71,6 +71,32 @@ describe('LinksTable', () => {
     expect(screen.getByText('Metadata')).toBeInTheDocument();
   });
 
+  it('places all Open in actions last while preserving the order within each group', () => {
+    const { container } = render(
+      <LinksTable
+        links={{
+          ...mockLinks,
+          'Open in GeoLibre': [
+            { label: 'PMTiles 1', url: 'https://example.com/one' },
+            { label: 'PMTiles 2', url: 'https://example.com/two' },
+          ],
+          Documentation: [{ label: 'Guide', url: 'https://example.com/guide' }],
+        }}
+      />
+    );
+
+    const actions = Array.from(container.querySelectorAll('a, button'));
+    expect(actions.map((action) => action.textContent)).toEqual([
+      'Visit Source',
+      'Web Services',
+      'Metadata',
+      'Documentation',
+      'Open in ArcGIS',
+      'Open in GeoLibre: PMTiles 1',
+      'Open in GeoLibre: PMTiles 2',
+    ]);
+  });
+
   it('renders with optional resourceId prop', () => {
     render(<LinksTable links={mockLinks} resourceId="test-resource-123" />);
     expect(screen.getByText('Links')).toBeInTheDocument();

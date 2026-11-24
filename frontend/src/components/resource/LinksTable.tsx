@@ -484,6 +484,12 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
       </div>
     ) : null;
 
+  const categories = Object.entries(links);
+  const orderedCategories = [
+    ...categories.filter(([name]) => !name.startsWith('Open in ')),
+    ...categories.filter(([name]) => name.startsWith('Open in ')),
+  ];
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -491,7 +497,7 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
           <h2 className="text-lg font-semibold text-gray-900">Links</h2>
         </div>
         <div className="divide-y divide-gray-200">
-          {Object.entries(links).map(([category, linkItems]) => (
+          {orderedCategories.map(([category, linkItems]) => (
             <div key={category} className="px-6 py-4 hover:bg-gray-50">
               {lightboxCategories.includes(category) ? (
                 <button

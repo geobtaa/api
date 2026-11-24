@@ -155,6 +155,7 @@ Services, Metadata, and Open in ArcGIS retain their selection dialogs.
 **Open in GeoLibre** appears in the Links section of a public resource with an
 eligible distribution. Each native link names the format and opens the dataset
 in a new tab. When the API supplies multiple files of one format, the labels
-include a number and any available layer name.
+include a number and any available layer name. All “Open in” actions appear
+at the end of the Links section, after Documentation when present.
 
 See the [distribution eligibility rules and example datasets](../backend/distribution_tables.md#open-in-geolibre).
