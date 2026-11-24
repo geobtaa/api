@@ -34,7 +34,9 @@ async def get_resource_links(
 async def get_geolibre_project(id: str, key: str):
     """Open a public record's named WMS or WMTS layer as a GeoLibre project."""
     service = await LinkService.for_resource_id(id)
-    project = service.get_raster_projects().get(key) if service else None
+    project = (
+        service.get_raster_projects(await service.raster_documents()).get(key) if service else None
+    )
     if project is None:
         raise HTTPException(status_code=404, detail="GeoLibre project not found")
     return JSONResponse(
