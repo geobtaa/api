@@ -41,6 +41,7 @@ const images = {
   a: png([160, 70, 50]),
   b: png([40, 90, 180]),
   single: png([70, 130, 80]),
+  '1711.dl%2F5WA3TYLSGTMK29A': png([60, 80, 110]),
 };
 const extent = {
   xmin: -1,
@@ -112,7 +113,7 @@ export function fixtureResponse(url) {
       return { status: 503, body: 'Intentional unavailable image' };
     return json({
       '@context': 'http://iiif.io/api/image/2/context.json',
-      '@id': `${base}/fixtures/iiif/${id}`,
+      '@id': `${base}/fixtures/iiif/${decodeURIComponent(id)}`,
       protocol: 'http://iiif.io/api/image',
       profile: ['http://iiif.io/api/image/2/level2.json'],
       width: 512,

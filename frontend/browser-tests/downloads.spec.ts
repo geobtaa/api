@@ -46,6 +46,27 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
+test('UW–Madison tiles and downloads preserve the encoded identifier', async ({
+  page,
+}) => {
+  const imageResponses: string[] = [];
+  page.on('response', (response) => {
+    if (response.ok()) imageResponses.push(new URL(response.url()).pathname);
+  });
+  await page
+    .getByRole('combobox', { name: 'Fixture', exact: true })
+    .selectOption('uw-madison');
+  await expect(full(page)).toHaveAttribute(
+    'href',
+    /\/iiif\/1711\.dl%2F5WA3TYLSGTMK29A\/full\/full\/0\/default\.jpg$/
+  );
+  await expect
+    .poll(() => imageResponses)
+    .toContainEqual(
+      expect.stringMatching(/\/iiif\/1711\.dl%2F5WA3TYLSGTMK29A\/.+\.jpg$/)
+    );
+});
+
 for (const scenario of ['good', 'v2', 'multi-image'])
   test(`${scenario}: Downloads and viewer follow each other`, async ({
     page,
