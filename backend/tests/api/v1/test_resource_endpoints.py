@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.distribution_repository import build_distribution_context
 from app.services.relationship_service import RelationshipService
 from tests.utils.route_helpers import route_by_path, route_paths
 
@@ -700,9 +701,8 @@ class TestResourceEndpointsEnhanced:
         mock_session_instance.execute.return_value = mock_result
 
         # Patch service dependencies used by process_resource()
-        mock_fetch_distribution_context.return_value = SimpleNamespace(
-            legacy_reference_payload={},
-            by_uri={},
+        mock_fetch_distribution_context.return_value = build_distribution_context(
+            "test-resource-dictionaries", []
         )
         mock_add_thumbnail_url.side_effect = lambda item, distribution_context=None: item
         mock_get_all_citations.return_value = {
