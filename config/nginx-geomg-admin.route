@@ -2,6 +2,7 @@
 location = /admin/api/v1/admin/intake/bridge-batches { return 404; }
 location = /admin/api/v1/admin/intake/bridge-batches/ { return 404; }
 location = /admin {
+    absolute_redirect off;
     return 308 /admin/$is_args$args;
 }
 location ^~ /admin/ {

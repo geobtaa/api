@@ -5,7 +5,7 @@ themes:
     label: "Big Ten Academic Alliance (BTAA)"
     institution:
       name: "BTAA Geoportal"
-      logo_url: "/btaa-logo.png"
+      logo_url: "/btaa-logo.png?v=2"
       logo_lockup:
         separator: "pipe"
         right_text: "Geoportal"
