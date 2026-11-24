@@ -19,7 +19,8 @@ def http_url(value):
         if parsed.scheme in ("http", "https") and parsed.hostname and not parsed.username:
             return value
     except ValueError:
-        pass
+        # Skip malformed image identifiers while processing the rest of the manifest.
+        return None
     return None
 
 
