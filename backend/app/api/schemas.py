@@ -250,6 +250,35 @@ class ResourceLinksResponse(PublicAPIModel):
     links: dict[str, list[ResourceLink]] = Field(default_factory=dict)
 
 
+class GeoLibreMapView(PublicAPIModel):
+    center: tuple[float, float]
+    zoom: float
+    pitch: float
+    bearing: float
+
+
+class GeoLibreRasterLayer(PublicAPIModel):
+    id: str
+    type: Literal["wms", "wmts"]
+    name: str
+    visible: bool
+    opacity: float
+    style: dict[str, Any]
+    source: dict[str, Any]
+    metadata: dict[str, Any]
+
+
+class GeoLibreProjectResponse(PublicAPIModel):
+    version: str
+    name: str
+    mapView: GeoLibreMapView
+    basemapStyleUrl: str
+    basemapVisible: bool
+    basemapOpacity: float
+    styles: dict[str, Any]
+    layers: list[GeoLibreRasterLayer]
+
+
 class ResourceRelationship(PublicAPIModel):
     resource_id: str
     resource_title: str | None = None
