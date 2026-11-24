@@ -1,10 +1,13 @@
 """Build native GeoLibre projects for cataloged, browser-readable raster services."""
 
+import asyncio
 import hashlib
 import math
 import os
 import re
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit
+
+from app.services import ogc_capabilities
 
 WMS = "http://www.opengis.net/def/serviceType/ogc/wms"
 WMTS = "http://www.opengis.net/def/serviceType/ogc/wmts"
@@ -15,7 +18,7 @@ WMS_ENDPOINTS = {
 }
 
 
-def _source(uri, url, identifier):
+def _legacy_source(uri, url, identifier):
     if not isinstance(url, str) or not url.isprintable() or url != url.strip():
         return None
     try:
@@ -82,56 +85,98 @@ def _source(uri, url, identifier):
     return None
 
 
-def raster_projects(references, identifier, bbox, title):
-    if not bbox or not (WMS in references or WMTS in references):
-        return {}
-    west, south, east, north = bounds = [float(n) for n in bbox.split(",")]
-    if not (-180 <= west < east <= 180 and -85.05113 <= south < north <= 85.05113):
-        return {}
+def _entries(references, identifier):
+    for uri in (WMS, WMTS):
+        entries = references.get(uri, [])
+        for entry in entries if isinstance(entries, list) else [entries]:
+            url = entry.get("url") if isinstance(entry, dict) else entry
+            request = ogc_capabilities.request_for(uri, url, identifier)
+            if request:
+                yield uri, entry, url, request
+
+
+async def capabilities_for(references, identifier):
+    urls = sorted({request[0] for _, _, _, request in _entries(references, identifier)})
+    return dict(zip(urls, await asyncio.gather(*(ogc_capabilities.document(url) for url in urls))))
+
+
+def _bounds(values):
+    try:
+        west, south, east, north = map(float, values)
+    except (TypeError, ValueError):
+        return None
+    if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):
+        return None
+    south, north = max(-85.05113, south), min(85.05113, north)
+    return [west, south, east, north] if south < north else None
+
+
+def _map_view(bounds):
+    west, south, east, north = bounds
     # Fit the extent into a 512-pixel map at startup, including a small margin.
     lat_span = math.degrees(
         math.asinh(math.tan(math.radians(north))) - math.asinh(math.tan(math.radians(south)))
     )
-    view = dict(
+    return dict(
         center=[(west + east) / 2, (south + north) / 2],
         zoom=max(0, min(18, math.log2(360 / max(east - west, lat_span)) - 0.25)),
         pitch=0,
         bearing=0,
     )
+
+
+def raster_projects(references, identifier, bbox, title, documents=None):
     projects = {}
-    for uri in (WMS, WMTS):
-        kind = uri.rsplit("/", 1)[1]
-        entries = references.get(uri, [])
-        for entry in entries if isinstance(entries, list) else [entries]:
-            url = entry.get("url") if isinstance(entry, dict) else entry
-            source = _source(uri, url, identifier)
-            if not source:
-                continue
-            key = kind + "-" + hashlib.sha256(source["tiles"][0].encode()).hexdigest()[:20]
-            name = (
-                (entry.get("label") if isinstance(entry, dict) else None) or title or kind.upper()
-            )
-            source.update(type="raster", tileSize=256, bounds=bounds)
-            layer = dict(
-                id=key,
-                type=kind,
-                name=name,
-                visible=True,
-                opacity=1,
-                style={},
-                source=source,
-                metadata={"service": kind},
-            )
-            projects[key] = dict(
-                version="0.1.0",
-                name=title or name,
-                mapView=view,
-                basemapStyleUrl="https://tiles.openfreemap.org/styles/positron",
-                basemapVisible=True,
-                basemapOpacity=1,
-                styles={},
-                layers=[layer],
-            )
+    for uri, entry, url, (cap_url, selector) in _entries(references, identifier):
+        # Keep the original project URLs usable, including during a provider outage.
+        legacy = _legacy_source(uri, url, identifier)
+        doc = (
+            documents.get(cap_url)
+            if documents is not None
+            else ogc_capabilities.cached_document(cap_url)
+        )
+        discovered = ogc_capabilities.discover(doc, selector)
+        if discovered:
+            kind, source = discovered
+        elif legacy and doc is None:
+            kind, source = uri.rsplit("/", 1)[1], legacy
+        else:
+            continue
+        identity = legacy["tiles"][0] if legacy else f"{cap_url}#{selector or ''}"
+        key = kind + "-" + hashlib.sha256(identity.encode()).hexdigest()[:20]
+        name = (entry.get("label") if isinstance(entry, dict) else None) or title or kind.upper()
+        bounds = _bounds(bbox.split(",")) if bbox else None
+        bounds = bounds or _bounds(source.get("bounds"))
+        if not bounds:
+            continue
+        view = _map_view(bounds)
+        source.update(type="raster", bounds=bounds)
+        source.setdefault("tileSize", 256)
+        # MapLibre chooses source zoom relative to a 512-pixel tile.
+        offset = math.log2(512 / source["tileSize"])
+        zoom = max(
+            source.get("minzoom", 0) - offset, min(view["zoom"], source.get("maxzoom", 24) - offset)
+        )
+        layer = dict(
+            id=key,
+            type=kind,
+            name=name,
+            visible=True,
+            opacity=1,
+            style={},
+            source=source,
+            metadata={"service": kind},
+        )
+        projects[key] = dict(
+            version="0.1.0",
+            name=title or name,
+            mapView={**view, "zoom": zoom},
+            basemapStyleUrl="https://tiles.openfreemap.org/styles/positron",
+            basemapVisible=True,
+            basemapOpacity=1,
+            styles={},
+            layers=[layer],
+        )
     return projects
 
 
