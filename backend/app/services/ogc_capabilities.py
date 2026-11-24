@@ -121,7 +121,8 @@ async def _download(url):
                     root = await asyncio.to_thread(etree.fromstring, bytes(body), parser)
                     return (url, root), len(body)
     except (aiohttp.ClientError, TimeoutError, OSError, etree.XMLSyntaxError, ValueError):
-        pass
+        # Cache unavailable or unreadable capabilities briefly, then retry on a later request.
+        return None, 0
     return None, 0
 
 
@@ -391,5 +392,6 @@ def discover(doc, selector):
         ):
             return _wmts(base, root, selector)
     except (TypeError, ValueError, OverflowError):
-        pass
+        # Malformed provider metadata cannot describe a usable raster layer.
+        return None
     return None
