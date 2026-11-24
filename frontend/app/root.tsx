@@ -16,7 +16,7 @@ import { getDefaultThemeId, type ThemeId } from '../src/config/institution';
 import { GoogleTagManager } from '../src/components/analytics/GoogleTagManager';
 import { GeoportalRouteErrorBoundary } from '../src/pages/ErrorPage';
 import '../src/index.css';
-import '../src/styles/leaflet.css';
+import '../src/styles/maps.css';
 
 const GOOGLE_TAG_MANAGER_ID = (import.meta.env.VITE_GTM_ID || '').trim();
 const KAMAL_DESTINATION = (import.meta.env.VITE_KAMAL_DEST || '').trim();
@@ -32,11 +32,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 function RootDocument({
   children,
-  isMiradorRoute = false,
+  isStandaloneViewerRoute = false,
   themeId,
 }: {
   children: ReactNode;
-  isMiradorRoute?: boolean;
+  isStandaloneViewerRoute?: boolean;
   themeId: ThemeId;
 }) {
   return (
@@ -56,7 +56,7 @@ function RootDocument({
         {/* GeoBlacklight expects a Blacklight modal container (#blacklight-modal).
             Without it, the metadata_download initializer throws and prevents all other
             GeoBlacklight initializers from running (tooltips/truncation/etc). */}
-        {!isMiradorRoute && (
+        {!isStandaloneViewerRoute && (
           <div id="blacklight-modal" className="hidden" aria-hidden="true" />
         )}
 
@@ -73,18 +73,22 @@ function RootDocument({
 export default function Root() {
   const { themeId } = useLoaderData<typeof loader>();
   const location = useLocation();
-  const isMiradorRoute = location.pathname === '/mirador';
+  const isStandaloneViewerRoute = ['/mirador', '/ogm-viewer'].includes(
+    location.pathname
+  );
   const turnstilePreview =
     import.meta.env.DEV && location.pathname === '/turnstile-preview';
   return (
-    <RootDocument themeId={themeId} isMiradorRoute={isMiradorRoute}>
+    <RootDocument
+      themeId={themeId}
+      isStandaloneViewerRoute={isStandaloneViewerRoute}
+    >
       <AppErrorBoundary>
-        {isMiradorRoute ? (
+        {isStandaloneViewerRoute ? (
           <Outlet />
         ) : (
           <Providers
             initialThemeId={themeId}
-            locationKey={location.key}
             turnstilePreview={turnstilePreview}
           >
             {isGoogleTagManagerEnabled &&
@@ -107,7 +111,9 @@ export function ErrorBoundary() {
   return (
     <RootDocument
       themeId={getDefaultThemeId()}
-      isMiradorRoute={location.pathname === '/mirador'}
+      isStandaloneViewerRoute={['/mirador', '/ogm-viewer'].includes(
+        location.pathname
+      )}
     >
       <GeoportalRouteErrorBoundary />
     </RootDocument>

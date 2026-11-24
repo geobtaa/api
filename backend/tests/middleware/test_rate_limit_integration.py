@@ -6,7 +6,7 @@ from typing import Optional
 
 import pytest
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.testclient import TestClient
 
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
@@ -23,6 +23,10 @@ def _create_app() -> FastAPI:
     @app.get("/api/v1/thumbnails/{image_hash}")
     async def thumbnail_asset(image_hash: str):
         return JSONResponse({"image_hash": image_hash})
+
+    @app.get("/api/v1/viewer-assets/{name}")
+    async def viewer_asset(name: str):
+        return Response("export {};", media_type="text/javascript")
 
     @app.get("/api/docs")
     async def docs():
@@ -195,6 +199,12 @@ class TestRateLimitMiddlewareIntegration:
         assert first.status_code == 200
         assert second.status_code == 200
         assert "X-RateLimit-Limit" not in first.headers
+
+    def test_viewer_modules_do_not_consume_data_quota(self, rate_limited_client):
+        for name in ("ogm-viewer.js", "p-BcGs8Z_L.js", "LercDecode.es.js"):
+            assert rate_limited_client.get(f"/api/v1/viewer-assets/{name}").status_code == 200
+        assert rate_limited_client.get("/api/v1/test-endpoint").status_code == 200
+        assert rate_limited_client.get("/api/v1/test-endpoint").status_code == 429
 
     def test_documentation_routes_bypass_rate_limit(self, rate_limited_client):
         """Docs and OpenAPI schema should not consume the interactive API quota."""

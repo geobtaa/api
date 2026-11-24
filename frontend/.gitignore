@@ -132,3 +132,8 @@ dist
 .env.production
 .env.development
 .env.production
+
+# Deterministic viewer browser tests
+.viewer-browser-build/
+test-results/
+playwright-report/

@@ -197,11 +197,16 @@ export function FacetList({
     )
     .map((facet) => {
       // Logic to normalize item structure
-      let items: any[] = [];
+      let items: Array<{
+        label: string;
+        value: string | number;
+        hits: number;
+        url?: string;
+      }> = [];
       if (isCompactTupleItems(facet.attributes.items)) {
         items = facet.attributes.items.map(([value, hits]) => ({
           label: getFacetValueDisplayLabel(
-            { attributes: { value, hits } } as any,
+            { id: String(value), attributes: { value, hits } },
             facet.id
           ),
           value,
@@ -338,7 +343,7 @@ export function FacetList({
                             value: i.value,
                             hits: i.hits,
                           },
-                        })) as any,
+                        })),
                       },
                     }}
                     onChange={applyYearRange}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GeoJSON } from 'react-leaflet';
+import { GeoJSON } from '../../mapping/react';
 import type {
   ChoroplethData,
   GeoJsonData,

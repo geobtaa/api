@@ -247,7 +247,7 @@ def test_viewer_endpoint_success_response():
             assert "/api/v1/resources/stanford-wt473hz7153/metadata/ogm" in content
 
             # Should load the OGM viewer script
-            assert "https://unpkg.com/ogm-viewer" in content
+            assert "/api/v1/viewer-assets/ogm-viewer.js" in content
 
         elif response.status_code == 500:
             # Database connection issues are acceptable in test environment

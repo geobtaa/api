@@ -3,9 +3,8 @@
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router';
 import { Seo } from '../components/Seo';
-import { MapContainer } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { MapContainer } from '../mapping/react';
+
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { SearchField } from '../components/SearchField';
@@ -21,13 +20,10 @@ import { SelectedFeaturePanel } from '../components/map/SelectedFeaturePanel';
 import { StatsBar } from '../components/map/StatsBar';
 import { BasemapSwitcherControl } from '../components/map/BasemapSwitcherControl';
 import { formatCount } from '../utils/formatNumber';
-import { leafletGestureMapOptions } from '../config/leafletConfig';
-import { registerLeafletGestureHandling } from '../config/leafletGestureHandling';
+import { mapInteractionOptions } from '../config/mapConfig';
 import { DEFAULT_US_CENTER, DEFAULT_US_ZOOM } from '../config/mapView';
 import type { ZoomLevel } from '../types/map';
 import type { MapFeatureClickPayload } from '../types/map';
-
-registerLeafletGestureHandling(L);
 
 export function MapPage() {
   // Local UI state: selected feature popup, current search query, and zoom level tab
@@ -158,15 +154,15 @@ export function MapPage() {
         className={`flex-1 flex flex-col min-h-0 ${zoomLevel === 'hex' ? 'relative overflow-hidden' : ''}`}
       >
         {zoomLevel === 'hex' ? (
-          /* Hex view: map fills viewport, compact controls overlay */
+          /* Keep the toolbar in flow so wrapped controls never cover map buttons. */
           <>
-            <div className="relative flex-1 min-h-0">
-              <div className="absolute inset-0">
+            <div className="relative flex flex-col flex-1 min-h-0">
+              <div className="relative order-2 flex-1 min-h-0">
                 <MapContainer
                   center={DEFAULT_US_CENTER}
                   zoom={DEFAULT_US_ZOOM}
                   className="h-full w-full"
-                  {...leafletGestureMapOptions}
+                  {...mapInteractionOptions}
                 >
                   <BasemapSwitcherControl />
                   <MapUpdaterHex
@@ -209,7 +205,7 @@ export function MapPage() {
                   </div>
                 )}
               </div>
-              <div className="absolute top-0 left-0 right-0 z-[1000] flex flex-wrap items-center gap-3 px-4 py-2 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+              <div className="relative order-1 shrink-0 z-[1000] flex flex-wrap items-center gap-3 px-4 py-2 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
                 <div className="min-w-0 flex-1 max-w-sm">
                   <SearchField
                     onSearch={handleSearch}
@@ -274,7 +270,7 @@ export function MapPage() {
                   center={DEFAULT_US_CENTER}
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
-                  {...leafletGestureMapOptions}
+                  {...mapInteractionOptions}
                 >
                   <BasemapSwitcherControl />
                   <MapUpdater
@@ -291,7 +287,7 @@ export function MapPage() {
                   center={DEFAULT_US_CENTER}
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
-                  {...leafletGestureMapOptions}
+                  {...mapInteractionOptions}
                 >
                   <BasemapSwitcherControl />
                   <MapUpdater
@@ -308,7 +304,7 @@ export function MapPage() {
                   center={DEFAULT_US_CENTER}
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
-                  {...leafletGestureMapOptions}
+                  {...mapInteractionOptions}
                 >
                   <BasemapSwitcherControl />
                   <MapUpdater

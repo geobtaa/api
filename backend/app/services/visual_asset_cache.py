@@ -288,3 +288,25 @@ def get_legacy_thumbnail(resource_id: str, source_url: str) -> tuple[bytes, str]
     except Exception as exc:
         logger.warning("Failed to read legacy thumbnail for %s: %s", resource_id, exc)
         return None
+
+
+def get_durable_visual_asset_hash_for_signature(
+    asset_kind: str, source_signature: str
+) -> str | None:
+    """Find reusable render bytes without tying identity to a catalog record."""
+    if not durable_visual_asset_enabled() or not source_signature:
+        return None
+    stmt = (
+        select(generated_visual_asset_links.c.asset_hash)
+        .where(
+            generated_visual_asset_links.c.asset_kind == asset_kind,
+            generated_visual_asset_links.c.source_signature == source_signature,
+        )
+        .limit(1)
+    )
+    with _sync_engine().connect() as conn:
+        return conn.execute(stmt).scalar_one_or_none()
+
+
+def has_durable_visual_asset(asset_hash: str) -> bool:
+    return get_durable_visual_asset(asset_hash) is not None

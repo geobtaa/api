@@ -8,11 +8,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-# Remove package-lock.json first to fix npm optional dependencies bug
-# This ensures Rollup's optional native modules are installed correctly
-RUN rm -f package-lock.json 2>/dev/null || true
-RUN npm install --legacy-peer-deps
+# Install the same dependency graph verified locally and in CI.
+RUN npm ci --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder

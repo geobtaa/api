@@ -1,116 +1,79 @@
-import Cookies from 'js-cookie';
-import type L from 'leaflet';
-
-type BasemapDefinition = {
-  label: string;
-  url: string;
-  attribution: string;
-  options?: L.TileLayerOptions;
-};
-
-const BASEMAP_COOKIE_NAME = 'preferred_basemap';
-const BASEMAP_COOKIE_EXPIRY_DAYS = 365;
-const DEFAULT_BASEMAP_KEY = 'openStreetMap';
-
-const BASEMAP_DEFINITIONS = {
-  openStreetMap: {
-    label: 'OpenStreetMap',
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    options: {
-      maxZoom: 19,
-    },
-  },
-  esriWorldImagery: {
-    label: 'Esri World Imagery',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution:
-      'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-    options: {
-      maxZoom: 18,
-    },
-  },
-} as const satisfies Record<string, BasemapDefinition>;
-
-export type BasemapKey = keyof typeof BASEMAP_DEFINITIONS;
-
-export function getAvailableBasemapKeys(): BasemapKey[] {
-  return Object.keys(BASEMAP_DEFINITIONS) as BasemapKey[];
-}
-
-function isBasemapKey(value: string): value is BasemapKey {
-  return Object.prototype.hasOwnProperty.call(BASEMAP_DEFINITIONS, value);
-}
-
-export function getSavedBasemapKey(): BasemapKey {
-  const saved = Cookies.get(BASEMAP_COOKIE_NAME);
-  if (saved && isBasemapKey(saved)) {
-    return saved;
-  }
-  return DEFAULT_BASEMAP_KEY;
-}
-
-function saveBasemapKey(key: BasemapKey): void {
-  Cookies.set(BASEMAP_COOKIE_NAME, key, {
-    expires: BASEMAP_COOKIE_EXPIRY_DAYS,
-  });
-}
-
-export function createBasemapLayer(
-  Leaflet: typeof L,
-  key: BasemapKey
-): L.TileLayer {
-  const config = BASEMAP_DEFINITIONS[key];
-  return Leaflet.tileLayer(config.url, {
-    attribution: config.attribution,
-    ...config.options,
-  });
-}
+import type { Map, ControlPosition } from '../mapping/maplibre';
+import {
+  BasemapControl,
+  BASEMAP_STYLES,
+  getSavedBasemapKey,
+} from 'ogm-viewer/basemaps';
+export {
+  BASEMAP_STYLES,
+  getAvailableBasemapKeys,
+  getSavedBasemapKey,
+  type BasemapKey,
+} from 'ogm-viewer/basemaps';
 
 export function attachBasemapSwitcher(
-  map: L.Map,
-  Leaflet: typeof L,
-  position: L.ControlPosition = 'topleft'
-): () => void {
-  const basemapLayers = {} as Record<BasemapKey, L.TileLayer>;
-  const labeledLayers: Record<string, L.TileLayer> = {};
-
-  (Object.keys(BASEMAP_DEFINITIONS) as BasemapKey[]).forEach((key) => {
-    const config = BASEMAP_DEFINITIONS[key];
-    const layer = createBasemapLayer(Leaflet, key);
-    basemapLayers[key] = layer;
-    labeledLayers[config.label] = layer;
-  });
-
-  const selectedBasemap = getSavedBasemapKey();
-  basemapLayers[selectedBasemap].addTo(map);
-
-  const control = Leaflet.control.layers(labeledLayers, undefined, {
-    position,
-    collapsed: true,
-  });
-  control.addTo(map);
-
-  const onBaseLayerChange = (event: L.LayersControlEvent) => {
-    const matchedKey = (Object.keys(basemapLayers) as BasemapKey[]).find(
-      (key) => basemapLayers[key] === event.layer
-    );
-    if (matchedKey) {
-      saveBasemapKey(matchedKey);
+  map: Map,
+  _namespace: unknown,
+  position: ControlPosition = 'topright'
+) {
+  let basemapSources = new Set<string>();
+  let basemapLayers = new Set<string>();
+  const control = new BasemapControl(
+    BASEMAP_STYLES[getSavedBasemapKey()],
+    (style) => {
+      const current = map.native.getStyle();
+      if (map.removed || !current) throw Error('Map unavailable');
+      const sources = Object.fromEntries(
+        Object.entries(current.sources).filter(
+          ([id]) => !basemapSources.has(id)
+        )
+      );
+      const layers = current.layers.filter(
+        (layer) => !basemapLayers.has(layer.id)
+      );
+      basemapSources = new Set(Object.keys(style.sources));
+      basemapLayers = new Set(
+        style.layers.map((layer: { id: string }) => layer.id)
+      );
+      const center = map.native.getCenter?.();
+      const camera = center
+        ? {
+            center: [center.lng, center.lat] as [number, number],
+            zoom: map.native.getZoom(),
+            bearing: map.native.getBearing(),
+            pitch: map.native.getPitch(),
+          }
+        : {};
+      map.native.setStyle({
+        ...style,
+        ...camera,
+        sources: { ...style.sources, ...sources },
+        layers: [...style.layers, ...layers],
+      });
     }
-  };
-
-  map.on('baselayerchange', onBaseLayerChange);
-
+  );
+  map.whenReady(() => {
+    const initial = map.native.getStyle();
+    basemapSources = new Set(
+      Object.keys(initial.sources).filter((id) => !id.startsWith('map-data-'))
+    );
+    basemapLayers = new Set(
+      initial.layers
+        .filter(
+          (layer) =>
+            !('source' in layer && String(layer.source).startsWith('map-data-'))
+        )
+        .map((layer) => layer.id)
+    );
+  });
+  const positions = {
+    topleft: 'top-left',
+    topright: 'top-right',
+    bottomleft: 'bottom-left',
+    bottomright: 'bottom-right',
+  } as const;
+  map.native.addControl(control, positions[position]);
   return () => {
-    map.off('baselayerchange', onBaseLayerChange);
-    control.remove();
-    (Object.keys(basemapLayers) as BasemapKey[]).forEach((key) => {
-      const layer = basemapLayers[key];
-      if (map.hasLayer(layer)) {
-        map.removeLayer(layer);
-      }
-    });
+    if (!map.removed) map.native.removeControl(control);
   };
 }
