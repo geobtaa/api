@@ -445,8 +445,8 @@ This migration successfully transforms the distribution data from an unstructure
 
 The resource-links endpoint and the detail page’s link data include an
 `Open in GeoLibre` group when a resource has public access rights and at least
-one eligible file or feature service. Each link passes the complete dataset URL as the encoded
-`data` parameter. Resource pages use distribution rows when present and read
+one eligible distribution. File and feature previews pass the dataset URL in the encoded
+`data` parameter. Raster service previews use the `url` project parameter. Resource pages use distribution rows when present and read
 legacy Aardvark references when rows are unavailable.
 
 A GeoJSON, PMTiles or COG distribution type identifies the file format. A
@@ -469,6 +469,16 @@ between a catalog update and a visit.
 WFS previews request a maximum of 100 features from a named layer on a verified public WFS 2.0 endpoint. The layer comes from a cataloged type name or the record’s `gbl_wxsIdentifier_s`. Open in GeoLibre requests the server’s GeoJSON format. GeoServer requests use longitude–latitude order.
 
 OGC API Features previews use a named collection or its `/items` distribution on a verified service. The link requests GeoJSON, preserves a cataloged bounding box and caps the first page at 100 features. Service roots, credential-bearing URLs and unrecognized query parameters are skipped. These links preview the first page of the dataset.
+
+### Raster services
+
+For a named WMS layer from Cornell CUGIR or Berkeley, the API builds a GeoLibre
+project that requests transparent Web Mercator PNG tiles with WMS GetMap.
+A Cornell GeoWebCache WMTS distribution uses GetTile and the matrix identifiers
+advertised for its Web Mercator grid. Both use the record’s bounding box to
+position the map. Each eligible layer has a stable project URL under
+`/api/v1/resources/{id}/geolibre/{key}.geolibre.json`. The project reads the
+current public distribution and the browser requests tiles from the publisher.
 
 ### Checking a collection
 
