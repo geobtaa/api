@@ -651,64 +651,20 @@ export function ResourceView({
                             ? `/ogm-viewer?resource=${encodeURIComponent(data.id)}`
                             : null
                       }
-                      tabs={
-                        showViewerTabs && (
-                          <div
-                            role="tablist"
-                            aria-label="Resource viewer modes"
-                            className="flex"
-                          >
-                            <button
-                              type="button"
-                              role="tab"
-                              id="resource-viewer-item-tab"
-                              title="Browse original pages"
-                              aria-controls="resource-viewer-item-panel"
-                              aria-selected={activeViewerTab === 'item'}
-                              onClick={() => setActiveViewerTab('item')}
-                              className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                                activeViewerTab === 'item'
-                                  ? 'border-blue-600 text-blue-700'
-                                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-                              }`}
-                            >
-                              Item Viewer
-                            </button>
-                            <button
-                              type="button"
-                              role="tab"
-                              id="resource-viewer-allmaps-tab"
-                              title="Explore georeferenced maps"
-                              aria-controls="resource-viewer-allmaps-panel"
-                              aria-selected={activeViewerTab === 'allmaps'}
-                              onClick={() => {
-                                setVisitedOverlayResource(data.id);
-                                setActiveViewerTab('allmaps');
-                              }}
-                              className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                                activeViewerTab === 'allmaps'
-                                  ? 'border-blue-600 text-blue-700'
-                                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-                              }`}
-                            >
-                              Map Overlay
-                            </button>
-                          </div>
-                        )
+                      hasItem={Boolean(viewerProtocol)}
+                      overlayActive={showAllmapsViewer}
+                      onShowItem={() => setActiveViewerTab('item')}
+                      onShowOverlay={
+                        hasAllmapsViewer
+                          ? () => {
+                              setVisitedOverlayResource(data.id);
+                              setActiveViewerTab('allmaps');
+                            }
+                          : undefined
                       }
                     >
-                      {(showItemViewer ||
-                        viewerProtocol === 'iiif_manifest') && (
-                        <div
-                          hidden={!showItemViewer}
-                          role={showViewerTabs ? 'tabpanel' : undefined}
-                          id="resource-viewer-item-panel"
-                          aria-labelledby={
-                            showViewerTabs
-                              ? 'resource-viewer-item-tab'
-                              : undefined
-                          }
-                        >
+                      {viewerProtocol && (
+                        <div hidden={!showItemViewer}>
                           <ResourceViewer
                             key={data.id}
                             data={data}
@@ -721,16 +677,7 @@ export function ResourceView({
                       {hasAllmapsViewer &&
                         (showAllmapsViewer ||
                           visitedOverlayResource === data.id) && (
-                          <div
-                            hidden={!showAllmapsViewer}
-                            role={showViewerTabs ? 'tabpanel' : undefined}
-                            id="resource-viewer-allmaps-panel"
-                            aria-labelledby={
-                              showViewerTabs
-                                ? 'resource-viewer-allmaps-tab'
-                                : undefined
-                            }
-                          >
+                          <div hidden={!showAllmapsViewer}>
                             <AllmapsOverlayViewer allmaps={allmapsAttributes} />
                           </div>
                         )}

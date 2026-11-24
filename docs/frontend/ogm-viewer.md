@@ -3,7 +3,7 @@
 The application consumes a source-built prerelease of
 [geobtaa/ogm-viewer](https://github.com/geobtaa/ogm-viewer/tree/feature/viewer-integration),
 based on upstream v1.7.0. The dependency key remains `ogm-viewer`; the tarball
-contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.1`. `package.json` names an
+contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.2`. `package.json` names an
 exact release asset URL and `package-lock.json` pins its integrity.
 `fork-build.json` inside the installed package identifies its source commit,
 upstream baseline, build Node version, and lockfile hash. No upstream PRs have
@@ -48,8 +48,15 @@ record/preview identity, URL, and index. Both the adapter and viewer validate
 the request; the viewer's resulting events remain authoritative. Application
 code does not inspect private OpenSeadragon objects or viewer shadow DOM.
 
-Our embedding opts into `omit-location`, `prefer-manifest`, `hide-single-tab`,
-and (except standalone mode) `hide-menubar`. The fork's defaults preserve
+The resource page opts into `external-preview-tabs` and renders the viewer's
+`previewTabsChange` choices beside Fullscreen and Open in new tab. A single
+preview keeps its selected tab. Map Overlay joins the same list when available.
+Selecting a preview calls `selectPreviewTab`. As previews load or recover, OGM
+Viewer updates the list of visible tabs and their active and disabled states.
+[Viewer issue #6](https://github.com/geobtaa/ogm-viewer/issues/6) documents the
+Ann Arbor example. Standalone mode uses its built-in
+navigation. Both modes use `omit-location`, `prefer-manifest` and
+`hide-single-tab`. The resource page also sets `hide-menubar`. The fork's defaults preserve
 upstream behavior. Location-only records do not mount a viewer. Presentation
 uses Stencil state and initial-render attributes rather than DOM patching.
 

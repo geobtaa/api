@@ -75,8 +75,11 @@ function Fixture() {
         </select>
       </label>
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] gap-6 mt-4">
-        <AllmapsViewerFrame tabs={null} viewerUrl="/ogm-viewer">
-          <div role="tabpanel">
+        <AllmapsViewerFrame
+          hasItem={scenario !== 'location'}
+          viewerUrl="/ogm-viewer"
+        >
+          <div>
             <ResourceViewer
               data={data}
               onImageSelectionChange={setSelection}

@@ -56,6 +56,18 @@ test('UW–Madison tiles and downloads preserve the encoded identifier', async (
   await page
     .getByRole('combobox', { name: 'Fixture', exact: true })
     .selectOption('uw-madison');
+  const tab = page.getByRole('tab', { name: 'Single image' });
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  const actions = page.getByRole('button', { name: 'Fullscreen', exact: true });
+  const [tabBounds, actionBounds] = await Promise.all([
+    tab.boundingBox(),
+    actions.boundingBox(),
+  ]);
+  expect(tabBounds!.y).toBeLessThan(actionBounds!.y + actionBounds!.height);
+  expect(tabBounds!.x + tabBounds!.width).toBeLessThanOrEqual(actionBounds!.x);
+  await expect(
+    page.locator('ogm-previews wa-tab-group > wa-tab:visible')
+  ).toHaveCount(0);
   await expect(full(page)).toHaveAttribute(
     'href',
     /\/iiif\/1711\.dl%2F5WA3TYLSGTMK29A\/full\/full\/0\/default\.jpg$/
@@ -150,6 +162,13 @@ test('initial manifest failure uses the opened single-image fallback', async ({
     'href',
     /\/iiif\/single\/full\/full\/0\/default.jpg$/
   );
+  const header = page.getByRole('tablist', { name: 'Resource previews' });
+  await expect(
+    header.getByRole('tab', { name: 'Images', exact: true })
+  ).toBeDisabled();
+  await expect(
+    header.getByRole('tab', { name: 'Single image' })
+  ).toHaveAttribute('aria-selected', 'true');
 });
 
 test('duplicates and record changes preserve the correct image identity', async ({
@@ -181,10 +200,15 @@ test('map selection clears image downloads; ArcGIS owns feature inspection', asy
     .getByRole('combobox', { name: 'Fixture', exact: true })
     .selectOption('mixed');
   await opened(page);
-  await page
-    .locator('wa-tab')
-    .filter({ hasText: 'ArcGIS Feature Layer' })
-    .click();
+  const header = page.getByRole('tablist', { name: 'Resource previews' });
+  await header.getByRole('tab', { name: 'Images', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(
+    header.getByRole('tab', { name: 'ArcGIS Feature Layer' })
+  ).toHaveAttribute('aria-selected', 'true');
+  await expect(
+    page.locator('ogm-previews wa-tab-group > wa-tab:visible')
+  ).toHaveCount(0);
   await expect(full(page)).toHaveCount(0);
   await expect.poll(() => image(page)).toBeNull();
   const canvas = page.locator('ogm-map canvas.maplibregl-canvas');
@@ -198,6 +222,9 @@ test('map selection clears image downloads; ArcGIS owns feature inspection', asy
   await expect(
     page.getByRole('link', { name: 'Publisher download' })
   ).toBeVisible();
+  await header.getByRole('tab', { name: 'Images', exact: true }).click();
+  await opened(page);
+  await expect(full(page)).toBeVisible();
 });
 
 test('location-only records unmount the viewer and clear image downloads', async ({
