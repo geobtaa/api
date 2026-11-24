@@ -23,6 +23,17 @@ def test_native_signatures_change_with_revision_and_dimensions(monkeypatch):
     assert small.basemap_variant() == "native_basemap_v1"
 
 
+def test_current_thumbnail_links_follow_the_renderer_style(monkeypatch):
+    monkeypatch.delenv("STATIC_MAP_STYLE_URL", raising=False)
+    service = StaticMapService()
+    variant = service.basemap_variant()
+    positron = service._alias_key("record", variant=variant)
+    monkeypatch.setenv("STATIC_MAP_STYLE_URL", "https://tiles.openfreemap.org/styles/positron")
+    assert service._alias_key("record", variant=variant) == positron
+    monkeypatch.setenv("STATIC_MAP_STYLE_URL", "https://tiles.openfreemap.org/styles/liberty")
+    assert service._alias_key("record", variant=variant) != positron
+
+
 @pytest.mark.parametrize(
     "query", ["lat=nan&lon=0", "lat=90&lon=0", "lat=0&lon=181", "lat=0&lon=0&zoom=30"]
 )

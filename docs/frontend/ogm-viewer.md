@@ -3,7 +3,7 @@
 The application consumes a source-built prerelease of
 [geobtaa/ogm-viewer](https://github.com/geobtaa/ogm-viewer/tree/feature/viewer-integration),
 based on upstream v1.7.0. The dependency key remains `ogm-viewer`; the tarball
-contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1`. `package.json` names an
+contains `@geobtaa/ogm-viewer` version `1.7.0-btaa.1.3`. `package.json` names an
 exact release asset URL and `package-lock.json` pins its integrity.
 `fork-build.json` inside the installed package identifies its source commit,
 upstream baseline, build Node version, and lockfile hash. No upstream PRs have
@@ -12,6 +12,11 @@ been opened for this work.
 The fork retains support for comma-separated resource bounding boxes, fixing the
 initial map extent for records such as `cugir-007910`. The fork includes a WMS
 browser regression covering delayed capabilities loading.
+
+UW–Madison Image API records use an encoded slash (`%2F`) in the identifier.
+When the publisher's `info.json` expands that slash, the viewer keeps the
+requested encoding for image tiles and Downloads links. See
+[viewer issue #3](https://github.com/geobtaa/ogm-viewer/issues/3) for a live example.
 
 Upstream 1.7.0 adds COG index-map mosaics, FGDC-derived legends, layer ordering
 controls, and improved handling of blocked requests. Our selection/navigation
@@ -43,8 +48,15 @@ record/preview identity, URL, and index. Both the adapter and viewer validate
 the request; the viewer's resulting events remain authoritative. Application
 code does not inspect private OpenSeadragon objects or viewer shadow DOM.
 
-Our embedding opts into `omit-location`, `prefer-manifest`, `hide-single-tab`,
-and (except standalone mode) `hide-menubar`. The fork's defaults preserve
+The resource page opts into `external-preview-tabs` and renders the viewer's
+`previewTabsChange` choices beside Fullscreen and Open in new tab. A single
+preview keeps its selected tab. Map Overlay joins the same list when available.
+Selecting a preview calls `selectPreviewTab`. As previews load or recover, OGM
+Viewer updates the list of visible tabs and their active and disabled states.
+[Viewer issue #6](https://github.com/geobtaa/ogm-viewer/issues/6) documents the
+Ann Arbor example. Standalone mode uses its built-in
+navigation. Both modes use `omit-location`, `prefer-manifest` and
+`hide-single-tab`. The resource page also sets `hide-menubar`. The fork's defaults preserve
 upstream behavior. Location-only records do not mount a viewer. Presentation
 uses Stencil state and initial-render attributes rather than DOM patching.
 
@@ -52,6 +64,15 @@ The application fullscreen toolbar shares its expanded state with `ResourceViewe
 through React context. The viewer fills the frame below the toolbar while expanded,
 and returns to its embedded height on exit. Browser tests cover map and image
 canvases, native fullscreen, and the viewport fallback.
+
+## Basemap controls
+
+OpenFreeMap Positron is the default for interactive maps and for newly rendered
+location and bounding-box thumbnails. On resource map previews, the droplet
+opens layer controls, including opacity. The stacked-layers button opens the
+same basemap picker as the sidebar map. A selected style is remembered on this
+site. Static thumbnails use the configured renderer style regardless of that
+browser preference. The externally hosted Allmaps iframe controls its own basemap.
 
 ## Verification and upgrades
 

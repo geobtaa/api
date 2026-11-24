@@ -158,10 +158,9 @@ Services, Metadata, and Open in ArcGIS retain their selection dialogs.
 
 ### OGM Viewer basemaps
 
-The resource viewer uses a pinned source build of the [BTAA OGM Viewer fork](ogm-viewer.md), based on upstream 1.6.0, with explicit OpenFreeMap Liberty
-and Dark styles. Version 1.x bundles its theme and icons; the application no longer
+The resource viewer uses a pinned source build of the [BTAA OGM Viewer fork](ogm-viewer.md), based on upstream 1.7.0, with OpenFreeMap Positron as the default style. Version 1.x bundles its theme and icons; the application no longer
 copies viewer assets or imports private hashed asset-loader modules. Vite retains
-ES module worker output for COG decoding. The legacy standalone backend viewer separately pins upstream 1.6.0 and the same basemap styles. Application geographic maps use the
+ES module worker output for COG decoding. The legacy standalone backend viewer separately pins upstream 1.6.0 and uses Positron. Application geographic maps use the
 shared MapLibre primitives in `frontend/src/mapping`. The resource-page Allmaps
 viewer remains the official embedded viewer; specialist IIIF viewers are retained.
 They preserve the existing latitude/longitude and legacy 256-pixel zoom contracts

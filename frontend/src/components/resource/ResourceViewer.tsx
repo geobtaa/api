@@ -3,15 +3,15 @@ import {
   toAardvarkRecord,
   hasOgmContentPreview,
 } from '../../utils/ogmViewerRecord';
-import { BASEMAP_STYLES } from '../../config/mapStyles';
+import { BASEMAP_STYLES, getSavedBasemapKey } from '../../config/mapStyles';
 import { useContext, useEffect, useRef, useState } from 'react';
-import { ViewerExpandedContext } from './viewerFrameContext';
+import { ViewerExpandedContext, ViewerTabsContext } from './viewerFrameContext';
 import type {
   ImageSelection,
   ImageNavigation,
   PreviewSelection,
 } from '../../utils/iiifSelection';
-import type { OgmRecord } from 'ogm-viewer/lib';
+import type { OgmRecord, PreviewTab } from 'ogm-viewer/lib';
 
 interface ResourceViewerProps {
   standalone?: boolean;
@@ -35,6 +35,7 @@ interface ResourceViewerProps {
 
 type OgmViewerElement = HTMLElement & {
   loadRecord(record: OgmRecord): Promise<void>;
+  selectPreviewTab(id: string): Promise<void>;
   theme: 'light' | 'dark';
 };
 
@@ -54,6 +55,7 @@ function ContentViewer({
   standalone = false,
 }: ResourceViewerProps) {
   const expanded = useContext(ViewerExpandedContext);
+  const setHeaderTabs = useContext(ViewerTabsContext);
   const selectionCallback = useRef(onImageSelectionChange);
   selectionCallback.current = onImageSelectionChange;
   const activeSelection = useRef<ImageSelection | null>(null);
@@ -117,6 +119,14 @@ function ContentViewer({
         const handlePreviewsLoaded = () => {
           if (!cancelled) setReady(true);
         };
+        const tabsChanged = (event: Event) => {
+          if (!cancelled)
+            setHeaderTabs?.({
+              tabs: (event as CustomEvent<PreviewTab[]>).detail,
+              select: (id) => void viewerElement.selectPreviewTab(id),
+            });
+        };
+        viewerElement.addEventListener('previewTabsChange', tabsChanged);
         viewerElement.addEventListener('previewChange', previewChanged);
         viewerElement.addEventListener('imageChange', imageChanged);
         viewerElement.addEventListener(
@@ -125,6 +135,7 @@ function ContentViewer({
         );
         viewerElement.addEventListener('previewsLoaded', handlePreviewsLoaded);
         removeViewerListeners = () => {
+          viewerElement.removeEventListener('previewTabsChange', tabsChanged);
           viewerElement.removeEventListener('previewChange', previewChanged);
           viewerElement.removeEventListener('imageChange', imageChanged);
           viewerElement.removeEventListener(
@@ -136,8 +147,9 @@ function ContentViewer({
             handlePreviewsLoaded
           );
         };
-        viewerElement.setAttribute('light-basemap', BASEMAP_STYLES.liberty);
-        viewerElement.setAttribute('dark-basemap', BASEMAP_STYLES.dark);
+        const basemap = BASEMAP_STYLES[getSavedBasemapKey()];
+        viewerElement.setAttribute('light-basemap', basemap);
+        viewerElement.setAttribute('dark-basemap', basemap);
         const record = new OgmRecord(toAardvarkRecord(data));
         const framed = await frameViewerRecord(record, resourcesFor(record));
         if (cancelled) return;
@@ -149,6 +161,7 @@ function ContentViewer({
         console.error('Failed to load OGM viewer:', viewerError);
         activeSelection.current = null;
         selectionCallback.current?.(null);
+        setHeaderTabs?.(null);
         setError(true);
       }
     }
@@ -159,8 +172,9 @@ function ContentViewer({
     return () => {
       cancelled = true;
       removeViewerListeners?.();
+      setHeaderTabs?.(null);
     };
-  }, [data]);
+  }, [data, setHeaderTabs]);
 
   useEffect(() => {
     const active = activeSelection.current;
@@ -215,6 +229,7 @@ function ContentViewer({
         theme="light"
         omit-location=""
         prefer-manifest=""
+        external-preview-tabs={setHeaderTabs ? '' : undefined}
         hide-single-tab=""
         hide-menubar={standalone ? undefined : ''}
       />

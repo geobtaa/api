@@ -25,7 +25,7 @@ def renderer_url():
 
 def revision():
     # Bump when styles, tiles, fonts, or renderer settings change.
-    return os.getenv("STATIC_MAP_RENDER_REVISION", "openfreemap-liberty-native-v1")
+    return os.getenv("STATIC_MAP_RENDER_REVISION", "openfreemap-positron-native-v1")
 
 
 def signature(value):
@@ -33,7 +33,7 @@ def signature(value):
         json.dumps(
             [
                 revision(),
-                os.getenv("STATIC_MAP_STYLE_URL", "https://tiles.openfreemap.org/styles/liberty"),
+                os.getenv("STATIC_MAP_STYLE_URL", "https://tiles.openfreemap.org/styles/positron"),
                 "maplibre-native-6.4.1",
                 value,
             ],

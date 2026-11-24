@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 const style =
   process.env.STATIC_MAP_STYLE_URL ||
-  "https://tiles.openfreemap.org/styles/liberty";
+  "https://tiles.openfreemap.org/styles/positron";
 if (new URL(style).hostname !== "tiles.openfreemap.org")
   throw new Error(
     "This renderer currently supports OpenFreeMap styles/attribution only",

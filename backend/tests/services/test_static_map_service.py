@@ -70,7 +70,7 @@ def test_materialize_asset_persists_resource_link():
                 "resource-1",
                 asset_hash=asset_hash,
                 asset_kind="resource-class-icon",
-                source_signature=None,
+                source_signature=service.current_render_signature(),
             ),
         ]
     )

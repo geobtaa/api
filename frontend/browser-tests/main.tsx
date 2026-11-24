@@ -14,7 +14,10 @@ function Fixture() {
   const [navigation, setNavigation] = useState<ImageNavigation | null>(null);
   const data = useMemo(() => {
     const references: Record<string, string> = {};
-    if (!['arcgis', 'location', 'framing'].includes(scenario)) {
+    if (scenario === 'uw-madison') {
+      references['http://iiif.io/api/image'] =
+        `${location.origin}/fixtures/iiif/1711.dl%2F5WA3TYLSGTMK29A/info.json`;
+    } else if (!['arcgis', 'location', 'framing'].includes(scenario)) {
       references['http://iiif.io/api/image'] =
         `${location.origin}/fixtures/iiif/single/info.json`;
       references['http://iiif.io/api/presentation#manifest'] =
@@ -56,6 +59,7 @@ function Fixture() {
         >
           {[
             'good',
+            'uw-madison',
             'v2',
             'duplicate',
             'multi-image',
@@ -71,8 +75,11 @@ function Fixture() {
         </select>
       </label>
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] gap-6 mt-4">
-        <AllmapsViewerFrame tabs={null} viewerUrl="/ogm-viewer">
-          <div role="tabpanel">
+        <AllmapsViewerFrame
+          hasItem={scenario !== 'location'}
+          viewerUrl="/ogm-viewer"
+        >
+          <div>
             <ResourceViewer
               data={data}
               onImageSelectionChange={setSelection}

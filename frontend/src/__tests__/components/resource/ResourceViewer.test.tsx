@@ -111,7 +111,7 @@ describe('ResourceViewer', () => {
 
     expect(container.querySelector('ogm-viewer')).toHaveAttribute(
       'light-basemap',
-      'https://tiles.openfreemap.org/styles/liberty'
+      'https://tiles.openfreemap.org/styles/positron'
     );
     expect(mocks.recordConstructor).toHaveBeenCalledWith(
       expect.objectContaining({

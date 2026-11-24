@@ -11,6 +11,7 @@ declare module 'react' {
         'omit-location'?: string;
         'prefer-manifest'?: string;
         'hide-single-tab'?: string;
+        'external-preview-tabs'?: string;
         'hide-menubar'?: string;
       };
     }

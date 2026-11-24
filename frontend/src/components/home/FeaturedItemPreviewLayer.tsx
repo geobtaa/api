@@ -2,7 +2,6 @@ import { getAllmapsAnnotationUrl } from '../../utils/allmaps';
 import { toAardvarkRecord } from '../../utils/ogmViewerRecord';
 import { addPaneLayer, ensurePane } from '../../mapping/panes';
 import { addFeaturedPins } from './featuredPins';
-import { BASEMAP_STYLES } from '../../config/mapStyles';
 import { useEffect } from 'react';
 import { useMap } from '../../mapping/react';
 import type { GeoDocumentDetails } from '../../types/api';
@@ -88,10 +87,7 @@ export function FeaturedItemPreviewLayer({
           if (cancelled) return;
           const preview = previewers.find((p) => p.renderer === 'map');
           if (!preview || preview.renderer !== 'map') return;
-          const theme = new MapLibreTheme(map.getContainer(), 'light', {
-            lightBasemap: BASEMAP_STYLES.liberty,
-            darkBasemap: BASEMAP_STYLES.dark,
-          });
+          const theme = new MapLibreTheme(map.getContainer(), 'light');
           map.whenReady(async () => {
             if (cancelled) return;
             ensurePane(map.native, 400);
